@@ -10,10 +10,12 @@ pub trait PackageManagerFactory {
 }
 
 // Re-export modules
-pub mod bun;
-pub mod deno;
-pub mod npm;
-pub mod pnpm;
-pub mod pnpm6;
-pub mod yarn;
-pub mod yarn_berry;
+pub mod package_managers {
+    pub mod bun;
+    pub mod deno;
+    pub mod npm;
+    pub mod pnpm;
+    pub mod pnpm6;
+    pub mod yarn;
+    pub mod yarn_berry;
+}

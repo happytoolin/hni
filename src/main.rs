@@ -6,15 +6,15 @@ use std::path::PathBuf;
 use which::which;
 
 // Import the traits and factories
-use nirs::bun::BunFactory;
-use nirs::deno::DenoFactory;
-use nirs::npm::NpmFactory;
-use nirs::pnpm::PnpmFactory;
-use nirs::pnpm6::Pnpm6Factory;
-use nirs::yarn::YarnFactory;
-use nirs::yarn_berry::YarnBerryFactory;
-use nirs::{bun, deno, npm, pnpm, pnpm6, yarn, yarn_berry};
-use nirs::{CommandExecutor, PackageManagerFactory};
+use nirs::package_managers::bun::BunFactory;
+use nirs::package_managers::deno::DenoFactory;
+use nirs::package_managers::npm::NpmFactory;
+use nirs::package_managers::pnpm::PnpmFactory;
+use nirs::package_managers::pnpm6::Pnpm6Factory;
+use nirs::package_managers::yarn::YarnFactory;
+use nirs::package_managers::yarn_berry::YarnBerryFactory;
+use nirs::CommandExecutor;
+use nirs::PackageManagerFactory;
 
 #[derive(Parser)]
 #[command(name = "ni", version, about = "Rust port of the ni tool")]

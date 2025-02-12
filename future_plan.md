@@ -1,5 +1,5 @@
 ## Future Plans
 
-- Implement the remaining functions from the TypeScript code, such as `detectSync`, `getUserAgent`, `lookup`, `parsePackageJson`, `handlePackageManager`, and `fileExists`.
+- Impement other commands other than ni.
 - Add unit tests for the package manager detection logic.
 - Add support for more commands to the abstract factory pattern.
