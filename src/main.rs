@@ -1,9 +1,6 @@
 use clap::{Parser, Subcommand};
 use duct::cmd;
-use std::fs;
 use std::path::Path;
-use std::path::PathBuf;
-use which::which;
 
 // Import the traits and factories
 use nirs::package_managers::bun::BunFactory;
@@ -13,8 +10,7 @@ use nirs::package_managers::pnpm::PnpmFactory;
 use nirs::package_managers::pnpm6::Pnpm6Factory;
 use nirs::package_managers::yarn::YarnFactory;
 use nirs::package_managers::yarn_berry::YarnBerryFactory;
-use nirs::CommandExecutor;
-use nirs::PackageManagerFactory;
+use nirs::{PackageManagerFactory, ResolvedCommand};
 
 #[derive(Parser)]
 #[command(name = "ni", version, about = "Rust port of the ni tool")]
@@ -100,11 +96,6 @@ impl PackageManager {
     }
 }
 
-pub struct ResolvedCommand {
-    pub bin: String,
-    pub args: Vec<String>,
-}
-
 pub fn parse_ni(agent: PackageManager, args: &[String]) -> ResolvedCommand {
     let factory: Box<dyn PackageManagerFactory> = match agent {
         PackageManager::Npm => Box::new(NpmFactory {}),
@@ -118,13 +109,12 @@ pub fn parse_ni(agent: PackageManager, args: &[String]) -> ResolvedCommand {
 
     let commands = factory.create_commands();
     let command_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-
-    let resolved_command = commands.add(command_args).unwrap();
-
-    ResolvedCommand {
-        bin: resolved_command[0].clone(),
-        args: resolved_command.into_iter().skip(1).collect(),
-    }
+    commands
+        .add(command_args)
+        .unwrap_or_else(|| ResolvedCommand {
+            bin: agent.as_str().to_string(),
+            args: args.to_vec(),
+        })
 }
 
 pub fn execute(command: ResolvedCommand, cwd: &Path) -> anyhow::Result<()> {

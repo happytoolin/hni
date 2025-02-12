@@ -1,40 +1,36 @@
 // src/yarn_berry.rs
 
-use crate::{CommandExecutor, PackageManagerFactory};
+use crate::{CommandExecutor, PackageManagerFactory, ResolvedCommand};
 
 pub struct YarnBerryExecutor {}
 
 impl CommandExecutor for YarnBerryExecutor {
-    fn run(&self, args: Vec<&str>) -> Option<Vec<String>> {
-        Some(vec![
-            "yarn".to_string(),
-            "run".to_string(),
-            args.join(" ").to_string(),
-        ])
+    fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["run".to_string(), args.join(" ").to_string()],
+        })
     }
 
-    fn install(&self, args: Vec<&str>) -> Option<Vec<String>> {
-        Some(vec![
-            "yarn".to_string(),
-            "install".to_string(),
-            args.join(" ").to_string(),
-        ])
+    fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["install".to_string(), args.join(" ").to_string()],
+        })
     }
 
-    fn add(&self, args: Vec<&str>) -> Option<Vec<String>> {
-        Some(vec![
-            "yarn".to_string(),
-            "add".to_string(),
-            args.join(" ").to_string(),
-        ])
+    fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["add".to_string(), args.join(" ").to_string()],
+        })
     }
 
-    fn execute(&self, args: Vec<&str>) -> Option<Vec<String>> {
-        Some(vec![
-            "yarn".to_string(),
-            "exec".to_string(),
-            args.join(" ").to_string(),
-        ])
+    fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["exec".to_string(), args.join(" ").to_string()],
+        })
     }
 }
 

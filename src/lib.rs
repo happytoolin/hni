@@ -1,8 +1,16 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedCommand {
+    pub bin: String,
+    pub args: Vec<String>,
+}
+
 pub trait CommandExecutor {
-    fn run(&self, args: Vec<&str>) -> Option<Vec<String>>;
-    fn install(&self, args: Vec<&str>) -> Option<Vec<String>>;
-    fn add(&self, args: Vec<&str>) -> Option<Vec<String>>;
-    fn execute(&self, args: Vec<&str>) -> Option<Vec<String>>;
+    fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
+    fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
+    fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
+    fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
 }
 
 pub trait PackageManagerFactory {
@@ -19,3 +27,6 @@ pub mod package_managers {
     pub mod yarn;
     pub mod yarn_berry;
 }
+
+pub mod detect;
+pub mod runner;

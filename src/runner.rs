@@ -1,10 +1,17 @@
+use anyhow::Result;
 use duct::cmd;
-use crate::parse::ResolvedCommand;
 use std::path::Path;
 
-pub fn execute(command: ResolvedCommand, cwd: &Path) -> anyhow::Result<()> {
-    cmd(command.bin, command.args)
-        .dir(cwd)
-        .run()?;
+use crate::ResolvedCommand;
+
+pub async fn run(command: ResolvedCommand) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    println!("Running command: {} {:?}", command.bin, command.args);
+    cmd(command.bin, command.args).dir(cwd).run()?;
+    Ok(())
+}
+
+pub fn execute(command: ResolvedCommand, cwd: &Path) -> Result<()> {
+    cmd(command.bin, command.args).dir(cwd).run()?;
     Ok(())
 }
