@@ -53,3 +53,5 @@
 - Integrated the command execution logic into the `ni` command.
 - Implemented the remaining package managers (YarnBerry, Pnpm6)
 - Fixed build errors by making traits and structs public in package manager modules and correcting imports in `src/main.rs`.
+- Implemented basic command structure for `na`, `nci`, `nlx`, `nr`, `nu`, and `nun` in `src/commands/`.
+- Updated `src/commands/mod.rs` to include the new commands.
