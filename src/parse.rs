@@ -92,3 +92,13 @@ pub fn parse_nu(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCo
         get_command(agent, "upgrade", args)
     }
 }
+
+pub fn parse_nun(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+    if args.contains(&"-g".to_string()) {
+        let mut new_args = args.to_vec();
+        new_args.retain(|x| x != "-g");
+        get_command(agent, "global_uninstall", &new_args)
+    } else {
+        get_command(agent, "uninstall", args)
+    }
+}
