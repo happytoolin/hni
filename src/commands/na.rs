@@ -1,6 +1,7 @@
 use anyhow::Result;
+use crate::parse::parse_na;
+use crate::runner::run_cli;
 
 pub async fn command_a() -> Result<()> {
-    println!("Command A executed");
-    Ok(())
+    run_cli(parse_na).await
 }

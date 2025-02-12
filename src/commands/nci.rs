@@ -1,6 +1,7 @@
 use anyhow::Result;
+use crate::parse::parse_nci;
+use crate::runner::run_cli;
 
 pub async fn command_ci() -> Result<()> {
-    println!("Command CI executed");
-    Ok(())
+    run_cli(parse_nci).await
 }

@@ -102,3 +102,17 @@ pub fn parse_nun(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedC
         get_command(agent, "uninstall", args)
     }
 }
+
+pub fn parse_nci(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+    let mut new_args = args.to_vec();
+    new_args.push("--frozen-if-present".to_string());
+    parse_ni(agent, &new_args)
+}
+
+pub fn parse_na(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+    get_command(agent, "agent", args)
+}
+
+pub fn parse_nlx(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+    get_command(agent, "execute", args)
+}
