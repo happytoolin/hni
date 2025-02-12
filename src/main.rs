@@ -106,8 +106,7 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Nr { script: _ } => {
             // Dispatch to run command implementation
-        }
-        // Additional command dispatching...
+        } // Additional command dispatching...
     }
     Ok(())
 }
