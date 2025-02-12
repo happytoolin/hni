@@ -48,21 +48,25 @@ pub fn get_locks() -> HashMap<&'static str, PackageManagerFactoryEnum> {
 }
 
 pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+    println!("Detecting package manager in {:?}", cwd);
     let locks = get_locks();
     for (lock, package_manager) in locks.iter() {
+        println!("Checking for lockfile: {}", lock);
         if cwd.join(lock).exists() {
+            println!("Found lockfile: {}", lock);
             return Ok(Some(*package_manager));
         }
     }
 
     // Fallback to checking for npm if no lockfile is found
-    if env::var("PATH")
-        .ok()
-        .map_or(false, |path| path.contains("npm"))
-    {
-        return Ok(Some(PackageManagerFactoryEnum::Npm));
+    if let Ok(path) = env::var("PATH") {
+        if path.contains("npm") {
+            println!("Found npm in PATH");
+            return Ok(Some(PackageManagerFactoryEnum::Npm));
+        }
     }
 
+    println!("No package manager detected");
     Ok(None)
 }
 

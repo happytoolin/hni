@@ -1,36 +1,42 @@
-use crate::detect::PackageManager;
+use crate::detect::PackageManagerFactoryEnum;
 use crate::ResolvedCommand;
 
-pub fn parse_ni(agent: PackageManager, args: &[String]) -> ResolvedCommand {
+pub fn parse_ni(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+    println!("Agent: {:?}, Args: {:?}", agent, args);
     let args_str = args.join(" ");
-    match agent {
-        PackageManager::Npm => ResolvedCommand {
-            bin: "npm".into(),
-            args: vec!["install".into(), args_str],
-        },
-        PackageManager::Yarn => ResolvedCommand {
+    let command = match agent {
+        PackageManagerFactoryEnum::Npm => {
+            println!("Using npm");
+            ResolvedCommand {
+                bin: "npm".into(),
+                args: vec!["run".into(), args_str],
+            }
+        }
+        PackageManagerFactoryEnum::Yarn => ResolvedCommand {
             bin: "yarn".into(),
-            args: vec!["install".into(), args_str],
+            args: vec!["run".into(), args_str],
         },
-        PackageManager::Pnpm => ResolvedCommand {
+        PackageManagerFactoryEnum::Pnpm => ResolvedCommand {
             bin: "pnpm".into(),
-            args: vec!["install".into(), args_str],
+            args: vec!["run".into(), args_str],
         },
-        PackageManager::Bun => ResolvedCommand {
+        PackageManagerFactoryEnum::Bun => ResolvedCommand {
             bin: "bun".into(),
-            args: vec!["install".into(), args_str],
+            args: vec!["run".into(), args_str],
         },
-        PackageManager::Deno => ResolvedCommand {
+        PackageManagerFactoryEnum::Deno => ResolvedCommand {
             bin: "deno".into(),
-            args: vec!["install".into(), args_str],
+            args: vec!["run".into(), args_str],
         },
-        PackageManager::YarnBerry => ResolvedCommand {
+        PackageManagerFactoryEnum::YarnBerry => ResolvedCommand {
             bin: "yarn".into(),
-            args: vec!["install".into(), args_str],
+            args: vec!["run".into(), args_str],
         },
-        PackageManager::Pnpm6 => ResolvedCommand {
+        PackageManagerFactoryEnum::Pnpm6 => ResolvedCommand {
             bin: "pnpm".into(),
-            args: vec!["install".into(), args_str],
+            args: vec!["run".into(), args_str],
         },
-    }
+    };
+    println!("Command: {:?}", command);
+    command
 }
