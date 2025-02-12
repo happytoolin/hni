@@ -50,4 +50,6 @@
 ## Future Plans
 - Implement the remaining functions from the TypeScript code, such as `detectSync`, `getUserAgent`, `lookup`, `parsePackageJson`, `handlePackageManager`, and `fileExists`.
 - Add unit tests for the package manager detection logic.
-- Integrate the command execution logic into the `ni` command.
+- Integrated the command execution logic into the `ni` command.
+- Implemented the remaining package managers (YarnBerry, Pnpm6)
+- Fixed build errors by making traits and structs public in package manager modules and correcting imports in `src/main.rs`.

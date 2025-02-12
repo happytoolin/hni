@@ -1,10 +1,10 @@
-// src/yarn.rs
+// src/yarn_berry.rs
 
 use crate::{CommandExecutor, PackageManagerFactory};
 
-pub struct YarnExecutor {}
+pub struct YarnBerryExecutor {}
 
-impl CommandExecutor for YarnExecutor {
+impl CommandExecutor for YarnBerryExecutor {
     fn run(&self, args: Vec<&str>) -> Option<Vec<String>> {
         Some(vec![
             "yarn".to_string(),
@@ -38,10 +38,10 @@ impl CommandExecutor for YarnExecutor {
     }
 }
 
-pub struct YarnFactory {}
+pub struct YarnBerryFactory {}
 
-impl PackageManagerFactory for YarnFactory {
+impl PackageManagerFactory for YarnBerryFactory {
     fn create_commands(&self) -> Box<dyn CommandExecutor> {
-        Box::new(YarnExecutor {})
+        Box::new(YarnBerryExecutor {})
     }
 }

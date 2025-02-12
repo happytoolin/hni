@@ -1,16 +1,20 @@
 use clap::{Parser, Subcommand};
 use duct::cmd;
-use std::path::Path;
-use which::which;
-use std::path::PathBuf;
 use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use which::which;
 
 // Import the traits and factories
-use crate::npm::{CommandExecutor as NpmCommandExecutor, PackageManagerFactory as NpmPackageManagerFactory, NpmFactory};
-use crate::yarn::{CommandExecutor as YarnCommandExecutor, PackageManagerFactory as YarnPackageManagerFactory, YarnFactory};
-use crate::pnpm::{CommandExecutor as PnpmCommandExecutor, PackageManagerFactory as PnpmPackageManagerFactory, PnpmFactory};
-use crate::bun::{CommandExecutor as BunCommandExecutor, PackageManagerFactory as BunPackageManagerFactory, BunFactory};
-use crate::deno::{CommandExecutor as DenoCommandExecutor, PackageManagerFactory as DenoPackageManagerFactory, DenoFactory};
+use nirs::bun::BunFactory;
+use nirs::deno::DenoFactory;
+use nirs::npm::NpmFactory;
+use nirs::pnpm::PnpmFactory;
+use nirs::pnpm6::Pnpm6Factory;
+use nirs::yarn::YarnFactory;
+use nirs::yarn_berry::YarnBerryFactory;
+use nirs::{bun, deno, npm, pnpm, pnpm6, yarn, yarn_berry};
+use nirs::{CommandExecutor, PackageManagerFactory};
 
 #[derive(Parser)]
 #[command(name = "ni", version, about = "Rust port of the ni tool")]
@@ -62,17 +66,17 @@ impl PackageManager {
     }
 
     pub fn detect(cwd: &Path) -> Option<Self> {
-        if cwd.join("pnpm-lock.yaml").exists() {
+        if cwd.join("pnpm-lock.yaml").exists() && !cwd.join(".pnpmfile.cjs").exists() {
             return Some(Self::Pnpm);
         }
-        if cwd.join("yarn.lock").exists() {
+        if cwd.join("yarn.lock").exists() && !cwd.join(".yarnrc.yml").exists() {
             return Some(Self::Yarn);
         }
-        if cwd.join("bun.lockb").exists() {
-            return Some(Self::Bun);
+        if cwd.join("yarn.lock").exists() && cwd.join(".yarnrc.yml").exists() {
+            return Some(Self::YarnBerry);
         }
-        if cwd.join("bun.lock").exists() {
-            return Some(Self::Bun);
+        if cwd.join(".pnpmfile.cjs").exists() && !cwd.join("pnpm-lock.yaml").exists() {
+            return Some(Self::Pnpm);
         }
         if cwd.join("package-lock.json").exists() {
             return Some(Self::Npm);
@@ -80,8 +84,17 @@ impl PackageManager {
         if cwd.join("npm-shrinkwrap.json").exists() {
             return Some(Self::Npm);
         }
+        if cwd.join("bun.lockb").exists() {
+            return Some(Self::Bun);
+        }
+        if cwd.join("bun.lock").exists() {
+            return Some(Self::Bun);
+        }
         if cwd.join("deno.lock").exists() {
             return Some(Self::Deno);
+        }
+        if cwd.join("pnpm-lock.yaml").exists() && cwd.join(".pnpmfile.cjs").exists() {
+            return Some(Self::Pnpm6);
         }
         None
     }
@@ -93,14 +106,14 @@ pub struct ResolvedCommand {
 }
 
 pub fn parse_ni(agent: PackageManager, args: &[String]) -> ResolvedCommand {
-    let factory: Box<dyn NpmPackageManagerFactory> = match agent {
+    let factory: Box<dyn PackageManagerFactory> = match agent {
         PackageManager::Npm => Box::new(NpmFactory {}),
         PackageManager::Yarn => Box::new(YarnFactory {}),
         PackageManager::Pnpm => Box::new(PnpmFactory {}),
         PackageManager::Bun => Box::new(BunFactory {}),
         PackageManager::Deno => Box::new(DenoFactory {}),
-        PackageManager::YarnBerry => Box::new(YarnFactory {}),
-        PackageManager::Pnpm6 => Box::new(PnpmFactory {}),
+        PackageManager::YarnBerry => Box::new(YarnBerryFactory {}),
+        PackageManager::Pnpm6 => Box::new(Pnpm6Factory {}),
     };
 
     let commands = factory.create_commands();

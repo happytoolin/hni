@@ -1,13 +1,13 @@
-// src/yarn.rs
+// src/pnpm6.rs
 
 use crate::{CommandExecutor, PackageManagerFactory};
 
-pub struct YarnExecutor {}
+pub struct Pnpm6Executor {}
 
-impl CommandExecutor for YarnExecutor {
+impl CommandExecutor for Pnpm6Executor {
     fn run(&self, args: Vec<&str>) -> Option<Vec<String>> {
         Some(vec![
-            "yarn".to_string(),
+            "pnpm".to_string(),
             "run".to_string(),
             args.join(" ").to_string(),
         ])
@@ -15,7 +15,7 @@ impl CommandExecutor for YarnExecutor {
 
     fn install(&self, args: Vec<&str>) -> Option<Vec<String>> {
         Some(vec![
-            "yarn".to_string(),
+            "pnpm".to_string(),
             "install".to_string(),
             args.join(" ").to_string(),
         ])
@@ -23,7 +23,7 @@ impl CommandExecutor for YarnExecutor {
 
     fn add(&self, args: Vec<&str>) -> Option<Vec<String>> {
         Some(vec![
-            "yarn".to_string(),
+            "pnpm".to_string(),
             "add".to_string(),
             args.join(" ").to_string(),
         ])
@@ -31,17 +31,17 @@ impl CommandExecutor for YarnExecutor {
 
     fn execute(&self, args: Vec<&str>) -> Option<Vec<String>> {
         Some(vec![
-            "yarn".to_string(),
-            "exec".to_string(),
+            "pnpm".to_string(),
+            "dlx".to_string(),
             args.join(" ").to_string(),
         ])
     }
 }
 
-pub struct YarnFactory {}
+pub struct Pnpm6Factory {}
 
-impl PackageManagerFactory for YarnFactory {
+impl PackageManagerFactory for Pnpm6Factory {
     fn create_commands(&self) -> Box<dyn CommandExecutor> {
-        Box::new(YarnExecutor {})
+        Box::new(Pnpm6Executor {})
     }
 }

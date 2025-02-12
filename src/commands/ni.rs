@@ -1,8 +1,10 @@
 use inquire::Select;
 use anyhow::Result;
 use crate::fetch::fetch_npm_packages;
-use crate::detect::{detect, PackageManager, resolve_command};
+use crate::detect::{detect, PackageManager};
 use std::path::Path;
+use crate::parse_ni;
+use crate::execute;
 
 pub async fn interactive_install() -> Result<()> {
     let packages = fetch_npm_packages("react").await?;
@@ -17,18 +19,12 @@ pub async fn interactive_install() -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let package_manager = detect(Path::new(&current_dir)).unwrap_or(PackageManager::Npm);
 
-    let install_args = vec![package_choice.as_str()];
-    let command = resolve_command(package_manager, "add", install_args.clone());
+    let install_args = vec![package_choice.to_string()];
+    let command = parse_ni(package_manager, &install_args);
 
-    match command {
-        Some(cmd) => {
-            println!("Executing command: {:?}", cmd);
-            // Execute the command here
-        }
-        None => {
-            println!("Command not found for the selected package manager.");
-        }
-    }
+    println!("Executing command: {:?}", command);
+    let current_dir = std::env::current_dir()?;
+    execute(command, Path::new(&current_dir))?;
     
     // Build command args based on selections
     Ok(())
