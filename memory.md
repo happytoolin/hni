@@ -44,7 +44,8 @@
 - Refactored `src/detect.rs` to use the abstract factory pattern for package manager selection and command resolution.
     - Implemented `PackageManagerFactory` and `CommandExecutor` traits.
     - Implemented concrete factories and executors for Npm, Yarn, Pnpm, Bun, and Deno.
-- Updated `src/commands/ni.rs` to use the abstract factory pattern.
+- Moved the `CommandExecutor` trait and implementations for each package manager to separate files (e.g., `src/npm.rs`, `src/yarn.rs`, etc.).
+- Updated `src/main.rs` to use the new package manager-specific files for command execution.
 
 ## Future Plans
 - Implement the remaining functions from the TypeScript code, such as `detectSync`, `getUserAgent`, `lookup`, `parsePackageJson`, `handlePackageManager`, and `fileExists`.

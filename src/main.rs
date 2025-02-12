@@ -2,6 +2,15 @@ use clap::{Parser, Subcommand};
 use duct::cmd;
 use std::path::Path;
 use which::which;
+use std::path::PathBuf;
+use std::fs;
+
+// Import the traits and factories
+use crate::npm::{CommandExecutor as NpmCommandExecutor, PackageManagerFactory as NpmPackageManagerFactory, NpmFactory};
+use crate::yarn::{CommandExecutor as YarnCommandExecutor, PackageManagerFactory as YarnPackageManagerFactory, YarnFactory};
+use crate::pnpm::{CommandExecutor as PnpmCommandExecutor, PackageManagerFactory as PnpmPackageManagerFactory, PnpmFactory};
+use crate::bun::{CommandExecutor as BunCommandExecutor, PackageManagerFactory as BunPackageManagerFactory, BunFactory};
+use crate::deno::{CommandExecutor as DenoCommandExecutor, PackageManagerFactory as DenoPackageManagerFactory, DenoFactory};
 
 #[derive(Parser)]
 #[command(name = "ni", version, about = "Rust port of the ni tool")]
@@ -28,14 +37,30 @@ enum Commands {
     // Additional commands: nci, na, nu, nun, nlx, etc.
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PackageManager {
     Npm,
     Yarn,
     Pnpm,
     Bun,
+    Deno,
+    YarnBerry,
+    Pnpm6,
 }
 
 impl PackageManager {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PackageManager::Npm => "npm",
+            PackageManager::Yarn => "yarn",
+            PackageManager::Pnpm => "pnpm",
+            PackageManager::Bun => "bun",
+            PackageManager::Deno => "deno",
+            PackageManager::YarnBerry => "yarn@berry",
+            PackageManager::Pnpm6 => "pnpm@6",
+        }
+    }
+
     pub fn detect(cwd: &Path) -> Option<Self> {
         if cwd.join("pnpm-lock.yaml").exists() {
             return Some(Self::Pnpm);
@@ -43,8 +68,20 @@ impl PackageManager {
         if cwd.join("yarn.lock").exists() {
             return Some(Self::Yarn);
         }
-        if which("npm").is_ok() {
+        if cwd.join("bun.lockb").exists() {
+            return Some(Self::Bun);
+        }
+        if cwd.join("bun.lock").exists() {
+            return Some(Self::Bun);
+        }
+        if cwd.join("package-lock.json").exists() {
             return Some(Self::Npm);
+        }
+        if cwd.join("npm-shrinkwrap.json").exists() {
+            return Some(Self::Npm);
+        }
+        if cwd.join("deno.lock").exists() {
+            return Some(Self::Deno);
         }
         None
     }
@@ -56,35 +93,24 @@ pub struct ResolvedCommand {
 }
 
 pub fn parse_ni(agent: PackageManager, args: &[String]) -> ResolvedCommand {
-    match agent {
-        PackageManager::Npm => {
-            let args_str = args.join(" ");
-            ResolvedCommand {
-                bin: "npm".into(),
-                args: vec!["install".into(), args_str],
-            }
-        }
-        PackageManager::Yarn => {
-            let args_str = args.join(" ");
-            ResolvedCommand {
-                bin: "yarn".into(),
-                args: vec!["add".into(), args_str],
-            }
-        }
-        PackageManager::Pnpm => {
-            let args_str = args.join(" ");
-            ResolvedCommand {
-                bin: "pnpm".into(),
-                args: vec!["add".into(), args_str],
-            }
-        }
-        PackageManager::Bun => {
-            let args_str = args.join(" ");
-            ResolvedCommand {
-                bin: "bun".into(),
-                args: vec!["add".into(), args_str],
-            }
-        }
+    let factory: Box<dyn NpmPackageManagerFactory> = match agent {
+        PackageManager::Npm => Box::new(NpmFactory {}),
+        PackageManager::Yarn => Box::new(YarnFactory {}),
+        PackageManager::Pnpm => Box::new(PnpmFactory {}),
+        PackageManager::Bun => Box::new(BunFactory {}),
+        PackageManager::Deno => Box::new(DenoFactory {}),
+        PackageManager::YarnBerry => Box::new(YarnFactory {}),
+        PackageManager::Pnpm6 => Box::new(PnpmFactory {}),
+    };
+
+    let commands = factory.create_commands();
+    let command_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+    let resolved_command = commands.add(command_args).unwrap();
+
+    ResolvedCommand {
+        bin: resolved_command[0].clone(),
+        args: resolved_command.into_iter().skip(1).collect(),
     }
 }
 
