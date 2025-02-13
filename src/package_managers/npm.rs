@@ -6,44 +6,62 @@ pub struct NpmExecutor {}
 
 impl CommandExecutor for NpmExecutor {
     fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        let mut command_args = vec!["run".to_string()];
+        command_args.extend(args.iter().map(|s| s.to_string()));
+        
         Some(ResolvedCommand {
             bin: "npm".to_string(),
-            args: vec!["run".to_string(), args.join(" ").to_string()],
+            args: command_args,
         })
     }
 
     fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        let mut command_args = vec!["install".to_string()];
+        command_args.extend(args.iter().map(|s| s.to_string()));
+        
         Some(ResolvedCommand {
             bin: "npm".to_string(),
-            args: vec!["install".to_string(), args.join(" ").to_string()],
+            args: command_args,
         })
     }
 
     fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        let mut command_args = vec!["install".to_string()];
+        command_args.extend(args.iter().map(|s| s.to_string()));
+        
         Some(ResolvedCommand {
             bin: "npm".to_string(),
-            args: vec!["install".to_string(), args.join(" ").to_string()],
+            args: command_args,
         })
     }
 
     fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        let mut command_args = Vec::new();
+        command_args.extend(args.iter().map(|s| s.to_string()));
+        
         Some(ResolvedCommand {
             bin: "npx".to_string(),
-            args: vec![args.join(" ").to_string()],
+            args: command_args,
         })
     }
 
     fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        let mut command_args = vec!["update".to_string()];
+        command_args.extend(args.iter().map(|s| s.to_string()));
+        
         Some(ResolvedCommand {
             bin: "npm".to_string(),
-            args: vec!["update".to_string(), args.join(" ").to_string()],
+            args: command_args,
         })
     }
 
     fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        let mut command_args = vec!["uninstall".to_string()];
+        command_args.extend(args.iter().map(|s| s.to_string()));
+        
         Some(ResolvedCommand {
             bin: "npm".to_string(),
-            args: vec!["uninstall".to_string(), args.join(" ").to_string()],
+            args: command_args,
         })
     }
 

@@ -1,9 +1,6 @@
 use std::path::Path;
 
-use crate::{
-    detect::{detect, PackageManagerFactoryEnum},
-    CommandExecutor,
-};
+use crate::detect::detect;
 
 use anyhow::{Context, Result};
 

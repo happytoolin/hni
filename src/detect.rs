@@ -1,4 +1,5 @@
 use std::{collections::HashMap, env, path::Path};
+use log::{info, debug};
 
 use crate::{
     package_managers::{
@@ -19,6 +20,20 @@ pub enum PackageManagerFactoryEnum {
     Deno,
     YarnBerry,
     Pnpm6,
+}
+
+impl std::fmt::Display for PackageManagerFactoryEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PackageManagerFactoryEnum::Npm => write!(f, "npm"),
+            PackageManagerFactoryEnum::Yarn => write!(f, "yarn"),
+            PackageManagerFactoryEnum::Pnpm => write!(f, "pnpm"),
+            PackageManagerFactoryEnum::Bun => write!(f, "bun"),
+            PackageManagerFactoryEnum::Deno => write!(f, "deno"),
+            PackageManagerFactoryEnum::YarnBerry => write!(f, "yarn (berry)"),
+            PackageManagerFactoryEnum::Pnpm6 => write!(f, "pnpm6"),
+        }
+    }
 }
 
 impl PackageManagerFactoryEnum {
@@ -48,12 +63,13 @@ pub fn get_locks() -> HashMap<&'static str, PackageManagerFactoryEnum> {
 }
 
 pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
-    log::debug!("Detecting package manager in {:?}", cwd);
+    info!("Detecting package manager in directory: {}", cwd.display());
     let locks = get_locks();
+    
     for (lock, package_manager) in locks.iter() {
-        log::debug!("Checking for lockfile: {}", lock);
+        debug!("Checking for lockfile: {}", lock);
         if cwd.join(lock).exists() {
-            log::info!("Found lockfile: {}", lock);
+            info!("Found package manager {} (lockfile: {})", package_manager, lock);
             return Ok(Some(*package_manager));
         }
     }
@@ -61,12 +77,12 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     // Fallback to checking for npm if no lockfile is found
     if let Ok(path) = env::var("PATH") {
         if path.contains("npm") {
-            log::info!("Found npm in PATH");
+            info!("No lockfile found, defaulting to npm (found in PATH)");
             return Ok(Some(PackageManagerFactoryEnum::Npm));
         }
     }
 
-    log::info!("No package manager detected");
+    info!("No package manager detected");
     Ok(None)
 }
 
