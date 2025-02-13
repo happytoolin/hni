@@ -14,17 +14,9 @@ pub async fn handle_command(command: &str) -> Result<()> {
         "nci" => nci::command_ci().await,
         "ni" => ni::interactive_install().await,
         "nlx" => nlx::command_lx().await,
-        "nr" => {
-            println!("Executing nr command");
-            let result = nr::command_r().await;
-            println!("nr command result: {:?}", result);
-            result
-        },
+        "nr" => nr::command_r().await,
         "nu" => nu::command_u().await,
         "nun" => nun::command_un().await,
-        _ => {
-            println!("Unknown command: {}", command);
-            Ok(())
-        }
+        _ => Ok(()),
     }
 }

@@ -80,8 +80,7 @@ pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
 
     // Fallback to checking for npm if no lockfile is found
     if env::var("PATH")
-        .ok()
-        .map_or(false, |path| path.contains("npm"))
+        .ok().is_some_and(|path| path.contains("npm"))
     {
         return Some(PackageManagerFactoryEnum::Npm);
     }

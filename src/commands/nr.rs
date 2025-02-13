@@ -20,7 +20,6 @@ pub async fn command_r() -> Result<()> {
     let args = Args::parse();
 
     let cwd = std::path::Path::new(&args.cwd);
-    println!("CWD: {:?}", cwd);
     let package_manager_factory = match detect(Some(cwd)) {
         Ok(Some(factory)) => {
             println!("Detected package manager: {:?}", factory);
@@ -44,7 +43,6 @@ pub async fn command_r() -> Result<()> {
         run_args.push(script);
         run_args.extend(args.args);
     } else {
-        println!("No script provided");
         return Ok(());
     }
 
@@ -53,10 +51,7 @@ pub async fn command_r() -> Result<()> {
             let factory = package_manager_factory.get_factory();
             let executor = factory.create_commands();
             if let Some(command) = executor.run(&run_args.iter().map(|s| s.as_str()).collect::<Vec<_>>()) {
-                println!("Command: {:?}", command);
-                println!("Running command: {:?}", command);
                 let result = crate::runner::run(command).await;
-                println!("Run result: {:?}", result);
             } else {
                 return Err(anyhow::anyhow!("Failed to construct run command"));
             }
