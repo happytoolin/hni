@@ -34,3 +34,5 @@ pub mod package_managers {
 pub mod detect;
 pub mod parse;
 pub mod runner;
+#[cfg(test)]
+mod tests;
