@@ -1,3 +1,0 @@
-- Added `log` and `env_logger` dependencies to `Cargo.toml`.
-- Initialized the logger in `main.rs`.
-- Replaced all `println!` and `eprintln!` macros with the appropriate `log::*!` macros throughout the codebase.

@@ -1,3 +1,0 @@
-- Add more detailed logging configuration options.
-- Allow users to specify the log level via a command-line argument or environment variable.
-- Implement logging to a file in addition to the console.
