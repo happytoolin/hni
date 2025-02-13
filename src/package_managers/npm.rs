@@ -8,7 +8,7 @@ impl CommandExecutor for NpmExecutor {
     fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["run".to_string()];
         command_args.extend(args.iter().map(|s| s.to_string()));
-        
+
         Some(ResolvedCommand {
             bin: "npm".to_string(),
             args: command_args,
@@ -18,7 +18,7 @@ impl CommandExecutor for NpmExecutor {
     fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["install".to_string()];
         command_args.extend(args.iter().map(|s| s.to_string()));
-        
+
         Some(ResolvedCommand {
             bin: "npm".to_string(),
             args: command_args,
@@ -28,7 +28,7 @@ impl CommandExecutor for NpmExecutor {
     fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["install".to_string()];
         command_args.extend(args.iter().map(|s| s.to_string()));
-        
+
         Some(ResolvedCommand {
             bin: "npm".to_string(),
             args: command_args,
@@ -38,7 +38,7 @@ impl CommandExecutor for NpmExecutor {
     fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = Vec::new();
         command_args.extend(args.iter().map(|s| s.to_string()));
-        
+
         Some(ResolvedCommand {
             bin: "npx".to_string(),
             args: command_args,
@@ -48,7 +48,7 @@ impl CommandExecutor for NpmExecutor {
     fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["update".to_string()];
         command_args.extend(args.iter().map(|s| s.to_string()));
-        
+
         Some(ResolvedCommand {
             bin: "npm".to_string(),
             args: command_args,
@@ -58,7 +58,7 @@ impl CommandExecutor for NpmExecutor {
     fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["uninstall".to_string()];
         command_args.extend(args.iter().map(|s| s.to_string()));
-        
+
         Some(ResolvedCommand {
             bin: "npm".to_string(),
             args: command_args,

@@ -557,6 +557,309 @@ Now let's also add more logging to the detect function:
 
 _****_
 
+```diff
+  use std::{collections::HashMap, env, path::Path};
++ use log::{info, debug};
+  
+  use crate::{
+      Pnpm6,
+  }
++ 
++ impl std::fmt::Display for PackageManagerFactoryEnum {
++     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++         match self {
++             PackageManagerFactoryEnum::Npm => write!(f, "npm"),
++             PackageManagerFactoryEnum::Yarn => write!(f, "yarn"),
++             PackageManagerFactoryEnum::Pnpm => write!(f, "pnpm"),
++             PackageManagerFactoryEnum::Bun => write!(f, "bun"),
++             PackageManagerFactoryEnum::Deno => write!(f, "deno"),
++             PackageManagerFactoryEnum::YarnBerry => write!(f, "yarn (berry)"),
++             PackageManagerFactoryEnum::Pnpm6 => write!(f, "pnpm6"),
++         }
++     }
++ }
+  
+  impl PackageManagerFactoryEnum {
+  
+  pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+-     log::debug!("Detecting package manager in {:?}", cwd);
++     info!("Detecting package manager in directory: {}", cwd.display());
+      let locks = get_locks();
++     
+      for (lock, package_manager) in locks.iter() {
+-         log::debug!("Checking for lockfile: {}", lock);
++         debug!("Checking for lockfile: {}", lock);
+          if cwd.join(lock).exists() {
+-             log::info!("Found lockfile: {}", lock);
++             info!("Found package manager {} (lockfile: {})", package_manager, lock);
+              return Ok(Some(*package_manager));
+          }
+      if let Ok(path) = env::var("PATH") {
+          if path.contains("npm") {
+-             log::info!("Found npm in PATH");
++             info!("No lockfile found, defaulting to npm (found in PATH)");
+              return Ok(Some(PackageManagerFactoryEnum::Npm));
+          }
+      }
+  
+-     log::info!("No package manager detected");
++     info!("No package manager detected");
+      Ok(None)
+  }
+```
+
+---
+
+_****_
+
+
+
+
+
+Now let's try running the command with the new logging:
+
+---
+
+_****_
+
+```bash
+cargo run --bin ni react -D
+```
+
+```
+
+nirs on  main [$!+⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
+❯ cargo run --bin ni react -D
+   Compiling nirs v0.1.0 (/home/spark/Codes/nirs)
+error[E0308]: mismatched types
+  --> src/bin/ni.rs:23:108
+   |
+23 | ...<Vec<_>>().join(" "));
+   |               ---- ^^^ expected `&OsStr`, found `&str`
+   |               |
+   |               arguments to this method are incorrect
+   |
+   = note: expected reference `&OsStr`
+              found reference `&'static str`
+help: the return type of this call is `&'static str` due to the type of the 
+argument passed
+  --> src/bin/ni.rs:23:68
+   |
+23 | ...lossy(), cmd.get_args().collect::<Vec<_>>().join(" "));
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---^
+   |                                                     |
+   |                                                     this argument influ
+ences the return type of `join`
+note: method defined here
+  --> /rustc/e71f9a9a98b0faf423844bf0ba7438f29dc27d58/library/alloc/src/slic
+e.rs:638:12
+
+error[E0277]: `OsString` doesn't implement `std::fmt::Display`
+  --> src/bin/ni.rs:23:68
+   |
+23 | ...lossy(), cmd.get_args().collect::<Vec<_>>().join(" "));
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `OsString` can
+not be formatted with the default formatter
+   |
+   = help: the trait `std::fmt::Display` is not implemented for `OsString`
+   = note: in format strings you may be able to use `{:?}` (or {:#?} for pre
+tty-print) instead
+   = note: this error originates in the macro `$crate::__private_api::format
+_args` which comes from the expansion of the macro `info` (in Nightly builds
+, run with -Z macro-backtrace for more info)
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `nirs` (bin "ni") due to 2 previous errors
+
+nirs on  main [$!+⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
+❯
+```
+
+---
+
+_****_
+
+
+
+
+
+We need to fix the command argument formatting. Let me update the logging in `ni.rs`:
+
+---
+
+_****_
+
+```diff
+      let mut cmd = execute_command(&cwd, "install", args)?;
+      
+-     info!("Executing: {} {}", cmd.get_program().to_string_lossy(), cmd.get_args().collect::<Vec<_>>().join(" "));
++     info!("Executing: {} {:?}", 
++         cmd.get_program().to_string_lossy(),
++         cmd.get_args().collect::<Vec<_>>()
++     );
+      let status = cmd.status()?;
+  
+```
+
+---
+
+_****_
+
+
+
+
+
+Now let's try running the command again:
+
+---
+
+_****_
+
+```bash
+cargo run --bin ni react -D
+```
+
+```
+
+nirs on  main [$!+⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
+❯ cargo run --bin ni react -D
+   Compiling nirs v0.1.0 (/home/spark/Codes/nirs)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.79s
+     Running `target/debug/ni react -D`
+[INFO  ni] Running ni command with arguments: ["react", "-D"]
+[INFO  nirs::detect] Detecting package manager in directory: /home/spark/Cod
+es/nirs
+[INFO  nirs::detect] Found package manager npm (lockfile: package-lock.json)
+[INFO  ni] Executing: npm ["install", "react", "-D"]
+
+up to date, audited 3 packages in 585ms
+
+found 0 vulnerabilities
+
+nirs on  main [$!+⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
+❯
+```
+
+---
+
+_****_
+
+
+
+
+
+Perfect! Now we have clear logging that shows:
+1. The input arguments being processed
+2. The package manager detection process and which lockfile was found
+3. The final command being executed with its arguments
+
+The logging makes it much clearer what's happening under the hood. You can now see that:
+1. The command `ni react -D` was received
+2. npm was detected as the package manager (found package-lock.json)
+3. The command was translated to `npm install react -D`
+
+This makes it much easier to understand what's happening and debug any issues that might come up.
+
+---
+
+_**User**_
+
+now create a good and optimal logger that also looks nice, and uses the log level by env variable LOG_LEVEL, and use it in all log related places using env logger, also add various info, debug, warning logs
+
+---
+
+_**Assistant**_
+
+I'll help you create a nice logger setup with proper log levels and formatting. First, let's create a logger initialization module:
+
+---
+
+_****_
+
+```diff
+- 
++ use env_logger::{Builder, fmt::Color};
++ use log::LevelFilter;
++ use std::io::Write;
++ 
++ /// Initialize the logger with nice formatting and environment variable configuration
++ pub fn init() {
++     let env = env_logger::Env::default()
++         .filter_or("LOG_LEVEL", "info")
++         .write_style_or("LOG_STYLE", "always");
++ 
++     Builder::from_env(env)
++         .format(|buf, record| {
++             let mut style = buf.style();
++             let level_color = match record.level() {
++                 log::Level::Error => Color::Red,
++                 log::Level::Warn => Color::Yellow,
++                 log::Level::Info => Color::Green,
++                 log::Level::Debug => Color::Cyan,
++                 log::Level::Trace => Color::White,
++             };
++ 
++             let mut level_style = buf.style();
++             level_style.set_color(level_color).set_bold(true);
++ 
++             let target = if !record.target().is_empty() {
++                 record.target()
++             } else {
++                 record.module_path().unwrap_or_default()
++             };
++ 
++             writeln!(
++                 buf,
++                 "{:>5} {} {} {}",
++                 level_style.value(record.level()),
++                 chrono::Local::now().format("%H:%M:%S"),
++                 style.set_bold(true).value(target),
++                 record.args()
++             )
++         })
++         .format_target(true)
++         .format_timestamp(None)
++         .init();
++ 
++     log::debug!("Logger initialized with environment: LOG_LEVEL={}", std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string()));
++ } 
+```
+
+---
+
+_****_
+
+
+
+Now let's update the `lib.rs` to include our logger module:
+
+---
+
+_****_
+
+```diff
+  pub mod parse;
+  pub mod runner;
++ pub mod logger;
+  #[cfg(test)]
+  mod tests;
+```
+
+---
+
+_****_
+
+
+
+
+
+Now let's update the `ni.rs` binary to use our new logger:
+
+---
+
+_****_
+
 
 
 ---

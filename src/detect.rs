@@ -1,5 +1,5 @@
+use log::{debug, info, trace, warn};
 use std::{collections::HashMap, env, path::Path};
-use log::{info, debug};
 
 use crate::{
     package_managers::{
@@ -38,6 +38,7 @@ impl std::fmt::Display for PackageManagerFactoryEnum {
 
 impl PackageManagerFactoryEnum {
     pub fn get_factory(&self) -> Box<dyn PackageManagerFactory> {
+        debug!("Creating factory for package manager: {}", self);
         match self {
             PackageManagerFactoryEnum::Npm => Box::new(NpmFactory {}),
             PackageManagerFactoryEnum::Yarn => Box::new(YarnFactory {}),
@@ -52,6 +53,7 @@ impl PackageManagerFactoryEnum {
 
 // the order here matters, more specific one comes first
 pub fn get_locks() -> HashMap<&'static str, PackageManagerFactoryEnum> {
+    trace!("Initializing package manager lockfile mapping");
     let mut locks = HashMap::new();
     locks.insert("bun.lock", PackageManagerFactoryEnum::Bun);
     locks.insert("bun.lockb", PackageManagerFactoryEnum::Bun);
@@ -59,37 +61,59 @@ pub fn get_locks() -> HashMap<&'static str, PackageManagerFactoryEnum> {
     locks.insert("yarn.lock", PackageManagerFactoryEnum::Yarn);
     locks.insert("package-lock.json", PackageManagerFactoryEnum::Npm);
     locks.insert("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm);
+    trace!("Registered {} lockfile patterns", locks.len());
     locks
 }
 
 pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     info!("Detecting package manager in directory: {}", cwd.display());
+
+    if !cwd.exists() {
+        warn!("Directory does not exist: {}", cwd.display());
+        return Ok(None);
+    }
+
     let locks = get_locks();
-    
+    debug!("Checking for {} known lockfile patterns", locks.len());
+
     for (lock, package_manager) in locks.iter() {
-        debug!("Checking for lockfile: {}", lock);
-        if cwd.join(lock).exists() {
-            info!("Found package manager {} (lockfile: {})", package_manager, lock);
+        let lockfile = cwd.join(lock);
+        trace!("Checking for lockfile: {}", lockfile.display());
+
+        if lockfile.exists() {
+            info!(
+                "Found package manager {} (lockfile: {})",
+                package_manager, lock
+            );
+            debug!(
+                "Using package manager {} based on lockfile {}",
+                package_manager, lock
+            );
             return Ok(Some(*package_manager));
         }
     }
 
+    debug!("No lockfile found, checking PATH for npm fallback");
     // Fallback to checking for npm if no lockfile is found
     if let Ok(path) = env::var("PATH") {
+        trace!("PATH environment variable: {}", path);
         if path.contains("npm") {
             info!("No lockfile found, defaulting to npm (found in PATH)");
+            debug!("Using npm as fallback package manager");
             return Ok(Some(PackageManagerFactoryEnum::Npm));
         }
     }
 
-    info!("No package manager detected");
+    warn!("No package manager detected in {}", cwd.display());
     Ok(None)
 }
 
 pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
+    trace!("Running synchronous package manager detection");
     let locks = get_locks();
     for (lock, package_manager) in locks.iter() {
         if cwd.join(lock).exists() {
+            debug!("Sync detection found package manager: {}", package_manager);
             return Some(*package_manager);
         }
     }
@@ -99,8 +123,10 @@ pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
         .ok()
         .is_some_and(|path| path.contains("npm"))
     {
+        debug!("Sync detection defaulting to npm");
         return Some(PackageManagerFactoryEnum::Npm);
     }
 
+    debug!("Sync detection found no package manager");
     None
 }

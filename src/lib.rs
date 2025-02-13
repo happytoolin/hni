@@ -32,6 +32,7 @@ pub mod package_managers {
 }
 
 pub mod detect;
+pub mod logger;
 pub mod parse;
 pub mod runner;
 #[cfg(test)]
