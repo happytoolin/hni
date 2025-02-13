@@ -25,3 +25,15 @@ thiserror = "1.0.50"                                           # Custom error de
 
 log = "0.4"
 env_logger = "0.11"
+
+[[bin]]
+name = "ni"
+path = "src/bin/ni.rs"
+
+[[bin]]
+name = "nr"
+path = "src/bin/nr.rs"
+
+[[bin]]
+name = "nlx"
+path = "src/bin/nlx.rs"

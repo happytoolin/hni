@@ -36,3 +36,6 @@ pub mod parse;
 pub mod runner;
 #[cfg(test)]
 mod tests;
+
+mod command_executor;
+pub use command_executor::execute_command;
