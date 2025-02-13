@@ -32,6 +32,27 @@ impl CommandExecutor for YarnBerryExecutor {
             args: vec!["exec".to_string(), args.join(" ").to_string()],
         })
     }
+
+    fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["up".to_string(), args.join(" ").to_string()],
+        })
+    }
+
+    fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["remove".to_string(), args.join(" ").to_string()],
+        })
+    }
+
+    fn clean_install(&self, _args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "yarn".to_string(),
+            args: vec!["install".to_string(), "--immutable".to_string()],
+        })
+    }
 }
 
 pub struct YarnBerryFactory {}

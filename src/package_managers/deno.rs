@@ -34,7 +34,33 @@ impl CommandExecutor for DenoExecutor {
     }
 
     fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        deno_execute(args)
+        Some(ResolvedCommand {
+            bin: "deno".to_string(),
+            args: vec!["run".to_string(), format!("npm:{}", args[0])],
+        })
+    }
+
+    fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        // Deno doesn't have a direct "update" command.  Needs workaround.
+        Some(ResolvedCommand {
+            bin: "deno".to_string(),
+            args: vec!["update".to_string(), args.join(" ").to_string()],
+        })
+    }
+
+    fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        // Deno doesn't have a direct "remove" command. Needs workaround.
+        Some(ResolvedCommand {
+            bin: "deno".to_string(),
+            args: vec!["remove".to_string(), args.join(" ").to_string()],
+        })
+    }
+
+    fn clean_install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+        Some(ResolvedCommand {
+            bin: "deno".to_string(),
+            args: vec!["install".to_string(), args.join(" ").to_string()],
+        })
     }
 }
 

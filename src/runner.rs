@@ -27,6 +27,6 @@ pub async fn run(command: ResolvedCommand) -> Result<()> {
     Ok(())
 }
 
-pub fn execute(command: ResolvedCommand, cwd: &Path) -> Result<()> {
+pub fn execute(_command: ResolvedCommand, _cwd: &Path) -> Result<()> {
     Ok(())
 }

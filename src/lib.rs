@@ -11,6 +11,9 @@ pub trait CommandExecutor {
     fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
     fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
     fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
+    fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
+    fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
+    fn clean_install(&self, args: Vec<&str>) -> Option<ResolvedCommand>;
 }
 
 pub trait PackageManagerFactory {
