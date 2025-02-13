@@ -6,11 +6,11 @@ fn get_command(
     command: &str,
     args: &[String],
 ) -> ResolvedCommand {
-    println!("Agent: {:?}, Command: {}, Args: {:?}", agent, command, args);
+    log::debug!("Agent: {:?}, Command: {}, Args: {:?}", agent, command, args);
     let args_str = args.join(" ");
     match agent {
         PackageManagerFactoryEnum::Npm => {
-            println!("Using npm");
+            log::debug!("Using npm");
             ResolvedCommand {
                 bin: "npm".into(),
                 args: vec!["run".into(), args_str],
@@ -44,11 +44,11 @@ fn get_command(
 }
 
 pub fn parse_ni(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
-    println!("Agent: {:?}, Args: {:?}", agent, args);
+    log::debug!("Agent: {:?}, Args: {:?}", agent, args);
     let args_str = args.join(" ");
     let command = match agent {
         PackageManagerFactoryEnum::Npm => {
-            println!("Using npm");
+            log::debug!("Using npm");
             ResolvedCommand {
                 bin: "npm".into(),
                 args: vec!["run".into(), args_str],
@@ -79,7 +79,7 @@ pub fn parse_ni(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCo
             args: vec!["run".into(), args_str],
         },
     };
-    println!("Command: {:?}", command);
+    log::debug!("Command: {:?}", command);
     command
 }
 

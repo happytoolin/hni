@@ -1,6 +1,3 @@
-Future plan:
-- Test the `nu` command to ensure it works as expected.
-- Test the `nun` command to ensure it works as expected.
-- Test the `nci` command to ensure it works as expected.
-- Test the `na` command to ensure it works as expected.
-- Test the `nlx` command to ensure it works as expected.
+- Add more detailed logging configuration options.
+- Allow users to specify the log level via a command-line argument or environment variable.
+- Implement logging to a file in addition to the console.

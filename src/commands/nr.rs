@@ -22,15 +22,15 @@ pub async fn command_r() -> Result<()> {
     let cwd = std::path::Path::new(&args.cwd);
     let package_manager_factory = match detect(Some(cwd)) {
         Ok(Some(factory)) => {
-            println!("Detected package manager: {:?}", factory);
+            log::debug!("Detected package manager: {:?}", factory);
             Ok(Some(factory))
         }
         Ok(None) => {
-            println!("No script provided");
+            log::info!("No script provided");
             return Err(anyhow::anyhow!("No script provided"));
         }
         Err(e) => {
-            println!("Error detecting package manager: {}", e);
+            log::error!("Error detecting package manager: {}", e);
             return Err(e);
         }
     }?;
@@ -57,11 +57,11 @@ pub async fn command_r() -> Result<()> {
             }
         }
         Ok(None) => {
-            println!("No package manager detected");
+            log::info!("No package manager detected");
             return Ok(());
         }
         Err(e) => {
-            println!("Error detecting package manager: {}", e);
+            log::error!("Error detecting package manager: {}", e);
             return Err(e);
         }
     }

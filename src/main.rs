@@ -123,6 +123,7 @@ pub fn execute(command: ResolvedCommand, cwd: &Path) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let cli = Cli::parse();
     match cli.command {
         Commands::Ni { packages, dev: _ } => {

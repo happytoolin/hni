@@ -22,7 +22,7 @@ pub async fn interactive_install() -> Result<()> {
     let install_args = vec![package_choice.to_string()];
     let command = parse_ni(package_manager, &install_args);
 
-    println!("Executing command: {:?}", command);
+    log::info!("Executing command: {:?}", command);
     let current_dir = std::env::current_dir()?;
     execute(command, Path::new(&current_dir))?;
     

@@ -22,3 +22,6 @@ async-trait = "0.1.74"                                        # Async trait supp
 lazy_static = "1.4.0"                                          # Static initialization
 anyhow = "1.0.75"                                              # Error handling
 thiserror = "1.0.50"                                           # Custom error definitions
+
+log = "0.4"
+env_logger = "0.11"

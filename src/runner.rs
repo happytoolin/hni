@@ -8,7 +8,7 @@ use crate::ResolvedCommand;
 
 pub async fn run(command: ResolvedCommand) -> Result<()> {
     let cwd = std::env::current_dir()?;
-    println!("Running command: {} {:?}", command.bin, command.args);
+    log::info!("Running command: {} {:?}", command.bin, command.args);
 
     let mut cmd = Command::new(command.bin);
     cmd.args(&command.args)
@@ -19,9 +19,9 @@ pub async fn run(command: ResolvedCommand) -> Result<()> {
     let status = cmd.status()?;
 
     if status.success() {
-        println!("Command executed successfully");
+        log::info!("Command executed successfully");
     } else {
-        eprintln!("Command failed");
+        log::error!("Command failed");
     }
 
     Ok(())
