@@ -64,13 +64,7 @@ mod tests {
             "bun",
             vec!["x", "vitest"],
         );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "bun",
-            vec!["update", ""],
-        );
+        assert_command(&executor, "upgrade", vec![], "bun", vec!["update", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -120,13 +114,7 @@ mod tests {
             "deno",
             vec!["run", "npm:vitest"],
         );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "deno",
-            vec!["update", ""],
-        );
+        assert_command(&executor, "upgrade", vec![], "deno", vec!["update", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -155,7 +143,7 @@ mod tests {
             "npm",
             vec!["run", "dev --port=3000"],
         );
-         assert_command(
+        assert_command(
             &executor,
             "install",
             vec!["vite"],
@@ -169,20 +157,8 @@ mod tests {
             "npm",
             vec!["install", "@types/node -D"],
         );
-        assert_command(
-            &executor,
-            "execute",
-            vec!["vitest"],
-            "npx",
-            vec!["vitest"],
-        );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "npm",
-            vec!["update", ""],
-        );
+        assert_command(&executor, "execute", vec!["vitest"], "npx", vec!["vitest"]);
+        assert_command(&executor, "upgrade", vec![], "npm", vec!["update", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -190,13 +166,7 @@ mod tests {
             "npm",
             vec!["uninstall", "webpack"],
         );
-        assert_command(
-            &executor,
-            "clean_install",
-            vec![],
-            "npm",
-            vec!["ci"],
-        );
+        assert_command(&executor, "clean_install", vec![], "npm", vec!["ci"]);
     }
 
     #[test]
@@ -232,13 +202,7 @@ mod tests {
             "pnpm",
             vec!["dlx", "vitest"],
         );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "pnpm",
-            vec!["update", ""],
-        );
+        assert_command(&executor, "upgrade", vec![], "pnpm", vec!["update", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -288,13 +252,7 @@ mod tests {
             "pnpm",
             vec!["dlx", "vitest"],
         );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "pnpm",
-            vec!["update", ""],
-        );
+        assert_command(&executor, "upgrade", vec![], "pnpm", vec!["update", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -344,13 +302,7 @@ mod tests {
             "yarn",
             vec!["exec", "vitest"],
         );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "yarn",
-            vec!["upgrade", ""],
-        );
+        assert_command(&executor, "upgrade", vec![], "yarn", vec!["upgrade", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -400,13 +352,7 @@ mod tests {
             "yarn",
             vec!["exec", "vitest"],
         );
-        assert_command(
-            &executor,
-            "upgrade",
-            vec![],
-            "yarn",
-            vec!["up", ""],
-        );
+        assert_command(&executor, "upgrade", vec![], "yarn", vec!["up", ""]);
         assert_command(
             &executor,
             "uninstall",
@@ -439,13 +385,7 @@ mod tests {
         let factory: Box<dyn PackageManagerFactory> = Box::new(YarnBerryFactory {});
         let executor = factory.create_commands();
 
-        assert_command(
-            &executor,
-            "upgrade",
-            vec!["-i"],
-            "yarn",
-            vec!["up", "-i"],
-        );
+        assert_command(&executor, "upgrade", vec!["-i"], "yarn", vec!["up", "-i"]);
 
         let factory: Box<dyn PackageManagerFactory> = Box::new(PnpmFactory {});
         let executor = factory.create_commands();
@@ -489,13 +429,7 @@ mod tests {
         let executor = factory.create_commands();
 
         // Test empty args
-        assert_command(
-            &executor,
-            "install",
-            vec![],
-            "npm",
-            vec!["install", ""],
-        );
+        assert_command(&executor, "install", vec![], "npm", vec!["install", ""]);
 
         // Test args with spaces
         assert_command(
