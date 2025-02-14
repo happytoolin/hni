@@ -1,0 +1,161 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Choose the release type"
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+        default: patch
+      is_prerelease:
+        description: "Is this a pre-release?"
+        required: false
+        type: boolean
+        default: false
+      prerelease_id:
+        description: "Prerelease identifier (e.g., alpha, beta, rc). Used only if is_prerelease=true."
+        required: false
+        type: string
+        default: "alpha"
+
+permissions:
+  contents: write
+
+jobs:
+  update_version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.update_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Cargo edit
+        run: cargo install cargo-edit
+      
+      - name: Update version
+        id: update_version
+        run: |
+          if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
+            cargo set-version --bump pre${{ github.event.inputs.release_type }} --preid ${{ github.event.inputs.prerelease_id }}
+          else
+            cargo set-version --bump ${{ github.event.inputs.release_type }}
+          fi
+          NEW_VERSION=$(cargo pkgid | cut -d# -f2)
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+  build:
+    needs: update_version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: amd64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            platform: linux
+            arch: arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows
+            arch: amd64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: darwin
+            arch: amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: darwin
+            arch: arm64
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build binary
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifacts (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p artifacts
+          cp target/${{ matrix.target }}/release/ni artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/nr artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/na artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/nlx artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/nun artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}
+          chmod +x artifacts/*
+
+      - name: Prepare artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir artifacts
+          cp target/${{ matrix.target }}/release/ni.exe artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          cp target/${{ matrix.target }}/release/nr.exe artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          cp target/${{ matrix.target }}/release/na.exe artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          cp target/${{ matrix.target }}/release/nlx.exe artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          cp target/${{ matrix.target }}/release/nun.exe artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/*
+
+  release:
+    needs: [update_version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.update_version.outputs.new_version }}
+        run: |
+          # Prepare release notes
+          echo "Release version $VERSION" > release_notes.md
+          echo "## Changes" >> release_notes.md
+          echo "See the [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.md
+          
+          # Create release
+          gh release create "v$VERSION" \
+            --title "Release v$VERSION" \
+            --notes-file release_notes.md \
+            --draft=false \
+            --prerelease=${{ github.event.inputs.is_prerelease }} \
+            artifacts/*/*
+
+      - name: Update Cargo.toml and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add Cargo.toml Cargo.lock
+          git commit -m "Bump version to ${{ needs.update_version.outputs.new_version }}"
+          git tag "v${{ needs.update_version.outputs.new_version }}"
+          git push && git push --tags 
