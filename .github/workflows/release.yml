@@ -34,87 +34,119 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Cargo edit
-        run: cargo install cargo-edit
-      
-      - name: Update version
+      - name: Calculate new version
         id: update_version
         run: |
+          # Get current version from Cargo.toml
+          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          
+          # Split version into parts
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3 | cut -d- -f1)
+          
+          # Calculate new version based on release type
+          case "${{ github.event.inputs.release_type }}" in
+            major)
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+              ;;
+          esac
+          
+          # Add prerelease suffix if needed
           if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
-            cargo set-version --bump pre${{ github.event.inputs.release_type }} --preid ${{ github.event.inputs.prerelease_id }}
-          else
-            cargo set-version --bump ${{ github.event.inputs.release_type }}
+            NEW_VERSION="${NEW_VERSION}-${{ github.event.inputs.prerelease_id }}"
           fi
-          NEW_VERSION=$(cargo pkgid | cut -d# -f2)
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # Update Cargo.toml
+          sed -i "s/^version = .*/version = \"${NEW_VERSION}\"/" Cargo.toml
+          
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Bumping version from ${CURRENT_VERSION} to ${NEW_VERSION}"
 
   build:
     needs: update_version
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-gnu
             platform: linux
             arch: amd64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-gnu
             platform: linux
             arch: arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+          - target: x86_64-pc-windows-msvc
             platform: windows
             arch: amd64
-          - os: macos-latest
-            target: x86_64-apple-darwin
+          - target: x86_64-apple-darwin
             platform: darwin
             arch: amd64
-          - os: macos-latest
-            target: aarch64-apple-darwin
+          - target: aarch64-apple-darwin
             platform: darwin
             arch: arm64
-
-    runs-on: ${{ matrix.os }}
     
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Set up cross-compilation
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          # Install required targets
+          rustup target add ${{ matrix.target }}
+          
+          # Create Cross.toml configuration
+          cat > Cross.toml << 'EOF'
+          [target.x86_64-pc-windows-msvc]
+          image = "ghcr.io/cross-rs/x86_64-pc-windows-msvc:main"
+
+          [target.x86_64-apple-darwin]
+          image = "ghcr.io/cross-rs/x86_64-apple-darwin:main"
+
+          [target.aarch64-apple-darwin]
+          image = "ghcr.io/cross-rs/aarch64-apple-darwin:main"
+          EOF
+
+      - name: Install cross
+        run: cargo install cross
 
       - name: Build binary
-        run: |
-          cargo build --release --target ${{ matrix.target }}
+        run: cross build --release --target ${{ matrix.target }}
 
-      - name: Prepare artifacts (Unix)
-        if: runner.os != 'Windows'
+      - name: Prepare artifacts
         run: |
           mkdir -p artifacts
-          cp target/${{ matrix.target }}/release/ni artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}
-          cp target/${{ matrix.target }}/release/nr artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}
-          cp target/${{ matrix.target }}/release/na artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}
-          cp target/${{ matrix.target }}/release/nlx artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}
-          cp target/${{ matrix.target }}/release/nun artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}
-          chmod +x artifacts/*
-
-      - name: Prepare artifacts (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir artifacts
-          cp target/${{ matrix.target }}/release/ni.exe artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}.exe
-          cp target/${{ matrix.target }}/release/nr.exe artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}.exe
-          cp target/${{ matrix.target }}/release/na.exe artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}.exe
-          cp target/${{ matrix.target }}/release/nlx.exe artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}.exe
-          cp target/${{ matrix.target }}/release/nun.exe artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          
+          # Function to copy binaries with proper extension
+          copy_binary() {
+            local bin=$1
+            local ext=""
+            if [ "${{ matrix.platform }}" = "windows" ]; then
+              ext=".exe"
+            fi
+            
+            cp "target/${{ matrix.target }}/release/${bin}${ext}" "artifacts/${bin}-${{ matrix.platform }}-${{ matrix.arch }}${ext}"
+            if [ "${{ matrix.platform }}" != "windows" ]; then
+              chmod +x "artifacts/${bin}-${{ matrix.platform }}-${{ matrix.arch }}"
+            fi
+          }
+          
+          # Copy all binaries
+          copy_binary "ni"
+          copy_binary "nr"
+          copy_binary "na"
+          copy_binary "nlx"
+          copy_binary "nun"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

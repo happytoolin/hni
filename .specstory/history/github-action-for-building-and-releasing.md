@@ -522,6 +522,548 @@ nah directly put the binaries in the release, not zip
 
 _**Assistant**_
 
+I'll modify the workflow to directly include the binaries in the release without compression. I'll update the artifact preparation steps:
+
+---
+
+_****_
+
+```diff
+            - os: ubuntu-latest
+              target: x86_64-unknown-linux-gnu
+-             artifact_name: nirs-linux-amd64
+-             asset_name: nirs-linux-amd64.tar.gz
++             platform: linux
++             arch: amd64
+            - os: ubuntu-latest
+              target: aarch64-unknown-linux-gnu
+-             artifact_name: nirs-linux-arm64
+-             asset_name: nirs-linux-arm64.tar.gz
++             platform: linux
++             arch: arm64
+            - os: windows-latest
+              target: x86_64-pc-windows-msvc
+-             artifact_name: nirs-windows-amd64
+-             asset_name: nirs-windows-amd64.zip
++             platform: windows
++             arch: amd64
+            - os: macos-latest
+              target: x86_64-apple-darwin
+-             artifact_name: nirs-macos-amd64
+-             asset_name: nirs-macos-amd64.tar.gz
++             platform: darwin
++             arch: amd64
+            - os: macos-latest
+              target: aarch64-apple-darwin
+-             artifact_name: nirs-macos-arm64
+-             asset_name: nirs-macos-arm64.tar.gz
++             platform: darwin
++             arch: arm64
+  
+      runs-on: ${{ matrix.os }}
+          if: runner.os != 'Windows'
+          run: |
+-           cd target/${{ matrix.target }}/release
+-           tar czf ../../../${{ matrix.asset_name }} ni nr na nlx nun
+-           cd -
++           mkdir -p artifacts
++           cp target/${{ matrix.target }}/release/ni artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}
++           cp target/${{ matrix.target }}/release/nr artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}
++           cp target/${{ matrix.target }}/release/na artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}
++           cp target/${{ matrix.target }}/release/nlx artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}
++           cp target/${{ matrix.target }}/release/nun artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}
++           chmod +x artifacts/*
+  
+        - name: Prepare artifacts (Windows)
+          if: runner.os == 'Windows'
+          run: |
+-           cd target/${{ matrix.target }}/release
+-           7z a ../../../${{ matrix.asset_name }} ni.exe nr.exe na.exe nlx.exe nun.exe
+-           cd -
++           mkdir artifacts
++           cp target/${{ matrix.target }}/release/ni.exe artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}.exe
++           cp target/${{ matrix.target }}/release/nr.exe artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}.exe
++           cp target/${{ matrix.target }}/release/na.exe artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}.exe
++           cp target/${{ matrix.target }}/release/nlx.exe artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}.exe
++           cp target/${{ matrix.target }}/release/nun.exe artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}.exe
+  
+        - name: Upload artifacts
+          uses: actions/upload-artifact@v4
+          with:
+-           name: ${{ matrix.artifact_name }}
+-           path: ${{ matrix.asset_name }}
++           name: binaries-${{ matrix.platform }}-${{ matrix.arch }}
++           path: artifacts/*
+  
+    release:
+```
+
+---
+
+_****_
+
+
+
+I've updated the workflow to handle raw binaries instead of compressed archives. Here are the key changes:
+
+1. Removed all compression (tar.gz and zip) steps
+2. Changed the naming scheme to be more consistent:
+   - For Unix: `ni-linux-amd64`, `nr-linux-amd64`, etc.
+   - For Windows: `ni-windows-amd64.exe`, `nr-windows-amd64.exe`, etc.
+3. Added executable permissions (`chmod +x`) for Unix binaries
+4. Simplified the artifact structure
+
+Now when you run this workflow, it will:
+1. Build all binaries for different platforms
+2. Copy them with platform-specific names (e.g., `ni-linux-amd64`, `ni-windows-amd64.exe`)
+3. Upload them directly to the release without compression
+
+The binaries will be named like:
+- `ni-linux-amd64`
+- `nr-linux-amd64`
+- `ni-windows-amd64.exe`
+- `nr-windows-amd64.exe`
+- `ni-darwin-amd64`
+- `nr-darwin-amd64`
+
+And similarly for ARM64 variants. Would you like me to make any other adjustments to the workflow?
+
+---
+
+_**User**_
+
+Run if [ "true" = "true" ]; then
+error: unexpected argument '--preid' found
+
+  tip: to pass '--preid' as a value, use '-- --preid'
+
+Usage: cargo set-version <TARGET|--bump <BUMP>|--metadata <METADATA>|--manifest-path <PATH>|--package <PKGID>|--all|--workspace|--dry-run|--exclude <EXCLUDE>|--offline|--locked|-Z <FLAG>> <TARGET|--bump <BUMP>>
+
+For more information, try '--help'.
+Error: Process completed with exit code 2.
+
+Also cargo edit is taking too much time, any lightweight way? also test the versioning locally
+
+---
+
+_**Assistant**_
+
+I understand there are a few issues to address:
+1. The `cargo-edit` command syntax is incorrect
+2. Installing `cargo-edit` is slow
+3. We should test versioning locally
+
+Let's modify the workflow to use a simpler versioning approach with `sed` instead:
+
+---
+
+_****_
+
+```diff
+    workflow_dispatch:
+      inputs:
+-       release_type:
+-         description: "Choose the release type"
++       version:
++         description: "Version number (e.g. 1.0.0)"
+          required: true
+-         type: choice
+-         options:
+-           - major
+-           - minor
+-           - patch
+-         default: patch
++         type: string
+        is_prerelease:
+          description: "Is this a pre-release?"
+          required: false
+          type: boolean
+          default: false
+-       prerelease_id:
+-         description: "Prerelease identifier (e.g., alpha, beta, rc). Used only if is_prerelease=true."
+-         required: false
+-         type: string
+-         default: "alpha"
+  
+  permissions:
+      runs-on: ubuntu-latest
+      outputs:
+-       new_version: ${{ steps.update_version.outputs.new_version }}
++       new_version: ${{ github.event.inputs.version }}
+      steps:
+        - uses: actions/checkout@v4
+        
+-       - name: Install Cargo edit
+-         run: cargo install cargo-edit
+-       
+-       - name: Update version
+-         id: update_version
++       - name: Update version in Cargo.toml
+          run: |
+-           if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
+-             cargo set-version --bump pre${{ github.event.inputs.release_type }} --preid ${{ github.event.inputs.prerelease_id }}
+-           else
+-             cargo set-version --bump ${{ github.event.inputs.release_type }}
+-           fi
+-           NEW_VERSION=$(cargo pkgid | cut -d# -f2)
+-           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
++           sed -i "s/^version = .*/version = \"${{ github.event.inputs.version }}\"/" Cargo.toml
++           echo "new_version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+  
+    build:
+```
+
+---
+
+_****_
+
+
+
+I've simplified the versioning process by:
+
+1. Removing `cargo-edit` dependency completely
+2. Using `sed` to directly update the version in Cargo.toml
+3. Changed the workflow input to directly accept a version number instead of calculating it
+
+The key changes are:
+- Removed the complex version calculation logic
+- Removed the need to install `cargo-edit`
+- Now you just input the exact version you want (e.g. "1.0.0")
+
+To test this locally, you can try:
+
+```bash
+# Test the sed command
+sed -i "s/^version = .*/version = \"1.0.0\"/" Cargo.toml
+
+# Verify the change
+grep "^version" Cargo.toml
+
+# Test building for your platform
+cargo build --release
+```
+
+When you run the workflow now, you'll just need to:
+1. Input the desired version number (e.g. "1.0.0")
+2. Choose whether it's a pre-release or not
+
+This is much simpler and more direct than the previous approach. Would you like me to make any other adjustments?
+
+---
+
+_**User**_
+
+i still want it to work a bit automatic without me providing exact version number but it automatically handling it based on the params
+
+---
+
+_**Assistant**_
+
+I'll modify the workflow to automatically calculate the version based on parameters, but we'll do it with a simple shell script instead of cargo-edit. Here's the improved version:
+
+---
+
+_****_
+
+```diff
+    workflow_dispatch:
+      inputs:
+-       version:
+-         description: "Version number (e.g. 1.0.0)"
++       release_type:
++         description: "Choose the release type"
+          required: true
+-         type: string
++         type: choice
++         options:
++           - major
++           - minor
++           - patch
++         default: patch
+        is_prerelease:
+          description: "Is this a pre-release?"
+          required: false
+          type: boolean
+          default: false
++       prerelease_id:
++         description: "Prerelease identifier (e.g., alpha, beta, rc). Used only if is_prerelease=true."
++         required: false
++         type: string
++         default: "alpha"
+  
+  permissions:
+      runs-on: ubuntu-latest
+      outputs:
+-       new_version: ${{ github.event.inputs.version }}
++       new_version: ${{ steps.update_version.outputs.new_version }}
+      steps:
+        - uses: actions/checkout@v4
+        
+-       - name: Update version in Cargo.toml
++       - name: Calculate new version
++         id: update_version
+          run: |
+-           sed -i "s/^version = .*/version = \"${{ github.event.inputs.version }}\"/" Cargo.toml
+-           echo "new_version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
++           # Get current version from Cargo.toml
++           CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
++           
++           # Split version into parts
++           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
++           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
++           PATCH=$(echo $CURRENT_VERSION | cut -d. -f3 | cut -d- -f1)
++           
++           # Calculate new version based on release type
++           case "${{ github.event.inputs.release_type }}" in
++             major)
++               NEW_VERSION="$((MAJOR + 1)).0.0"
++               ;;
++             minor)
++               NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
++               ;;
++             patch)
++               NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
++               ;;
++           esac
++           
++           # Add prerelease suffix if needed
++           if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
++             NEW_VERSION="${NEW_VERSION}-${{ github.event.inputs.prerelease_id }}"
++           fi
++           
++           # Update Cargo.toml
++           sed -i "s/^version = .*/version = \"${NEW_VERSION}\"/" Cargo.toml
++           
++           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
++           echo "Bumping version from ${CURRENT_VERSION} to ${NEW_VERSION}"
+  
+    build:
+```
+
+---
+
+_****_
+
+
+
+I've updated the workflow to automatically calculate version numbers based on semver rules. Here's what changed:
+
+1. Restored the input parameters for:
+   - `release_type`: major/minor/patch
+   - `is_prerelease`: true/false
+   - `prerelease_id`: alpha/beta/rc etc.
+
+2. Added automatic version calculation that:
+   - Reads current version from Cargo.toml
+   - Splits it into major.minor.patch
+   - Increments the appropriate number based on release type
+   - Adds prerelease suffix if needed
+
+For example:
+- If current version is `0.0.1`:
+  - Choosing `patch` → `0.0.2`
+  - Choosing `minor` → `0.1.0`
+  - Choosing `major` → `1.0.0`
+  - With prerelease → `0.0.2-alpha` etc.
+
+You can test this locally with:
+
+```bash
+# Test version bumping (replace with your current version)
+CURRENT_VERSION="0.0.1"
+MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+
+# Test patch bump
+echo "${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+# Test minor bump
+echo "${MAJOR}.$((MINOR + 1)).0"
+
+# Test major bump
+echo "$((MAJOR + 1)).0.0"
+```
+
+Would you like me to make any adjustments to this versioning logic?
+
+---
+
+_**User**_
+
+Also is there a way to cross compile for windows and mac right from the linux
+
+---
+
+_**Assistant**_
+
+Yes, we can use `cross` - a tool specifically designed for cross-compilation in Rust. This will let us build everything from Linux, making the workflow simpler and faster. Let me modify the workflow:
+
+---
+
+_****_
+
+```diff
+    build:
+      needs: update_version
++     runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          include:
+-           - os: ubuntu-latest
+-             target: x86_64-unknown-linux-gnu
++           - target: x86_64-unknown-linux-gnu
+              platform: linux
+              arch: amd64
+-           - os: ubuntu-latest
+-             target: aarch64-unknown-linux-gnu
++           - target: aarch64-unknown-linux-gnu
+              platform: linux
+              arch: arm64
+-           - os: windows-latest
+-             target: x86_64-pc-windows-msvc
++           - target: x86_64-pc-windows-msvc
+              platform: windows
+              arch: amd64
+-           - os: macos-latest
+-             target: x86_64-apple-darwin
++           - target: x86_64-apple-darwin
+              platform: darwin
+              arch: amd64
+-           - os: macos-latest
+-             target: aarch64-apple-darwin
++           - target: aarch64-apple-darwin
+              platform: darwin
+              arch: arm64
+- 
+-     runs-on: ${{ matrix.os }}
+      
+      steps:
+        - uses: actions/checkout@v4
+  
+-       - name: Install Rust toolchain
++       - name: Set up Rust
+          uses: dtolnay/rust-toolchain@stable
+          with:
+            targets: ${{ matrix.target }}
+  
+-       - name: Install cross-compilation dependencies (Linux)
+-         if: runner.os == 'Linux'
+-         run: |
+-           sudo apt-get update
+-           sudo apt-get install -y gcc-aarch64-linux-gnu
++       - name: Install cross
++         run: cargo install cross
+  
+        - name: Build binary
+-         run: |
+-           cargo build --release --target ${{ matrix.target }}
++         run: cross build --release --target ${{ matrix.target }}
+  
+-       - name: Prepare artifacts (Unix)
+-         if: runner.os != 'Windows'
++       - name: Prepare artifacts
+          run: |
+            mkdir -p artifacts
+-           cp target/${{ matrix.target }}/release/ni artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}
+-           cp target/${{ matrix.target }}/release/nr artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}
+-           cp target/${{ matrix.target }}/release/na artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}
+-           cp target/${{ matrix.target }}/release/nlx artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}
+-           cp target/${{ matrix.target }}/release/nun artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}
+-           chmod +x artifacts/*
+- 
+-       - name: Prepare artifacts (Windows)
+-         if: runner.os == 'Windows'
+-         run: |
+-           mkdir artifacts
+-           cp target/${{ matrix.target }}/release/ni.exe artifacts/ni-${{ matrix.platform }}-${{ matrix.arch }}.exe
+-           cp target/${{ matrix.target }}/release/nr.exe artifacts/nr-${{ matrix.platform }}-${{ matrix.arch }}.exe
+-           cp target/${{ matrix.target }}/release/na.exe artifacts/na-${{ matrix.platform }}-${{ matrix.arch }}.exe
+-           cp target/${{ matrix.target }}/release/nlx.exe artifacts/nlx-${{ matrix.platform }}-${{ matrix.arch }}.exe
+-           cp target/${{ matrix.target }}/release/nun.exe artifacts/nun-${{ matrix.platform }}-${{ matrix.arch }}.exe
++           
++           # Function to copy binaries with proper extension
++           copy_binary() {
++             local bin=$1
++             local ext=""
++             if [ "${{ matrix.platform }}" = "windows" ]; then
++               ext=".exe"
++             fi
++             
++             cp "target/${{ matrix.target }}/release/${bin}${ext}" "artifacts/${bin}-${{ matrix.platform }}-${{ matrix.arch }}${ext}"
++             if [ "${{ matrix.platform }}" != "windows" ]; then
++               chmod +x "artifacts/${bin}-${{ matrix.platform }}-${{ matrix.arch }}"
++             fi
++           }
++           
++           # Copy all binaries
++           copy_binary "ni"
++           copy_binary "nr"
++           copy_binary "na"
++           copy_binary "nlx"
++           copy_binary "nun"
+  
+        - name: Upload artifacts
+```
+
+---
+
+_****_
+
+
+
+I've updated the workflow to use `cross` for building all targets from a single Linux runner. Here are the key changes:
+
+1. Removed multiple OS runners - everything now runs on Ubuntu
+2. Added `cross` installation - this tool handles cross-compilation
+3. Replaced `cargo build` with `cross build`
+4. Simplified artifact preparation with a shell function
+
+The advantages of this approach are:
+- Faster builds (single runner instead of multiple OS runners)
+- More consistent builds (same environment for all targets)
+- Simpler workflow configuration
+- No need for separate Windows/macOS runners
+
+To test this locally, you can:
+
+```bash
+# Install cross
+cargo install cross
+
+# Test building for different targets
+cross build --release --target x86_64-pc-windows-msvc
+cross build --release --target x86_64-apple-darwin
+cross build --release --target aarch64-apple-darwin
+```
+
+Note: `cross` uses Docker internally to handle the cross-compilation environment, so make sure you have Docker installed when testing locally.
+
+Would you like me to make any adjustments to this cross-compilation setup?
+
+---
+
+_**User**_
+
+getting this error when running locally
+
+---
+
+_**Assistant**_
+
+Ah, I see the issue. We need to add the targets using `rustup` first and create a `Cross.toml` configuration file for the Windows and macOS targets. Let me modify the workflow:
+
+---
+
+_****_
+
+
+
+---
+
+_****_
+
 
 
 ---
