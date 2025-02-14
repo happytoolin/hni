@@ -1,6 +1,6 @@
 [package]
 name = "nirs"
-version = "0.0.2"
+version = ""
 edition = "2021"
 
 [dependencies]
