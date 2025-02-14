@@ -28,13 +28,29 @@ log = "0.4"
 env_logger = "0.11"
 
 [[bin]]
+name = "na"
+path = "src/bin/na.rs"
+
+[[bin]]
+name = "nci"
+path = "src/bin/nci.rs"
+
+[[bin]]
 name = "ni"
 path = "src/bin/ni.rs"
+
+[[bin]]
+name = "nlx"
+path = "src/bin/nlx.rs"
 
 [[bin]]
 name = "nr"
 path = "src/bin/nr.rs"
 
 [[bin]]
-name = "nlx"
-path = "src/bin/nlx.rs"
+name = "nu"
+path = "src/bin/nu.rs"
+
+[[bin]]
+name = "nun"
+path = "src/bin/nun.rs"

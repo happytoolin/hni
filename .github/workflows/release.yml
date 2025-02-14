@@ -71,59 +71,41 @@ jobs:
 
   build:
     needs: update_version
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            platform: linux
-            arch: amd64
-          - target: aarch64-unknown-linux-gnu
-            platform: linux
-            arch: arm64
-          - target: x86_64-pc-windows-msvc
-            platform: windows
-            arch: amd64
-          - target: x86_64-apple-darwin
-            platform: darwin
-            arch: amd64
-          - target: aarch64-apple-darwin
-            platform: darwin
-            arch: arm64
+        platform:
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-20.04
+            target: x86_64-unknown-linux-musl
+          - os-name: Linux-aarch64
+            runs-on: ubuntu-20.04
+            target: aarch64-unknown-linux-musl
+          - os-name: Windows-x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os-name: macOS-x86_64
+            runs-on: macos-latest
+            target: x86_64-apple-darwin
+          - os-name: macOS-aarch64
+            runs-on: macos-latest
+            target: aarch64-apple-darwin
+
+    name: Build - ${{ matrix.platform.os-name }}
+    runs-on: ${{ matrix.platform.runs-on }}
     
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Set up cross-compilation
-        run: |
-          # Install required targets
-          rustup target add ${{ matrix.target }}
-          
-          # Create Cross.toml configuration
-          cat > Cross.toml << 'EOF'
-          [target.x86_64-pc-windows-msvc]
-          image = "ghcr.io/cross-rs/x86_64-pc-windows-msvc:main"
-
-          [target.x86_64-apple-darwin]
-          image = "ghcr.io/cross-rs/x86_64-apple-darwin:main"
-
-          [target.aarch64-apple-darwin]
-          image = "ghcr.io/cross-rs/aarch64-apple-darwin:main"
-          EOF
-
-      - name: Install cross
-        run: cargo install cross
-
       - name: Build binary
-        run: cross build --release --target ${{ matrix.target }}
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
 
       - name: Prepare artifacts
+        shell: bash
         run: |
           mkdir -p artifacts
           
@@ -131,13 +113,15 @@ jobs:
           copy_binary() {
             local bin=$1
             local ext=""
-            if [ "${{ matrix.platform }}" = "windows" ]; then
+            if [[ "${{ matrix.platform.target }}" == *"windows"* ]]; then
               ext=".exe"
             fi
             
-            cp "target/${{ matrix.target }}/release/${bin}${ext}" "artifacts/${bin}-${{ matrix.platform }}-${{ matrix.arch }}${ext}"
-            if [ "${{ matrix.platform }}" != "windows" ]; then
-              chmod +x "artifacts/${bin}-${{ matrix.platform }}-${{ matrix.arch }}"
+            cp "target/${{ matrix.platform.target }}/release/${bin}${ext}" \
+               "artifacts/${bin}-${{ matrix.platform.os-name }}${ext}"
+            
+            if [[ "${{ matrix.platform.target }}" != *"windows"* ]]; then
+              chmod +x "artifacts/${bin}-${{ matrix.platform.os-name }}"
             fi
           }
           
@@ -151,7 +135,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.platform }}-${{ matrix.arch }}
+          name: binaries-${{ matrix.platform.os-name }}
           path: artifacts/*
 
   release:
