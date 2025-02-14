@@ -1,6 +1,6 @@
 ## SpecStory
 
-## Untitled (2/14/2025, 3:04:49 PM)
+## Removing Pre-release Settings in GitHub Actions (2/14/2025, 3:04:49 PM)
 
 _**User**_
 
@@ -50,7 +50,15 @@ _****_
 
 _****_
 
-I've removed all pre-release related functionality from the GitHub Actions workflow file.
+I've removed all pre-release related functionality from the GitHub Actions workflow file. Specifically, I:
+
+1. Removed the `is_prerelease` and `prerelease_id` input parameters from the workflow trigger
+2. Removed the logic that adds the pre-release suffix to version numbers
+3. Removed the `--prerelease` flag from the release creation command
+
+Now the workflow will only handle standard semantic versioning releases (major, minor, patch) without any pre-release functionality. The releases will always be created as regular releases rather than pre-releases.
+
+Is there anything else you'd like me to help you with?
 
 ---
 

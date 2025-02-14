@@ -57,7 +57,7 @@ jobs:
   build:
     needs: update_version
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform:
           - os-name: Linux-x86_64
@@ -103,19 +103,24 @@ jobs:
             fi
 
             cp "target/${{ matrix.platform.target }}/release/${bin}${ext}" \
-               "artifacts/${bin}-${{ matrix.platform.os-name }}${ext}"
+                "artifacts/${bin}-${{ matrix.platform.os-name }}${ext}"
 
             if [[ "${{ matrix.platform.target }}" != *"windows"* ]]; then
               chmod +x "artifacts/${bin}-${{ matrix.platform.os-name }}"
             fi
           }
-
           # Copy all binaries
-          copy_binary "ni"
-          copy_binary "nr"
           copy_binary "na"
+          copy_binary "nci"
+          copy_binary "ni"
           copy_binary "nlx"
+          copy_binary "nr"
+          copy_binary "nu"
           copy_binary "nun"
+
+          # Copy install scripts
+          cp install.sh artifacts/install.sh
+          cp install.ps1 artifacts/install.ps1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
