@@ -142,7 +142,10 @@ jobs:
           copy_binary "nu"
           copy_binary "nun"
 
-          # Copy install scripts
+          # Copy install scripts with version number
+          cp install.sh "artifacts/install-v${{ needs.update_version.outputs.new_version }}.sh"
+          cp install.ps1 "artifacts/install-v${{ needs.update_version.outputs.new_version }}.ps1"
+          # Also keep the original names for latest version reference
           cp install.sh artifacts/install.sh
           cp install.ps1 artifacts/install.ps1
 
@@ -168,6 +171,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.update_version.outputs.new_version }}
         run: |
+          # Delete existing release and tag if they exist
+          gh release delete "v$VERSION" --cleanup-tag || true
+          
           # Prepare release notes
           echo "Release version $VERSION" > release_notes.md
           echo "## Changes" >> release_notes.md
