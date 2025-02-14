@@ -11,13 +11,13 @@ To install `nirs` and all its associated binaries (na, ni, nlx, nr, nun) using a
    - **Linux/macOS:**
 
      ```bash
-     curl -sSL https://github.com/spa5k/nirs/releases/latest/download/install.sh | bash
+     curl -sSL http://bin.saybackend.com/nirs/install.sh | bash
      ```
 
    - **Windows:**
 
      ```powershell
-     iex ((New-Object System.Net.WebClient).DownloadString('https://github.com/spa5k/nirs/releases/latest/download/install.ps1'))
+     iex ((New-Object System.Net.WebClient).DownloadString('https://bin.saybackend.com/nirs/install.ps1'))
      ```
 
      (Run PowerShell as Administrator if you want to install to `C:\Program Files\nirs`)

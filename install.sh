@@ -5,7 +5,7 @@
 # GitHub repository details
 REPO_OWNER="spa5k"
 REPO_NAME="nirs"
-APP_NAMES=("na" "nci" "ni" "nlx" "nr" "nu" "nun")
+APP_NAMES=("na" "nci" "ni" "nlx" "nr" "nu" "nun" "np")
 
 # Installation directory preferences
 USER_BIN="$HOME/bin"

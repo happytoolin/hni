@@ -3,7 +3,7 @@
 # GitHub repository details
 $RepoOwner = "spa5k"
 $RepoName = "nirs"
-$AppNames = @("na", "nci", "ni", "nlx", "nr", "nu", "nun")
+$AppNames = @("na", "nci", "ni", "nlx", "nr", "nu", "nun", "np")
 
 # Installation directory preferences
 $UserBin = Join-Path $env:LOCALAPPDATA "Programs\nirs"

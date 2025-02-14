@@ -37,6 +37,7 @@ env_logger = { version = "0.11", features = ["auto-color", "humantime"] }
 log = { version = "0.4", features = ["release_max_level_info"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.11"
+signal-hook = "0.3"
 
 [[bin]]
 name = "na"
@@ -65,3 +66,7 @@ path = "src/bin/nu.rs"
 [[bin]]
 name = "nun"
 path = "src/bin/nun.rs"
+
+[[bin]]
+name = "np"
+path = "src/bin/np.rs"
