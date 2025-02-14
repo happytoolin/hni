@@ -1,6 +1,6 @@
 [package]
 name = "nirs"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 authors = ["Spark <spark@noreply.github.com>"]
 description = "A collection of npm-inspired commands reimplemented in Rust for better performance"
