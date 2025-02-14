@@ -1,14 +1,40 @@
 [package]
 name = "nirs"
-version = ""
+version = "0.0.4"
 edition = "2021"
+authors = ["Spark <spark@noreply.github.com>"]
+description = "A collection of npm-inspired commands reimplemented in Rust for better performance"
+repository = "https://github.com/spark/nirs"
+license = "MIT"
+readme = "README.md"
+keywords = ["package-manager", "npm", "yarn", "pnpm", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    "tests/*",
+    ".github/*",
+    ".gitignore",
+    ".specstory/*"
+]
+
+# Enable better optimizations for release builds
+[profile.release]
+lto = true           # Enable link-time optimization
+codegen-units = 1    # Reduce parallel code generation units for better optimization
+opt-level = 3        # Maximum optimization
+panic = "abort"      # Remove panic unwinding code
+strip = true         # Strip symbols from binary
+
+# Development profile with good debugging experience
+[profile.dev]
+opt-level = 1        # Basic optimizations without sacrificing debug experience
+debug = true         # Keep debug symbols
 
 [dependencies]
 anyhow = "1.0.95"
-chrono = "0.4"
-config = "0.15"
-env_logger = "0.11"
-log = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+config = { version = "0.15", features = ["yaml"] }
+env_logger = { version = "0.11", features = ["auto-color", "humantime"] }
+log = { version = "0.4", features = ["release_max_level_info"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.11"
 

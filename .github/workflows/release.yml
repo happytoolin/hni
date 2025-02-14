@@ -17,7 +17,31 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features
+
+      - name: Run tests
+        run: cargo test --all-features --verbose
+
   update_version:
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.update_version.outputs.new_version }}
@@ -157,13 +181,17 @@ jobs:
             artifacts/*/*
 
       - name: Update the Cargo.toml
+        env:
+          NEW_VERSION: ${{ needs.update_version.outputs.new_version }}
         run: |
           sed -i "s/^version = .*/version = \"${NEW_VERSION}\"/" Cargo.toml
 
       - name: Update Cargo.toml and push changes
+        env:
+          NEW_VERSION: ${{ needs.update_version.outputs.new_version }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add Cargo.toml Cargo.lock
-          git commit -m "Bump version to ${{ needs.update_version.outputs.new_version }}"
+          git commit -m "Bump version to ${NEW_VERSION}"
           git push
