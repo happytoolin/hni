@@ -70,3 +70,7 @@ path = "src/bin/nun.rs"
 [[bin]]
 name = "np"
 path = "src/bin/np.rs"
+
+[[bin]]
+name = "ns"
+path = "src/bin/ns.rs"
