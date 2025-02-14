@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get nirs version
+        id: get_version
+        run: |
+          VERSION=$(grep version Cargo.toml | head -n 1 | awk '{print $3}' | tr -d '"')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=version::$VERSION"
+
+      - name: Download binaries
+        run: |
+          # Download binaries from release
+          echo "Downloading binaries from release..."
+
+          BINARIES="na nci ni nlx nr nu nun np ns"
+          OS_ARCHS="macOS-x86_64 macOS-aarch64 Linux-x86_64 Linux-aarch64"
+
+          for BINARY in $BINARIES; do
+            for OS_ARCH in $OS_ARCHS; do
+              gh release download -R spa5k/nirs -p "$BINARY-$OS_ARCH"
+            done
+          done
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Create brew tap
+        run: |
+          # Clone the brew tap repository
+          git clone https://github.com/your-username/homebrew-tap.git
+          cd homebrew-tap
+
+          # Replace placeholders in nirs.rb from template
+          sed "s/{{VERSION}}/\${{ env.VERSION }}/g" nirs.rb.template > nirs.rb
+          sed "s/{{MACOS_X86_64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/\${{ env.VERSION }}\/na-macOS-x86_64/g" nirs.rb > nirs.rb
+          sed "s/{{MACOS_X86_64_SHA256}}/67c655514ca783cb959408e5452e9e0395f1a9a8c9528c199449f5b0865579a9/g" nirs.rb > nirs.rb
+          sed "s/{{MACOS_AARCH64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/\${{ env.VERSION }}\/na-macOS-aarch64/g" nirs.rb > nirs.rb
+          sed "s/{{MACOS_AARCH64_SHA256}}/0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5/g" nirs.rb > nirs.rb
+          sed "s/{{LINUX_X86_64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/\${{ env.VERSION }}\/na-Linux-x86_64/g" nirs.rb > nirs.rb
+          sed "s/{{LINUX_X86_64_SHA256}}/0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5/g" nirs.rb > nirs.rb
+          sed "s/{{LINUX_AARCH64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/\${{ env.VERSION }}\/na-Linux-aarch64/g" nirs.rb > nirs.rb
+          sed "s/{{LINUX_AARCH64_SHA256}}/0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5/g" nirs.rb > nirs.rb
+          sed "s/{{BASE_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/\${{ env.VERSION }}/g" nirs.rb > nirs.rb
+
+          # Commit and push changes
+          git add nirs.rb
+          git commit -m "Update nirs.rb for version \${{ env.VERSION }}"
+          git push origin HEAD:main -f
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}

@@ -86,14 +86,11 @@ _****_
 +         process.exit(0);
 +     });
 + });
-  
 ```
 
 ---
 
 _****_
-
-
 
 I've created a lightweight HTTP server using Node.js's native `http` module. Here are the key features of this implementation:
 
@@ -101,7 +98,7 @@ I've created a lightweight HTTP server using Node.js's native `http` module. Her
 
 2. **CORS Support**: Built-in CORS headers to allow cross-origin requests, which is helpful for development and API usage.
 
-3. **Basic Routing**: 
+3. **Basic Routing**:
    - `/` endpoint returns a welcome message
    - All other routes return a 404 error
 
@@ -116,6 +113,7 @@ To run the server:
 3. Run: `node index.js`
 
 The server will start and listen on port 3000 (or your specified PORT environment variable). You can test it by:
+
 - Opening `http://localhost:3000` in your browser
 - Or using curl: `curl http://localhost:3000`
 
@@ -125,7 +123,4 @@ Would you like me to add any additional endpoints or features to the server?
 
 ---
 
-
-
 ---
-

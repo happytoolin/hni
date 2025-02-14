@@ -170,7 +170,7 @@ jobs:
         run: |
           # Delete existing release and tag if they exist
           gh release delete "v$VERSION" --cleanup-tag || true
-          
+
           # Prepare release notes
           echo "Release version $VERSION" > release_notes.md
           echo "## Changes" >> release_notes.md

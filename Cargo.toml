@@ -1,33 +1,33 @@
 [package]
 name = "nirs"
 version = "0.0.6"
-edition = "2021"
 authors = ["Spark <spark@noreply.github.com>"]
-description = "A collection of npm-inspired commands reimplemented in Rust for better performance"
-repository = "https://github.com/spark/nirs"
+categories = ["command-line-utilities", "development-tools"]
+edition = "2021"
+exclude = [
+  "tests/*",
+  ".github/*",
+  ".gitignore",
+  ".specstory/*",
+]
+keywords = ["package-manager", "npm", "yarn", "pnpm", "cli"]
 license = "MIT"
 readme = "README.md"
-keywords = ["package-manager", "npm", "yarn", "pnpm", "cli"]
-categories = ["command-line-utilities", "development-tools"]
-exclude = [
-    "tests/*",
-    ".github/*",
-    ".gitignore",
-    ".specstory/*"
-]
+repository = "https://github.com/spark/nirs"
+description = "A collection of npm-inspired commands reimplemented in Rust for better performance"
 
 # Enable better optimizations for release builds
 [profile.release]
-lto = true           # Enable link-time optimization
-codegen-units = 1    # Reduce parallel code generation units for better optimization
-opt-level = 3        # Maximum optimization
-panic = "abort"      # Remove panic unwinding code
-strip = true         # Strip symbols from binary
+lto = true # Enable link-time optimization
+codegen-units = 1 # Reduce parallel code generation units for better optimization
+opt-level = 3 # Maximum optimization
+panic = "abort" # Remove panic unwinding code
+strip = true # Strip symbols from binary
 
 # Development profile with good debugging experience
 [profile.dev]
-opt-level = 1        # Basic optimizations without sacrificing debug experience
-debug = true         # Keep debug symbols
+opt-level = 1 # Basic optimizations without sacrificing debug experience
+debug = true # Keep debug symbols
 
 [dependencies]
 anyhow = "1.0.95"
@@ -36,8 +36,8 @@ config = { version = "0.15", features = ["yaml"] }
 env_logger = { version = "0.11", features = ["auto-color", "humantime"] }
 log = { version = "0.4", features = ["release_max_level_info"] }
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0.11"
 signal-hook = "0.3"
+thiserror = "2.0.11"
 
 [[bin]]
 name = "na"
