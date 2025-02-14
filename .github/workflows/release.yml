@@ -12,16 +12,6 @@ on:
           - minor
           - patch
         default: patch
-      is_prerelease:
-        description: "Is this a pre-release?"
-        required: false
-        type: boolean
-        default: false
-      prerelease_id:
-        description: "Prerelease identifier (e.g., alpha, beta, rc). Used only if is_prerelease=true."
-        required: false
-        type: string
-        default: "alpha"
 
 permissions:
   contents: write
@@ -58,11 +48,6 @@ jobs:
               ;;
           esac
 
-          # Add prerelease suffix if needed
-          if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
-            NEW_VERSION="${NEW_VERSION}-${{ github.event.inputs.prerelease_id }}"
-          fi
-
           # Update Cargo.toml
           sed -i "s/^version = .*/version = \"${NEW_VERSION}\"/" Cargo.toml
 
@@ -76,10 +61,10 @@ jobs:
       matrix:
         platform:
           - os-name: Linux-x86_64
-            runs-on: ubuntu-20.04
+            runs-on: ubuntu-latest
             target: x86_64-unknown-linux-musl
           - os-name: Linux-aarch64
-            runs-on: ubuntu-20.04
+            runs-on: ubuntu-latest
             target: aarch64-unknown-linux-musl
           - os-name: Windows-x86_64
             runs-on: windows-latest
@@ -164,7 +149,6 @@ jobs:
             --title "Release v$VERSION" \
             --notes-file release_notes.md \
             --draft=false \
-            --prerelease=${{ github.event.inputs.is_prerelease }} \
             artifacts/*/*
 
       - name: Update the Cargo.toml
@@ -177,5 +161,4 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add Cargo.toml Cargo.lock
           git commit -m "Bump version to ${{ needs.update_version.outputs.new_version }}"
-          git tag "v${{ needs.update_version.outputs.new_version }}"
-          git push && git push --tags
+          git push
