@@ -154,6 +154,9 @@ Running tests:
 cargo test
 ```
 
+- Write tests for `src/bin/np.rs`
+- Write tests for `src/bin/ns.rs`
+
 ## License
 
 MIT
