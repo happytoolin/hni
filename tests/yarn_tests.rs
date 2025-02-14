@@ -1,0 +1,68 @@
+mod common;
+use common::assert_command;
+use nirs::package_managers::yarn::YarnFactory;
+use nirs::PackageManagerFactory;
+
+#[test]
+fn test_yarn_commands() {
+    let factory: Box<dyn PackageManagerFactory> = Box::new(YarnFactory {});
+    let executor = factory.create_commands();
+
+    assert_command(
+        &executor,
+        "run",
+        vec!["dev", "--port=3000"],
+        "yarn",
+        vec!["run", "dev", "--port=3000"],
+    );
+    assert_command(
+        &executor,
+        "install",
+        vec!["vite"],
+        "yarn",
+        vec!["install", "vite"],
+    );
+    assert_command(
+        &executor,
+        "add",
+        vec!["@types/node", "-D"],
+        "yarn",
+        vec!["add", "@types/node", "-D"],
+    );
+    assert_command(
+        &executor,
+        "execute",
+        vec!["vitest"],
+        "yarn",
+        vec!["exec", "vitest"],
+    );
+    assert_command(&executor, "upgrade", vec![], "yarn", vec!["upgrade"]);
+    assert_command(
+        &executor,
+        "uninstall",
+        vec!["webpack"],
+        "yarn",
+        vec!["remove", "webpack"],
+    );
+    assert_command(
+        &executor,
+        "clean_install",
+        vec![],
+        "yarn",
+        vec!["install", "--frozen-lockfile"],
+    );
+}
+
+#[test]
+fn test_yarn_interactive_upgrade() {
+    let factory: Box<dyn PackageManagerFactory> = Box::new(YarnFactory {});
+    let executor = factory.create_commands();
+
+    assert_command(
+        &executor,
+        "upgrade",
+        vec!["-i"],
+        "yarn",
+        vec!["upgrade", "-i"],
+    );
+}
