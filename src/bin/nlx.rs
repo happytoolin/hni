@@ -1,21 +1,44 @@
 use std::env;
-use std::path::Path;
 
 use anyhow::Result;
-
-use nirs::execute_command;
+use log::{debug, info, warn};
+use nirs::{execute_command, logger};
 
 fn main() -> Result<()> {
-    let cwd = env::current_dir()?;
-    let args: Vec<String> = env::args().skip(1).collect();
-    let args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    // Initialize logger with nice formatting
+    logger::init();
 
+    let cwd = env::current_dir()?;
+    debug!("Current working directory: {}", cwd.display());
+
+    let args: Vec<String> = env::args().skip(1).collect();
+    if args.is_empty() {
+        warn!("No command provided to execute");
+        std::process::exit(1);
+    }
+
+    // Split each argument individually to preserve spaces between arguments
+    let args: Vec<&str> = args.iter().map(AsRef::as_ref).collect();
+    debug!("Parsed arguments: {:?}", args);
+
+    info!("Executing command with arguments: {:?}", args);
     let mut cmd = execute_command(&cwd, "execute", args)?;
+
+    info!(
+        "Executing: {} with args: {:?}",
+        cmd.get_program().to_string_lossy(),
+        cmd.get_args().collect::<Vec<_>>()
+    );
+
+    debug!("Starting command execution...");
     let status = cmd.status()?;
 
     if !status.success() {
-        std::process::exit(status.code().unwrap_or(1));
+        let code = status.code().unwrap_or(1);
+        warn!("Command failed with exit code: {}", code);
+        std::process::exit(code);
     }
 
+    info!("Command completed successfully!");
     Ok(())
 }

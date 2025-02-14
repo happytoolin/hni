@@ -36,8 +36,7 @@ impl CommandExecutor for NpmExecutor {
     }
 
     fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = Vec::new();
-        command_args.extend(args.iter().map(|s| s.to_string()));
+        let mut command_args = args.iter().map(|s| s.to_string()).collect();
 
         Some(ResolvedCommand {
             bin: "npx".to_string(),

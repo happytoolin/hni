@@ -28,7 +28,13 @@ mod tests {
         .expect("Command should be resolved");
 
         assert_eq!(command.bin, expected_bin);
-        assert_eq!(command.args, expected_args);
+        assert_eq!(
+            command.args,
+            expected_args
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -41,7 +47,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "bun",
-            vec!["run", "dev --port=3000"],
+            vec!["run", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -55,7 +61,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "bun",
-            vec!["add", "@types/node -D"],
+            vec!["add", "@types/node", "-D"],
         );
         assert_command(
             &executor,
@@ -64,7 +70,7 @@ mod tests {
             "bun",
             vec!["x", "vitest"],
         );
-        assert_command(&executor, "upgrade", vec![], "bun", vec!["update", ""]);
+        assert_command(&executor, "upgrade", vec![], "bun", vec!["update"]);
         assert_command(
             &executor,
             "uninstall",
@@ -91,7 +97,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "deno",
-            vec!["task", "dev --port=3000"],
+            vec!["task", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -105,7 +111,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "deno",
-            vec!["add", "@types/node -D"],
+            vec!["add", "@types/node", "-D"],
         );
         assert_command(
             &executor,
@@ -114,7 +120,7 @@ mod tests {
             "deno",
             vec!["run", "npm:vitest"],
         );
-        assert_command(&executor, "upgrade", vec![], "deno", vec!["update", ""]);
+        assert_command(&executor, "upgrade", vec![], "deno", vec!["update"]);
         assert_command(
             &executor,
             "uninstall",
@@ -122,13 +128,7 @@ mod tests {
             "deno",
             vec!["remove", "webpack"],
         );
-        assert_command(
-            &executor,
-            "clean_install",
-            vec![],
-            "deno",
-            vec!["install", ""],
-        );
+        assert_command(&executor, "clean_install", vec![], "deno", vec!["install"]);
     }
 
     #[test]
@@ -141,7 +141,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "npm",
-            vec!["run", "dev --port=3000"],
+            vec!["run", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -155,10 +155,10 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "npm",
-            vec!["install", "@types/node -D"],
+            vec!["install", "@types/node", "-D"],
         );
         assert_command(&executor, "execute", vec!["vitest"], "npx", vec!["vitest"]);
-        assert_command(&executor, "upgrade", vec![], "npm", vec!["update", ""]);
+        assert_command(&executor, "upgrade", vec![], "npm", vec!["update"]);
         assert_command(
             &executor,
             "uninstall",
@@ -179,7 +179,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "pnpm",
-            vec!["run", "dev --port=3000"],
+            vec!["run", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -193,7 +193,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "pnpm",
-            vec!["add", "@types/node -D"],
+            vec!["add", "@types/node", "-D"],
         );
         assert_command(
             &executor,
@@ -202,7 +202,7 @@ mod tests {
             "pnpm",
             vec!["dlx", "vitest"],
         );
-        assert_command(&executor, "upgrade", vec![], "pnpm", vec!["update", ""]);
+        assert_command(&executor, "upgrade", vec![], "pnpm", vec!["update"]);
         assert_command(
             &executor,
             "uninstall",
@@ -229,7 +229,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "pnpm",
-            vec!["run", "dev --port=3000"],
+            vec!["run", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -243,7 +243,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "pnpm",
-            vec!["add", "@types/node -D"],
+            vec!["add", "@types/node", "-D"],
         );
         assert_command(
             &executor,
@@ -252,7 +252,7 @@ mod tests {
             "pnpm",
             vec!["dlx", "vitest"],
         );
-        assert_command(&executor, "upgrade", vec![], "pnpm", vec!["update", ""]);
+        assert_command(&executor, "upgrade", vec![], "pnpm", vec!["update"]);
         assert_command(
             &executor,
             "uninstall",
@@ -279,7 +279,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "yarn",
-            vec!["run", "dev --port=3000"],
+            vec!["run", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -293,7 +293,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "yarn",
-            vec!["add", "@types/node -D"],
+            vec!["add", "@types/node", "-D"],
         );
         assert_command(
             &executor,
@@ -302,7 +302,7 @@ mod tests {
             "yarn",
             vec!["exec", "vitest"],
         );
-        assert_command(&executor, "upgrade", vec![], "yarn", vec!["upgrade", ""]);
+        assert_command(&executor, "upgrade", vec![], "yarn", vec!["upgrade"]);
         assert_command(
             &executor,
             "uninstall",
@@ -329,7 +329,7 @@ mod tests {
             "run",
             vec!["dev", "--port=3000"],
             "yarn",
-            vec!["run", "dev --port=3000"],
+            vec!["run", "dev", "--port=3000"],
         );
         assert_command(
             &executor,
@@ -343,7 +343,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D"],
             "yarn",
-            vec!["add", "@types/node -D"],
+            vec!["add", "@types/node", "-D"],
         );
         assert_command(
             &executor,
@@ -352,7 +352,7 @@ mod tests {
             "yarn",
             vec!["exec", "vitest"],
         );
-        assert_command(&executor, "upgrade", vec![], "yarn", vec!["up", ""]);
+        assert_command(&executor, "upgrade", vec![], "yarn", vec!["up"]);
         assert_command(
             &executor,
             "uninstall",
@@ -419,7 +419,7 @@ mod tests {
             "uninstall",
             vec!["webpack", "babel", "typescript"],
             "npm",
-            vec!["uninstall", "webpack babel typescript"],
+            vec!["uninstall", "webpack", "babel", "typescript"],
         );
     }
 
@@ -429,7 +429,7 @@ mod tests {
         let executor = factory.create_commands();
 
         // Test empty args
-        assert_command(&executor, "install", vec![], "npm", vec!["install", ""]);
+        assert_command(&executor, "install", vec![], "npm", vec!["install"]);
 
         // Test args with spaces
         assert_command(
@@ -437,7 +437,7 @@ mod tests {
             "run",
             vec!["test:unit", "--coverage"],
             "npm",
-            vec!["run", "test:unit --coverage"],
+            vec!["run", "test:unit", "--coverage"],
         );
 
         // Test multiple flags
@@ -446,7 +446,7 @@ mod tests {
             "add",
             vec!["@types/node", "-D", "--exact"],
             "npm",
-            vec!["install", "@types/node -D --exact"],
+            vec!["install", "@types/node", "-D", "--exact"],
         );
 
         // Test global with other flags
@@ -455,7 +455,7 @@ mod tests {
             "uninstall",
             vec!["-g", "webpack", "--save"],
             "npm",
-            vec!["uninstall", "-g webpack --save"],
+            vec!["uninstall", "-g", "webpack", "--save"],
         );
     }
 }
