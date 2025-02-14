@@ -4,64 +4,66 @@
 
 _**User**_
 
-create a github action that builds the binaries for various platforms, then do a release for it, having versioning support where i can define what version, here's some other github action wiht something like this - 
+create a github action that builds the binaries for various platforms, then do a release for it, having versioning support where i can define what version, here's some other github action wiht something like this -
 
 name: Build and Release Electron App
 
 on:
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: "Choose the release type"
-        required: true
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
-        default: patch
-      is_prerelease:
-        description: "Is this a pre-release?"
-        required: false
-        type: boolean
-        default: false
-      prerelease_id:
-        description: "Prerelease identifier (e.g., alpha, beta, rc). Used only if is_prerelease=true."
-        required: false
-        type: string
-        default: "alpha"
+workflow_dispatch:
+inputs:
+release_type:
+description: "Choose the release type"
+required: true
+type: choice
+options:
+
+- major
+- minor
+- patch
+  default: patch
+  is_prerelease:
+  description: "Is this a pre-release?"
+  required: false
+  type: boolean
+  default: false
+  prerelease_id:
+  description: "Prerelease identifier (e.g., alpha, beta, rc). Used only if is_prerelease=true."
+  required: false
+  type: string
+  default: "alpha"
 
 permissions:
-  contents: write
+contents: write
 
 jobs:
-  update_version:
-    runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.update_version.outputs.new_version }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "23"
+update_version:
+runs-on: ubuntu-latest
+outputs:
+new_version: ${{ steps.update_version.outputs.new_version }}
+steps:
 
-      - name: Update version
-        id: update_version
-        run: |
-          if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
-            npm version pre${{ github.event.inputs.release_type }} --preid=${{ github.event.inputs.prerelease_id }} --no-git-tag-version
-          else
-            npm version ${{ github.event.inputs.release_type }} --no-git-tag-version
-          fi
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+- uses: actions/checkout@v4
+- uses: actions/setup-node@v4
+  with:
+  node-version: "23"
 
-  build:
-    needs: update_version
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+  - name: Update version
+    id: update_version
+    run: |
+    if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
+          npm version pre${{ github.event.inputs.release_type }} --preid=${{ github.event.inputs.prerelease_id }} --no-git-tag-version
+    else
+    npm version ${{ github.event.inputs.release_type }} --no-git-tag-version
+        fi
+        NEW_VERSION=$(node -p "require('./package.json').version")
+    echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+build:
+needs: update_version
+strategy:
+fail-fast: true
+matrix:
+os: [ubuntu-latest, windows-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
@@ -161,13 +163,14 @@ jobs:
             dist/*.json
           if-no-files-found: error
 
-  release:
-    needs: [update_version, build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+release:
+needs: [update_version, build]
+runs-on: ubuntu-latest
+steps:
+
+- uses: actions/checkout@v4
+  with:
+  fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -261,24 +264,24 @@ _****_
 
 <details>
             <summary>Listed current directory • **16** results</summary>
-        
-| Name |
-|-------|
-| 📄 `.git` |
-| 📄 `tests` |
-| 📄 `target` |
-| 📄 `tsconfig.json` |
-| 📄 `README.md` |
-| 📄 `Cargo.toml` |
-| 📄 `Cargo.lock` |
-| 📄 `src` |
-| 📄 `.gitignore` |
-| 📄 `.cline` |
-| 📄 `future_plan.md` |
-| 📄 `memory.md` |
-| 📄 `plan.md` |
-| 📄 `.specstory` |
-| 📄 `index.js` |
+
+| Name                     |
+| ------------------------ |
+| 📄 `.git`                |
+| 📄 `tests`               |
+| 📄 `target`              |
+| 📄 `tsconfig.json`       |
+| 📄 `README.md`           |
+| 📄 `Cargo.toml`          |
+| 📄 `Cargo.lock`          |
+| 📄 `src`                 |
+| 📄 `.gitignore`          |
+| 📄 `.cline`              |
+| 📄 `future_plan.md`      |
+| 📄 `memory.md`           |
+| 📄 `plan.md`             |
+| 📄 `.specstory`          |
+| 📄 `index.js`            |
 | 📄 `ni_functionality.md` |
 
 </details>
@@ -287,9 +290,8 @@ _****_
 
 _****_
 
-
-
 Let me create a GitHub Actions workflow that will:
+
 1. Build binaries for multiple platforms (Windows, macOS, Linux)
 2. Support versioning with major/minor/patch releases
 3. Create GitHub releases with the built binaries
@@ -455,14 +457,12 @@ _****_
 +           git add Cargo.toml Cargo.lock
 +           git commit -m "Bump version to ${{ needs.update_version.outputs.new_version }}"
 +           git tag "v${{ needs.update_version.outputs.new_version }}"
-+           git push && git push --tags 
++           git push && git push --tags
 ```
 
 ---
 
 _****_
-
-
 
 I've created a GitHub Actions workflow file that will handle building and releasing your Rust binaries. Here's what the workflow does:
 
@@ -498,12 +498,14 @@ To use this workflow:
    - Pre-release identifier (if applicable)
 
 The workflow will:
+
 1. Update your package version
 2. Build binaries for all platforms
 3. Create a GitHub release with the binaries
 4. Update your repository with the new version
 
 The binaries will be named according to their platform:
+
 - `nirs-linux-amd64.tar.gz`
 - `nirs-linux-arm64.tar.gz`
 - `nirs-windows-amd64.zip`
@@ -602,8 +604,6 @@ _****_
 
 _****_
 
-
-
 I've updated the workflow to handle raw binaries instead of compressed archives. Here are the key changes:
 
 1. Removed all compression (tar.gz and zip) steps
@@ -614,11 +614,13 @@ I've updated the workflow to handle raw binaries instead of compressed archives.
 4. Simplified the artifact structure
 
 Now when you run this workflow, it will:
+
 1. Build all binaries for different platforms
 2. Copy them with platform-specific names (e.g., `ni-linux-amd64`, `ni-windows-amd64.exe`)
 3. Upload them directly to the release without compression
 
 The binaries will be named like:
+
 - `ni-linux-amd64`
 - `nr-linux-amd64`
 - `ni-windows-amd64.exe`
@@ -635,7 +637,7 @@ _**User**_
 Run if [ "true" = "true" ]; then
 error: unexpected argument '--preid' found
 
-  tip: to pass '--preid' as a value, use '-- --preid'
+tip: to pass '--preid' as a value, use '-- --preid'
 
 Usage: cargo set-version <TARGET|--bump <BUMP>|--metadata <METADATA>|--manifest-path <PATH>|--package <PKGID>|--all|--workspace|--dry-run|--exclude <EXCLUDE>|--offline|--locked|-Z <FLAG>> <TARGET|--bump <BUMP>>
 
@@ -649,6 +651,7 @@ Also cargo edit is taking too much time, any lightweight way? also test the vers
 _**Assistant**_
 
 I understand there are a few issues to address:
+
 1. The `cargo-edit` command syntax is incorrect
 2. Installing `cargo-edit` is slow
 3. We should test versioning locally
@@ -717,8 +720,6 @@ _****_
 
 _****_
 
-
-
 I've simplified the versioning process by:
 
 1. Removing `cargo-edit` dependency completely
@@ -726,6 +727,7 @@ I've simplified the versioning process by:
 3. Changed the workflow input to directly accept a version number instead of calculating it
 
 The key changes are:
+
 - Removed the complex version calculation logic
 - Removed the need to install `cargo-edit`
 - Now you just input the exact version you want (e.g. "1.0.0")
@@ -744,6 +746,7 @@ cargo build --release
 ```
 
 When you run the workflow now, you'll just need to:
+
 1. Input the desired version number (e.g. "1.0.0")
 2. Choose whether it's a pre-release or not
 
@@ -844,8 +847,6 @@ _****_
 
 _****_
 
-
-
 I've updated the workflow to automatically calculate version numbers based on semver rules. Here's what changed:
 
 1. Restored the input parameters for:
@@ -860,6 +861,7 @@ I've updated the workflow to automatically calculate version numbers based on se
    - Adds prerelease suffix if needed
 
 For example:
+
 - If current version is `0.0.1`:
   - Choosing `patch` → `0.0.2`
   - Choosing `minor` → `0.1.0`
@@ -1011,8 +1013,6 @@ _****_
 
 _****_
 
-
-
 I've updated the workflow to use `cross` for building all targets from a single Linux runner. Here are the key changes:
 
 1. Removed multiple OS runners - everything now runs on Ubuntu
@@ -1021,6 +1021,7 @@ I've updated the workflow to use `cross` for building all targets from a single 
 4. Simplified artifact preparation with a shell function
 
 The advantages of this approach are:
+
 - Faster builds (single runner instead of multiple OS runners)
 - More consistent builds (same environment for all targets)
 - Simpler workflow configuration
@@ -1086,8 +1087,6 @@ _****_
 
 _****_
 
-
-
 Now let me also create the `Cross.toml` file in your repository for local development:
 
 ---
@@ -1103,18 +1102,17 @@ _****_
 + image = "ghcr.io/cross-rs/x86_64-apple-darwin:main"
 + 
 + [target.aarch64-apple-darwin]
-+ image = "ghcr.io/cross-rs/aarch64-apple-darwin:main" 
++ image = "ghcr.io/cross-rs/aarch64-apple-darwin:main"
 ```
 
 ---
 
 _****_
 
-
-
 To test this locally, you'll need to:
 
 1. First install the required targets:
+
 ```bash
 rustup target add x86_64-pc-windows-msvc x86_64-apple-darwin aarch64-apple-darwin
 ```
@@ -1122,6 +1120,7 @@ rustup target add x86_64-pc-windows-msvc x86_64-apple-darwin aarch64-apple-darwi
 2. Make sure you have Docker installed and running (cross uses Docker for cross-compilation)
 
 3. Then you can build for different targets:
+
 ```bash
 # For Windows
 cross build --release --target x86_64-pc-windows-msvc
@@ -1138,6 +1137,7 @@ cross build --release --target aarch64-unknown-linux-gnu
 ```
 
 The changes I made:
+
 1. Added explicit target installation using `rustup`
 2. Created a `Cross.toml` configuration file that specifies the Docker images to use for Windows and macOS builds
 3. Added the configuration both to the workflow and as a local file
@@ -1155,14 +1155,15 @@ This action lets you easily cross-compile Rust projects using cross.
 Here's a simplified example from the test and release workflow for my tool ubi:
 
 jobs:
-  release:
-    name: Release - ${{ matrix.platform.os-name }}
-    strategy:
-      matrix:
-        platform:
-          - os-name: FreeBSD-x86_64
-            runs-on: ubuntu-20.04
-            target: x86_64-unknown-freebsd
+release:
+name: Release - ${{ matrix.platform.os-name }}
+strategy:
+matrix:
+platform:
+
+- os-name: FreeBSD-x86_64
+  runs-on: ubuntu-20.04
+  target: x86_64-unknown-freebsd
 
           - os-name: Linux-x86_64
             runs-on: ubuntu-20.04
@@ -1186,22 +1187,22 @@ jobs:
 
           # more targets here ...
 
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v1
-        with:
-          command: ${{ matrix.platform.command }}
-          target: ${{ matrix.platform.target }}
-          args: "--locked --release"
-          strip: true
-      - name: Publish artifacts and release
-        uses: houseabsolute/actions-rust-release@v0
-        with:
-          executable-name: ubi
-          target: ${{ matrix.platform.target }}
+  runs-on: ${{ matrix.platform.runs-on }}
+  steps:
+  - name: Checkout
+    uses: actions/checkout@v4
+  - name: Build binary
+    uses: houseabsolute/actions-rust-cross@v1
+    with:
+    command: ${{ matrix.platform.command }}
+    target: ${{ matrix.platform.target }}
+    args: "--locked --release"
+    strip: true
+  - name: Publish artifacts and release
+    uses: houseabsolute/actions-rust-release@v0
+    with:
+    executable-name: ubi
+    target: ${{ matrix.platform.target }}
 
 Note that for Linux or BSD targets, you should always set the runs-on key to a Linux x86-64 architecture runner.
 
@@ -1227,10 +1228,10 @@ By default, cross passes most rust-related environment variables through when it
 - name: Run build command
   uses: houseabsolute/actions-rust-cross@v1
   env:
-    CARGO_LOG: debug
-    RUSTFLAGS: "-g"
+  CARGO_LOG: debug
+  RUSTFLAGS: "-g"
   with:
-    command: build
+  command: build
 
 If you want to pass other environment variables through, you will need to configure cross to do see. See the cross docs for more details.
 How it Works
@@ -1275,11 +1276,6 @@ The code in this repo is linted and tidied with precious. This repo contains a m
 
 _**Assistant**_
 
-
-
 ---
 
-
-
 ---
-

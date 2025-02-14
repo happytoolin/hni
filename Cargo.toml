@@ -4,28 +4,13 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.4", features = ["derive", "env"] }     # CLI parsing
-tokio = { version = "1.0", features = ["full"] }              # Async runtime
-reqwest = { version = "0.11", features = ["json"] }           # HTTP client
-serde = { version = "1.0", features = ["derive"] }            # Serialization/deserialization
-serde_json = "1.0"                                            # JSON parsing
-config = "0.13"                                               # Configuration file management
-dialoguer = "0.11"                                            # Interactive CLI prompts
-inquire = "0.6.2"                                             # Alternative interactive CLI library
-skim = "0.10"                                                 # Fuzzy search integration
-console = "0.15.7"                                            # Terminal formatting
-duct = "0.13.6"                                               # Command execution
-which = "4.4.0"                                               # Binary lookup in PATH
-directories = "5.0.1"                                         # OS-specific directories
-tempfile = "3.8.0"                                            # Temporary file creation
-async-trait = "0.1.74"                                        # Async trait support
-lazy_static = "1.4.0"                                          # Static initialization
-anyhow = "1.0.75"                                              # Error handling
-thiserror = "1.0.50"                                           # Custom error definitions
-chrono = "0.4"                                                 # Date and time functionality
-
-log = "0.4"
+anyhow = "1.0.95"
+chrono = "0.4"
+config = "0.15"
 env_logger = "0.11"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0.11"
 
 [[bin]]
 name = "na"

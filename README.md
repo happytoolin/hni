@@ -62,6 +62,7 @@ cargo install nirs
 ## Package Manager Detection
 
 The tool automatically detects your package manager based on lockfiles in the following order:
+
 1. `bun.lock` or `bun.lockb` → Bun
 2. `pnpm-lock.yaml` → PNPM
 3. `yarn.lock` → Yarn
@@ -82,12 +83,14 @@ LOG_LEVEL=trace cargo run --bin ni react  # Very detailed debugging (white)
 ```
 
 The logs include:
+
 - Log level with appropriate color
 - Timestamp
 - Module name
 - Detailed operation information
 
 Example debug output:
+
 ```
 DEBUG 19:04:51 nirs::logger Logger initialized with environment: LOG_LEVEL=debug
 DEBUG 19:04:51 ni Current working directory: /path/to/project
@@ -103,19 +106,22 @@ INFO  19:04:51 ni Executing: npm with args: ["install", "react", "-D"]
 ## Development
 
 Requirements:
+
 - Rust 1.70 or later
 - Cargo
 
 Building:
+
 ```bash
 cargo build
 ```
 
 Running tests:
+
 ```bash
 cargo test
 ```
 
 ## License
 
-MIT 
+MIT

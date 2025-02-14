@@ -33,18 +33,18 @@ jobs:
       new_version: ${{ steps.update_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Calculate new version
         id: update_version
         run: |
           # Get current version from Cargo.toml
           CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-          
+
           # Split version into parts
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
           PATCH=$(echo $CURRENT_VERSION | cut -d. -f3 | cut -d- -f1)
-          
+
           # Calculate new version based on release type
           case "${{ github.event.inputs.release_type }}" in
             major)
@@ -57,15 +57,15 @@ jobs:
               NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
               ;;
           esac
-          
+
           # Add prerelease suffix if needed
           if [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
             NEW_VERSION="${NEW_VERSION}-${{ github.event.inputs.prerelease_id }}"
           fi
-          
+
           # Update Cargo.toml
           sed -i "s/^version = .*/version = \"${NEW_VERSION}\"/" Cargo.toml
-          
+
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "Bumping version from ${CURRENT_VERSION} to ${NEW_VERSION}"
 
@@ -93,7 +93,7 @@ jobs:
 
     name: Build - ${{ matrix.platform.os-name }}
     runs-on: ${{ matrix.platform.runs-on }}
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -108,7 +108,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts
-          
+
           # Function to copy binaries with proper extension
           copy_binary() {
             local bin=$1
@@ -116,15 +116,15 @@ jobs:
             if [[ "${{ matrix.platform.target }}" == *"windows"* ]]; then
               ext=".exe"
             fi
-            
+
             cp "target/${{ matrix.platform.target }}/release/${bin}${ext}" \
                "artifacts/${bin}-${{ matrix.platform.os-name }}${ext}"
-            
+
             if [[ "${{ matrix.platform.target }}" != *"windows"* ]]; then
               chmod +x "artifacts/${bin}-${{ matrix.platform.os-name }}"
             fi
           }
-          
+
           # Copy all binaries
           copy_binary "ni"
           copy_binary "nr"
@@ -158,7 +158,7 @@ jobs:
           echo "Release version $VERSION" > release_notes.md
           echo "## Changes" >> release_notes.md
           echo "See the [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.md
-          
+
           # Create release
           gh release create "v$VERSION" \
             --title "Release v$VERSION" \
@@ -174,4 +174,4 @@ jobs:
           git add Cargo.toml Cargo.lock
           git commit -m "Bump version to ${{ needs.update_version.outputs.new_version }}"
           git tag "v${{ needs.update_version.outputs.new_version }}"
-          git push && git push --tags 
+          git push && git push --tags

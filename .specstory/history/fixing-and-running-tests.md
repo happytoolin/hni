@@ -6,8 +6,6 @@ _**User**_
 
 fix the tests, run to check if they're workng
 
-
-
 ---
 
 _**Assistant**_
@@ -321,8 +319,6 @@ _****_
 
 _****_
 
-
-
 Now let's run the tests to check if they're working:
 
 ---
@@ -334,8 +330,6 @@ cargo test
 ```
 
 ```
-
-
 nirs on  main [$!+?⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
 ❯ cargo test
    Compiling nirs v0.1.0 (/home/spark/Codes/nirs)
@@ -368,8 +362,6 @@ nirs on  main [$!+?⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1
 
 _****_
 
-
-
 I see there's a syntax error in the file. There's an extra 'f' character after one of the match arms. Let me fix that:
 
 ---
@@ -389,8 +381,6 @@ _****_
 
 _****_
 
-
-
 Now let's run the tests again:
 
 ---
@@ -402,7 +392,6 @@ cargo test
 ```
 
 ```
-
 nirs on  main [$!+?⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
 ❯ cargo test
 
@@ -455,8 +444,6 @@ nirs on  main [$!+?⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1
 
 _****_
 
-
-
 Great! All the tests are now passing. Here's a summary of what we fixed:
 
 1. Removed all `.to_string()` calls from the string literals in the test vectors since they were causing type mismatches (the test expected `&str` but was getting `String`).
@@ -477,6 +464,7 @@ _**Assistant**_
 I'll analyze the test cases against the functionality described in `ni_functionality.md` to ensure we have complete coverage and handle all edge cases. Let me check each command type:
 
 1. `ni` (install) cases:
+
 - Basic install ✓ (covered in tests)
 - Package install ✓ (covered in tests)
 - Dev dependencies (-D) ✓ (covered in tests)
@@ -485,17 +473,21 @@ I'll analyze the test cases against the functionality described in `ni_functiona
 - Global install (-g) ✓ (covered in tests)
 
 2. `nr` (run) cases:
+
 - Basic run with args ✓ (covered in tests)
 - Interactive selection (no args) - Not covered in tests
 
 3. `nlx` (execute) cases:
+
 - Basic execute ✓ (covered in tests)
 
 4. `nu` (upgrade) cases:
+
 - Basic upgrade ✓ (covered in tests)
 - Interactive upgrade (-i) - Not covered in tests
 
 5. `nun` (uninstall) cases:
+
 - Basic uninstall ✓ (covered in tests)
 - Global uninstall (-g) ✓ (covered in tests)
 - Interactive uninstall - Not covered in tests
@@ -613,14 +605,11 @@ _****_
 +         );
 +     }
   }
-  
 ```
 
 ---
 
 _****_
-
-
 
 Let's run the tests to make sure everything works:
 
@@ -633,7 +622,6 @@ cargo test
 ```
 
 ```
-
 nirs on  main [$✘!+?⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
 ❯ cargo test
 
@@ -698,8 +686,6 @@ nirs on  main [$✘!+?⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1
 
 _****_
 
-
-
 We have two test failures to fix:
 
 1. In `test_edge_cases`, the empty args test is failing because we're getting `["install", ""]` but expecting `["install"]`. Let's fix this.
@@ -711,17 +697,10 @@ Let's fix these issues:
 
 _****_
 
-
-
 ---
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

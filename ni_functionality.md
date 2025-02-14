@@ -1,38 +1,34 @@
 Directory Structure:
 
 └── ./
-    ├── src
-    │   ├── commands
-    │   │   ├── index.ts
-    │   │   ├── na.ts
-    │   │   ├── nci.ts
-    │   │   ├── ni.ts
-    │   │   ├── nlx.ts
-    │   │   ├── nr.ts
-    │   │   ├── nu.ts
-    │   │   └── nun.ts
-    │   ├── completion.ts
-    │   ├── config.ts
-    │   ├── detect.ts
-    │   ├── fetch.ts
-    │   ├── fs.ts
-    │   ├── index.ts
-    │   ├── parse.ts
-    │   ├── runner.ts
-    │   ├── storage.ts
-    │   └── utils.ts
-    ├── build.config.ts
-    └── README.md
-
-
+├── src
+│ ├── commands
+│ │ ├── index.ts
+│ │ ├── na.ts
+│ │ ├── nci.ts
+│ │ ├── ni.ts
+│ │ ├── nlx.ts
+│ │ ├── nr.ts
+│ │ ├── nu.ts
+│ │ └── nun.ts
+│ ├── completion.ts
+│ ├── config.ts
+│ ├── detect.ts
+│ ├── fetch.ts
+│ ├── fs.ts
+│ ├── index.ts
+│ ├── parse.ts
+│ ├── runner.ts
+│ ├── storage.ts
+│ └── utils.ts
+├── build.config.ts
+└── README.md
 
 ---
 File: /src/commands/index.ts
 ---
 
 export * from '../index'
-
-
 
 ---
 File: /src/commands/na.ts
@@ -43,8 +39,6 @@ import { runCli } from '../runner'
 
 runCli(parseNa)
 
-
-
 ---
 File: /src/commands/nci.ts
 ---
@@ -53,11 +47,9 @@ import { parseNi } from '../parse'
 import { runCli } from '../runner'
 
 runCli(
-  (agent, args, hasLock) => parseNi(agent, [...args, '--frozen-if-present'], hasLock),
-  { autoInstall: true },
+(agent, args, hasLock) => parseNi(agent, [...args, '--frozen-if-present'], hasLock),
+{ autoInstall: true },
 )
-
-
 
 ---
 File: /src/commands/ni.ts
@@ -74,10 +66,10 @@ import { runCli } from '../runner'
 import { exclude } from '../utils'
 
 runCli(async (agent, args, ctx) => {
-  const isInteractive = args[0] === '-i'
+const isInteractive = args[0] === '-i'
 
-  if (isInteractive) {
-    let fetchPattern: string
+if (isInteractive) {
+let fetchPattern: string
 
     if (args[1] && !args[1].startsWith('-')) {
       fetchPattern = args[1]
@@ -159,12 +151,11 @@ runCli(async (agent, args, ctx) => {
     })
 
     args.push(dependency.name, mode)
-  }
 
-  return parseNi(agent, args, ctx)
+}
+
+return parseNi(agent, args, ctx)
 })
-
-
 
 ---
 File: /src/commands/nlx.ts
@@ -174,8 +165,6 @@ import { parseNlx } from '../parse'
 import { runCli } from '../runner'
 
 runCli(parseNlx)
-
-
 
 ---
 File: /src/commands/nr.ts
@@ -194,39 +183,39 @@ import { dump, load } from '../storage'
 import { limitText } from '../utils'
 
 function readPackageScripts(ctx: RunnerContext | undefined) {
-  // support https://www.npmjs.com/package/npm-scripts-info conventions
-  const pkg = getPackageJSON(ctx)
-  const scripts = pkg.scripts || {}
-  const scriptsInfo = pkg['scripts-info'] || {}
+// support https://www.npmjs.com/package/npm-scripts-info conventions
+const pkg = getPackageJSON(ctx)
+const scripts = pkg.scripts || {}
+const scriptsInfo = pkg['scripts-info'] || {}
 
-  return Object.entries(scripts)
-    .filter(i => !i[0].startsWith('?'))
-    .map(([key, cmd]) => ({
-      key,
-      cmd,
-      description: scriptsInfo[key] || scripts[`?${key}`] || cmd,
-    }))
+return Object.entries(scripts)
+.filter(i => !i[0].startsWith('?'))
+.map(([key, cmd]) => ({
+key,
+cmd,
+description: scriptsInfo[key] || scripts[`?${key}`] || cmd,
+}))
 }
 
 runCli(async (agent, args, ctx) => {
-  const storage = await load()
+const storage = await load()
 
-  // Use --completion to generate completion script and do completion logic
-  // (No package manager would have an argument named --completion)
-  if (args[0] === '--completion') {
-    const compLine = process.env.COMP_LINE
-    const rawCompCword = process.env.COMP_CWORD
-    if (compLine !== undefined && rawCompCword !== undefined) {
-      const compCword = Number.parseInt(rawCompCword, 10)
-      const compWords = args.slice(1)
-      // Only complete the second word (nr __here__ ...)
-      if (compCword === 1) {
-        const raw = readPackageScripts(ctx)
-        const fzf = new Fzf(raw, {
-          selector: item => item.key,
-          casing: 'case-insensitive',
-          tiebreakers: [byLengthAsc],
-        })
+// Use --completion to generate completion script and do completion logic
+// (No package manager would have an argument named --completion)
+if (args[0] === '--completion') {
+const compLine = process.env.COMP_LINE
+const rawCompCword = process.env.COMP_CWORD
+if (compLine !== undefined && rawCompCword !== undefined) {
+const compCword = Number.parseInt(rawCompCword, 10)
+const compWords = args.slice(1)
+// Only complete the second word (nr **here** ...)
+if (compCword === 1) {
+const raw = readPackageScripts(ctx)
+const fzf = new Fzf(raw, {
+selector: item => item.key,
+casing: 'case-insensitive',
+tiebreakers: [byLengthAsc],
+})
 
         // compWords will be ['nr'] when the user does not type anything after `nr` so fallback to empty string
         const results = fzf.find(compWords[1] || '')
@@ -240,22 +229,24 @@ runCli(async (agent, args, ctx) => {
       console.log(rawCompletionScript)
     }
     return
-  }
 
-  if (args[0] === '-') {
-    if (!storage.lastRunCommand) {
-      if (!ctx?.programmatic) {
-        console.error('No last command found')
-        process.exit(1)
-      }
+}
+
+if (args[0] === '-') {
+if (!storage.lastRunCommand) {
+if (!ctx?.programmatic) {
+console.error('No last command found')
+process.exit(1)
+}
 
       throw new Error('No last command found')
     }
     args[0] = storage.lastRunCommand
-  }
 
-  if (args.length === 0 && !ctx?.programmatic) {
-    const raw = readPackageScripts(ctx)
+}
+
+if (args.length === 0 && !ctx?.programmatic) {
+const raw = readPackageScripts(ctx)
 
     const terminalColumns = process.stdout?.columns || 80
 
@@ -298,17 +289,16 @@ runCli(async (agent, args, ctx) => {
     catch {
       process.exit(1)
     }
-  }
 
-  if (storage.lastRunCommand !== args[0]) {
-    storage.lastRunCommand = args[0]
-    dump()
-  }
+}
 
-  return parseNr(agent, args)
+if (storage.lastRunCommand !== args[0]) {
+storage.lastRunCommand = args[0]
+dump()
+}
+
+return parseNr(agent, args)
 })
-
-
 
 ---
 File: /src/commands/nu.ts
@@ -318,8 +308,6 @@ import { parseNu } from '../parse'
 import { runCli } from '../runner'
 
 runCli(parseNu)
-
-
 
 ---
 File: /src/commands/nun.ts
@@ -335,10 +323,10 @@ import { runCli } from '../runner'
 import { exclude } from '../utils'
 
 runCli(async (agent, args, ctx) => {
-  const isInteractive = !args.length && !ctx?.programmatic
+const isInteractive = !args.length && !ctx?.programmatic
 
-  if (isInteractive || args[0] === '-m') {
-    const pkg = getPackageJSON(ctx)
+if (isInteractive || args[0] === '-m') {
+const pkg = getPackageJSON(ctx)
 
     const allDependencies = { ...pkg.dependencies, ...pkg.devDependencies }
 
@@ -396,12 +384,11 @@ runCli(async (agent, args, ctx) => {
     catch {
       process.exit(1)
     }
-  }
 
-  return parseNun(agent, args, ctx)
+}
+
+return parseNun(agent, args, ctx)
 })
-
-
 
 ---
 File: /src/completion.ts
@@ -412,21 +399,19 @@ export const rawCompletionScript = `
 ###-begin-nr-completion-###
 
 if type complete &>/dev/null; then
-  _nr_completion() {
-    local words
-    local cur
-    local cword
-    _get_comp_words_by_ref -n =: cur words cword
-    IFS=$'\\n'
+_nr_completion() {
+local words
+local cur
+local cword
+_get_comp_words_by_ref -n =: cur words cword
+IFS=$'\\n'
     COMPREPLY=($(COMP_CWORD=$cword COMP_LINE=$cur nr --completion \${words[@]}))
-  }
-  complete -F _nr_completion nr
+}
+complete -F _nr_completion nr
 fi
 
 ###-end-nr-completion-###
 `.trim()
-
-
 
 ---
 File: /src/config.ts
@@ -442,34 +427,34 @@ import { detect } from './detect'
 const customRcPath = process.env.NI_CONFIG_FILE
 
 const home = process.platform === 'win32'
-  ? process.env.USERPROFILE
-  : process.env.HOME
+? process.env.USERPROFILE
+: process.env.HOME
 
 const defaultRcPath = path.join(home || '~/', '.nirc')
 
 const rcPath = customRcPath || defaultRcPath
 
 interface Config {
-  defaultAgent: Agent | 'prompt'
-  globalAgent: Agent
+defaultAgent: Agent | 'prompt'
+globalAgent: Agent
 }
 
 const defaultConfig: Config = {
-  defaultAgent: 'prompt',
-  globalAgent: 'npm',
+defaultAgent: 'prompt',
+globalAgent: 'npm',
 }
 
 let config: Config | undefined
 
 export async function getConfig(): Promise<Config> {
-  if (!config) {
-    config = Object.assign(
-      {},
-      defaultConfig,
-      fs.existsSync(rcPath)
-        ? ini.parse(fs.readFileSync(rcPath, 'utf-8'))
-        : null,
-    )
+if (!config) {
+config = Object.assign(
+{},
+defaultConfig,
+fs.existsSync(rcPath)
+? ini.parse(fs.readFileSync(rcPath, 'utf-8'))
+: null,
+)
 
     if (process.env.NI_DEFAULT_AGENT)
       config.defaultAgent = process.env.NI_DEFAULT_AGENT as Agent
@@ -480,24 +465,23 @@ export async function getConfig(): Promise<Config> {
     const agent = await detect({ programmatic: true })
     if (agent)
       config.defaultAgent = agent
-  }
 
-  return config
+}
+
+return config
 }
 
 export async function getDefaultAgent(programmatic?: boolean) {
-  const { defaultAgent } = await getConfig()
-  if (defaultAgent === 'prompt' && (programmatic || process.env.CI))
-    return 'npm'
-  return defaultAgent
+const { defaultAgent } = await getConfig()
+if (defaultAgent === 'prompt' && (programmatic || process.env.CI))
+return 'npm'
+return defaultAgent
 }
 
 export async function getGlobalAgent() {
-  const { globalAgent } = await getConfig()
-  return globalAgent
+const { globalAgent } = await getConfig()
+return globalAgent
 }
-
-
 
 ---
 File: /src/detect.ts
@@ -512,37 +496,38 @@ import { x } from 'tinyexec'
 import { cmdExists } from './utils'
 
 export interface DetectOptions {
-  autoInstall?: boolean
-  programmatic?: boolean
-  cwd?: string
-  /**
-   * Should use Volta when present
-   *
-   * @see https://volta.sh/
-   * @default true
-   */
+autoInstall?: boolean
+programmatic?: boolean
+cwd?: string
+/**
+
+- Should use Volta when present
+-
+- @see https://volta.sh/
+- @default true
+  */
   detectVolta?: boolean
-}
+  }
 
 export async function detect({ autoInstall, programmatic, cwd }: DetectOptions = {}) {
-  const {
-    name,
-    agent,
-    version,
-  } = await detectPM({
-    cwd,
-    onUnknown: (packageManager) => {
-      if (!programmatic) {
-        console.warn('[ni] Unknown packageManager:', packageManager)
-      }
-      return undefined
-    },
-  }) || {}
+const {
+name,
+agent,
+version,
+} = await detectPM({
+cwd,
+onUnknown: (packageManager) => {
+if (!programmatic) {
+console.warn('[ni] Unknown packageManager:', packageManager)
+}
+return undefined
+},
+}) || {}
 
-  // auto install
-  if (name && !cmdExists(name) && !programmatic) {
-    if (!autoInstall) {
-      console.warn(`[ni] Detected ${name} but it doesn't seem to be installed.\n`)
+// auto install
+if (name && !cmdExists(name) && !programmatic) {
+if (!autoInstall) {
+console.warn(`[ni] Detected ${name} but it doesn't seem to be installed.\n`)
 
       if (process.env.CI)
         process.exit(1)
@@ -568,12 +553,11 @@ export async function detect({ autoInstall, programmatic, cwd }: DetectOptions =
         throwOnError: true,
       },
     )
-  }
 
-  return agent
 }
 
-
+return agent
+}
 
 ---
 File: /src/fetch.ts
@@ -585,31 +569,31 @@ import c from 'ansis'
 import { formatPackageWithUrl } from './utils'
 
 export interface NpmPackage {
-  name: string
-  description: string
-  version: string
-  keywords: string[]
-  date: string
-  links: {
-    npm: string
-    homepage: string
-    repository: string
-  }
+name: string
+description: string
+version: string
+keywords: string[]
+date: string
+links: {
+npm: string
+homepage: string
+repository: string
+}
 }
 
 interface NpmRegistryResponse {
-  objects: { package: NpmPackage }[]
+objects: { package: NpmPackage }[]
 }
 
 export async function fetchNpmPackages(pattern: string): Promise<Choice[]> {
-  const registryLink = (pattern: string) =>
-    `https://registry.npmjs.com/-/v1/search?text=${pattern}&size=35`
+const registryLink = (pattern: string) =>
+`https://registry.npmjs.com/-/v1/search?text=${pattern}&size=35`
 
-  const terminalColumns = process.stdout?.columns || 80
+const terminalColumns = process.stdout?.columns || 80
 
-  try {
-    const result = await fetch(registryLink(pattern))
-      .then(res => res.json()) as NpmRegistryResponse
+try {
+const result = await fetch(registryLink(pattern))
+.then(res => res.json()) as NpmRegistryResponse
 
     return result.objects.map(({ package: pkg }) => ({
       title: formatPackageWithUrl(
@@ -619,14 +603,13 @@ export async function fetchNpmPackages(pattern: string): Promise<Choice[]> {
       ),
       value: pkg,
     }))
-  }
-  catch {
-    console.error('Error when fetching npm registry')
-    process.exit(1)
-  }
+
 }
-
-
+catch {
+console.error('Error when fetching npm registry')
+process.exit(1)
+}
+}
 
 ---
 File: /src/fs.ts
@@ -638,27 +621,26 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 
 export function getPackageJSON(ctx?: RunnerContext): any {
-  const cwd = ctx?.cwd ?? process.cwd()
-  const path = resolve(cwd, 'package.json')
+const cwd = ctx?.cwd ?? process.cwd()
+const path = resolve(cwd, 'package.json')
 
-  if (fs.existsSync(path)) {
-    try {
-      const raw = fs.readFileSync(path, 'utf-8')
-      const data = JSON.parse(raw)
-      return data
-    }
-    catch (e) {
-      if (!ctx?.programmatic) {
-        console.warn('Failed to parse package.json')
-        process.exit(1)
-      }
+if (fs.existsSync(path)) {
+try {
+const raw = fs.readFileSync(path, 'utf-8')
+const data = JSON.parse(raw)
+return data
+}
+catch (e) {
+if (!ctx?.programmatic) {
+console.warn('Failed to parse package.json')
+process.exit(1)
+}
 
       throw e
     }
-  }
+
 }
-
-
+}
 
 ---
 File: /src/index.ts
@@ -673,8 +655,6 @@ export * from './utils'
 export * from 'package-manager-detector/commands'
 export * from 'package-manager-detector/constants'
 
-
-
 ---
 File: /src/parse.ts
 ---
@@ -685,103 +665,101 @@ import { COMMANDS, constructCommand } from '.'
 import { exclude } from './utils'
 
 export class UnsupportedCommand extends Error {
-  constructor({ agent, command }: { agent: Agent, command: Command }) {
-    super(`Command "${command}" is not support by agent "${agent}"`)
-  }
+constructor({ agent, command }: { agent: Agent, command: Command }) {
+super(`Command "${command}" is not support by agent "${agent}"`)
+}
 }
 
 export function getCommand(
-  agent: Agent,
-  command: Command,
-  args: string[] = [],
+agent: Agent,
+command: Command,
+args: string[] = [],
 ): ResolvedCommand {
-  if (!COMMANDS[agent])
-    throw new Error(`Unsupported agent "${agent}"`)
-  if (!COMMANDS[agent][command])
-    throw new UnsupportedCommand({ agent, command })
+if (!COMMANDS[agent])
+throw new Error(`Unsupported agent "${agent}"`)
+if (!COMMANDS[agent][command])
+throw new UnsupportedCommand({ agent, command })
 
-  return constructCommand(COMMANDS[agent][command], args)!
+return constructCommand(COMMANDS[agent][command], args)!
 }
 
 export const parseNi = <Runner>((agent, args, ctx) => {
-  // bun use `-d` instead of `-D`, #90
-  if (agent === 'bun')
-    args = args.map(i => i === '-D' ? '-d' : i)
+// bun use `-d` instead of `-D`, #90
+if (agent === 'bun')
+args = args.map(i => i === '-D' ? '-d' : i)
 
-  // npm use `--omit=dev` instead of `--production`
-  if (agent === 'npm')
-    args = args.map(i => i === '-P' ? '--omit=dev' : i)
+// npm use `--omit=dev` instead of `--production`
+if (agent === 'npm')
+args = args.map(i => i === '-P' ? '--omit=dev' : i)
 
-  if (args.includes('-P'))
-    args = args.map(i => i === '-P' ? '--production' : i)
+if (args.includes('-P'))
+args = args.map(i => i === '-P' ? '--production' : i)
 
-  if (args.includes('-g'))
-    return getCommand(agent, 'global', exclude(args, '-g'))
+if (args.includes('-g'))
+return getCommand(agent, 'global', exclude(args, '-g'))
 
-  if (args.includes('--frozen-if-present')) {
-    args = exclude(args, '--frozen-if-present')
-    return getCommand(agent, ctx?.hasLock ? 'frozen' : 'install', args)
-  }
+if (args.includes('--frozen-if-present')) {
+args = exclude(args, '--frozen-if-present')
+return getCommand(agent, ctx?.hasLock ? 'frozen' : 'install', args)
+}
 
-  if (args.includes('--frozen'))
-    return getCommand(agent, 'frozen', exclude(args, '--frozen'))
+if (args.includes('--frozen'))
+return getCommand(agent, 'frozen', exclude(args, '--frozen'))
 
-  if (args.length === 0 || args.every(i => i.startsWith('-')))
-    return getCommand(agent, 'install', args)
+if (args.length === 0 || args.every(i => i.startsWith('-')))
+return getCommand(agent, 'install', args)
 
-  return getCommand(agent, 'add', args)
+return getCommand(agent, 'add', args)
 })
 
 export const parseNr = <Runner>((agent, args) => {
-  if (args.length === 0)
-    args.push('start')
+if (args.length === 0)
+args.push('start')
 
-  let hasIfPresent = false
-  if (args.includes('--if-present')) {
-    args = exclude(args, '--if-present')
-    hasIfPresent = true
-  }
+let hasIfPresent = false
+if (args.includes('--if-present')) {
+args = exclude(args, '--if-present')
+hasIfPresent = true
+}
 
-  const cmd = getCommand(agent, 'run', args)
-  if (!cmd)
-    return cmd
+const cmd = getCommand(agent, 'run', args)
+if (!cmd)
+return cmd
 
-  if (hasIfPresent)
-    cmd.args.splice(1, 0, '--if-present')
+if (hasIfPresent)
+cmd.args.splice(1, 0, '--if-present')
 
-  return cmd
+return cmd
 })
 
 export const parseNu = <Runner>((agent, args) => {
-  if (args.includes('-i'))
-    return getCommand(agent, 'upgrade-interactive', exclude(args, '-i'))
+if (args.includes('-i'))
+return getCommand(agent, 'upgrade-interactive', exclude(args, '-i'))
 
-  return getCommand(agent, 'upgrade', args)
+return getCommand(agent, 'upgrade', args)
 })
 
 export const parseNun = <Runner>((agent, args) => {
-  if (args.includes('-g'))
-    return getCommand(agent, 'global_uninstall', exclude(args, '-g'))
-  return getCommand(agent, 'uninstall', args)
+if (args.includes('-g'))
+return getCommand(agent, 'global_uninstall', exclude(args, '-g'))
+return getCommand(agent, 'uninstall', args)
 })
 
 export const parseNlx = <Runner>((agent, args) => {
-  return getCommand(agent, 'execute', args)
+return getCommand(agent, 'execute', args)
 })
 
 export const parseNa = <Runner>((agent, args) => {
-  return getCommand(agent, 'agent', args)
+return getCommand(agent, 'agent', args)
 })
 
 export function serializeCommand(command?: ResolvedCommand) {
-  if (!command)
-    return undefined
-  if (command.args.length === 0)
-    return command.command
-  return `${command.command} ${command.args.map(i => i.includes(' ') ? `"${i}"` : i).join(' ')}`
+if (!command)
+return undefined
+if (command.args.length === 0)
+return command.command
+return `${command.command} ${command.args.map(i => i.includes(' ') ?`"${i}"`: i).join(' ')}`
 }
-
-
 
 ---
 File: /src/runner.ts
@@ -806,98 +784,99 @@ import { cmdExists, remove } from './utils'
 const DEBUG_SIGN = '?'
 
 export interface RunnerContext {
-  programmatic?: boolean
-  hasLock?: boolean
-  cwd?: string
+programmatic?: boolean
+hasLock?: boolean
+cwd?: string
 }
 
 export type Runner = (agent: Agent, args: string[], ctx?: RunnerContext) => Promise<ResolvedCommand | undefined> | ResolvedCommand | undefined
 
 export async function runCli(fn: Runner, options: DetectOptions & { args?: string[] } = {}) {
-  const {
-    args = process.argv.slice(2).filter(Boolean),
-  } = options
-  try {
-    await run(fn, args, options)
-  }
-  catch (error) {
-    if (error instanceof UnsupportedCommand && !options.programmatic)
-      console.log(c.red(`\u2717 ${error.message}`))
+const {
+args = process.argv.slice(2).filter(Boolean),
+} = options
+try {
+await run(fn, args, options)
+}
+catch (error) {
+if (error instanceof UnsupportedCommand && !options.programmatic)
+console.log(c.red(`\u2717 ${error.message}`))
 
     if (!options.programmatic)
       process.exit(1)
 
     throw error
-  }
+
+}
 }
 
 export async function getCliCommand(
-  fn: Runner,
-  args: string[],
-  options: DetectOptions = {},
-  cwd: string = options.cwd ?? process.cwd(),
+fn: Runner,
+args: string[],
+options: DetectOptions = {},
+cwd: string = options.cwd ?? process.cwd(),
 ) {
-  const isGlobal = args.includes('-g')
-  if (isGlobal)
-    return await fn(await getGlobalAgent(), args)
+const isGlobal = args.includes('-g')
+if (isGlobal)
+return await fn(await getGlobalAgent(), args)
 
-  let agent = (await detect({ ...options, cwd })) || (await getDefaultAgent(options.programmatic))
-  if (agent === 'prompt') {
-    agent = (
-      await prompts({
-        name: 'agent',
-        type: 'select',
-        message: 'Choose the agent',
-        choices: AGENTS.filter(i => !i.includes('@')).map(value => ({ title: value, value })),
-      })
-    ).agent
-    if (!agent)
-      return
-  }
+let agent = (await detect({ ...options, cwd })) || (await getDefaultAgent(options.programmatic))
+if (agent === 'prompt') {
+agent = (
+await prompts({
+name: 'agent',
+type: 'select',
+message: 'Choose the agent',
+choices: AGENTS.filter(i => !i.includes('@')).map(value => ({ title: value, value })),
+})
+).agent
+if (!agent)
+return
+}
 
-  return await fn(agent as Agent, args, {
-    programmatic: options.programmatic,
-    hasLock: Boolean(agent),
-    cwd,
-  })
+return await fn(agent as Agent, args, {
+programmatic: options.programmatic,
+hasLock: Boolean(agent),
+cwd,
+})
 }
 
 export async function run(fn: Runner, args: string[], options: DetectOptions = {}) {
-  const {
-    detectVolta = true,
-  } = options
+const {
+detectVolta = true,
+} = options
 
-  const debug = args.includes(DEBUG_SIGN)
-  if (debug)
-    remove(args, DEBUG_SIGN)
+const debug = args.includes(DEBUG_SIGN)
+if (debug)
+remove(args, DEBUG_SIGN)
 
-  let cwd = options.cwd ?? process.cwd()
-  if (args[0] === '-C') {
-    cwd = resolve(cwd, args[1])
-    args.splice(0, 2)
-  }
+let cwd = options.cwd ?? process.cwd()
+if (args[0] === '-C') {
+cwd = resolve(cwd, args[1])
+args.splice(0, 2)
+}
 
-  if (args.length === 1 && (args[0]?.toLowerCase() === '-v' || args[0] === '--version')) {
-    const getCmd = (a: Agent) => AGENTS.includes(a)
-      ? getCommand(a, 'agent', ['-v'])
-      : { command: a, args: ['-v'] }
-    const xVersionOptions = {
-      nodeOptions: {
-        cwd,
-      },
-      throwOnError: true,
-    } satisfies Partial<TinyExecOptions>
-    const getV = (a: string) => {
-      const { command, args } = getCmd(a as Agent)
-      return x(command, args, xVersionOptions)
-        .then(e => e.stdout)
-        .then(e => e.startsWith('v') ? e : `v${e}`)
-    }
-    const globalAgentPromise = getGlobalAgent()
-    const globalAgentVersionPromise = globalAgentPromise.then(getV)
-    const agentPromise = detect({ ...options, cwd }).then(a => a || '')
-    const agentVersionPromise = agentPromise.then(a => a && getV(a))
-    const nodeVersionPromise = getV('node')
+if (args.length === 1 && (args[0]?.toLowerCase() === '-v' || args[0] === '--version')) {
+const getCmd = (a: Agent) => AGENTS.includes(a)
+? getCommand(a, 'agent', ['-v'])
+: { command: a, args: ['-v'] }
+const xVersionOptions = {
+nodeOptions: {
+cwd,
+},
+throwOnError: true,
+} satisfies Partial<TinyExecOptions>
+const getV = (a: string) => {
+const { command, args } = getCmd(a as Agent)
+return x(command, args, xVersionOptions)
+.then(e => e.stdout)
+.then(e => e.startsWith('v') ? e : `v${e}`)
+}
+const globalAgentPromise = getGlobalAgent()
+const globalAgentVersionPromise = globalAgentPromise.then(getV)
+const agentPromise = detect({ ...options, cwd }).then(a => a || '')
+const agentVersionPromise = agentPromise.then(a => a && getV(a))
+const nodeVersionPromise = getV('node')
 
     console.log(`@antfu/ni  ${c.cyan`v${version}`}`)
     console.log(`node       ${c.green(await nodeVersionPromise)}`)
@@ -909,53 +888,52 @@ export async function run(fn: Runner, args: string[], options: DetectOptions = {
     const [globalAgent, globalAgentVersion] = await Promise.all([globalAgentPromise, globalAgentVersionPromise])
     console.log(`${(`${globalAgent} -g`).padEnd(10)} ${c.blue(globalAgentVersion)}`)
     return
-  }
 
-  if (args.length === 1 && ['-h', '--help'].includes(args[0])) {
-    const dash = c.dim('-')
-    console.log(c.green.bold('@antfu/ni') + c.dim` use the right package manager v${version}\n`)
-    console.log(`ni    ${dash}  install`)
-    console.log(`nr    ${dash}  run`)
-    console.log(`nlx   ${dash}  execute`)
-    console.log(`nu    ${dash}  upgrade`)
-    console.log(`nun   ${dash}  uninstall`)
-    console.log(`nci   ${dash}  clean install`)
-    console.log(`na    ${dash}  agent alias`)
-    console.log(`ni -v ${dash}  show used agent`)
-    console.log(`ni -i ${dash}  interactive package management`)
-    console.log(c.yellow('\ncheck https://github.com/antfu/ni for more documentation.'))
-    return
-  }
-
-  const command = await getCliCommand(fn, args, options, cwd)
-
-  if (!command)
-    return
-
-  if (detectVolta && cmdExists('volta')) {
-    command.args = ['run', command.command, ...command.args]
-    command.command = 'volta'
-  }
-
-  if (debug) {
-    console.log(command)
-    return
-  }
-
-  await x(
-    command.command,
-    command.args,
-    {
-      nodeOptions: {
-        stdio: 'inherit',
-        cwd,
-      },
-      throwOnError: true,
-    },
-  )
 }
 
+if (args.length === 1 && ['-h', '--help'].includes(args[0])) {
+const dash = c.dim('-')
+console.log(c.green.bold('@antfu/ni') + c.dim`use the right package manager v${version}\n`)
+console.log(`ni    ${dash}  install`)
+console.log(`nr    ${dash}  run`)
+console.log(`nlx   ${dash}  execute`)
+console.log(`nu    ${dash}  upgrade`)
+console.log(`nun   ${dash}  uninstall`)
+console.log(`nci   ${dash}  clean install`)
+console.log(`na    ${dash}  agent alias`)
+console.log(`ni -v ${dash}  show used agent`)
+console.log(`ni -i ${dash}  interactive package management`)
+console.log(c.yellow('\ncheck https://github.com/antfu/ni for more documentation.'))
+return
+}
 
+const command = await getCliCommand(fn, args, options, cwd)
+
+if (!command)
+return
+
+if (detectVolta && cmdExists('volta')) {
+command.args = ['run', command.command, ...command.args]
+command.command = 'volta'
+}
+
+if (debug) {
+console.log(command)
+return
+}
+
+await x(
+command.command,
+command.args,
+{
+nodeOptions: {
+stdio: 'inherit',
+cwd,
+},
+throwOnError: true,
+},
+)
+}
 
 ---
 File: /src/storage.ts
@@ -966,7 +944,7 @@ import { resolve } from 'node:path'
 import { CLI_TEMP_DIR, writeFileSafe } from './utils'
 
 export interface Storage {
-  lastRunCommand?: string
+lastRunCommand?: string
 }
 
 let storage: Storage | undefined
@@ -974,26 +952,24 @@ let storage: Storage | undefined
 const storagePath = resolve(CLI_TEMP_DIR, '_storage.json')
 
 export async function load(fn?: (storage: Storage) => Promise<boolean> | boolean) {
-  if (!storage) {
-    storage = existsSync(storagePath)
-      ? (JSON.parse(await fs.readFile(storagePath, 'utf-8') || '{}') || {})
-      : {}
-  }
+if (!storage) {
+storage = existsSync(storagePath)
+? (JSON.parse(await fs.readFile(storagePath, 'utf-8') || '{}') || {})
+: {}
+}
 
-  if (fn) {
-    if (await fn(storage!))
-      await dump()
-  }
+if (fn) {
+if (await fn(storage!))
+await dump()
+}
 
-  return storage!
+return storage!
 }
 
 export async function dump() {
-  if (storage)
-    await writeFileSafe(storagePath, JSON.stringify(storage))
+if (storage)
+await writeFileSafe(storagePath, JSON.stringify(storage))
 }
-
-
 
 ---
 File: /src/utils.ts
@@ -1011,104 +987,105 @@ import which from 'which'
 export const CLI_TEMP_DIR = join(os.tmpdir(), 'antfu-ni')
 
 export function remove<T>(arr: T[], v: T) {
-  const index = arr.indexOf(v)
-  if (index >= 0)
-    arr.splice(index, 1)
+const index = arr.indexOf(v)
+if (index >= 0)
+arr.splice(index, 1)
 
-  return arr
+return arr
 }
 
 export function exclude<T>(arr: T[], ...v: T[]) {
-  return arr.slice().filter(item => !v.includes(item))
+return arr.slice().filter(item => !v.includes(item))
 }
 
 export function cmdExists(cmd: string) {
-  return which.sync(cmd, { nothrow: true }) !== null
+return which.sync(cmd, { nothrow: true }) !== null
 }
 
 interface TempFile {
-  path: string
-  fd: fs.FileHandle
-  cleanup: () => void
+path: string
+fd: fs.FileHandle
+cleanup: () => void
 }
 
 let counter = 0
 
 async function openTemp(): Promise<TempFile | undefined> {
-  if (!existsSync(CLI_TEMP_DIR))
-    await fs.mkdir(CLI_TEMP_DIR, { recursive: true })
+if (!existsSync(CLI_TEMP_DIR))
+await fs.mkdir(CLI_TEMP_DIR, { recursive: true })
 
-  const competitivePath = join(CLI_TEMP_DIR, `.${process.pid}.${counter}`)
-  counter += 1
+const competitivePath = join(CLI_TEMP_DIR, `.${process.pid}.${counter}`)
+counter += 1
 
-  return fs.open(competitivePath, 'wx')
-    .then(fd => ({
-      fd,
-      path: competitivePath,
-      cleanup() {
-        fd.close().then(() => {
-          if (existsSync(competitivePath))
-            fs.unlink(competitivePath)
-        })
-      },
-    }))
-    .catch((error: any) => {
-      if (error && error.code === 'EEXIST')
-        return openTemp()
+return fs.open(competitivePath, 'wx')
+.then(fd => ({
+fd,
+path: competitivePath,
+cleanup() {
+fd.close().then(() => {
+if (existsSync(competitivePath))
+fs.unlink(competitivePath)
+})
+},
+}))
+.catch((error: any) => {
+if (error && error.code === 'EEXIST')
+return openTemp()
 
       else
         return undefined
     })
+
 }
 
 /**
- * Write file safely avoiding conflicts
- */
-export async function writeFileSafe(
+
+- Write file safely avoiding conflicts
+  */
+  export async function writeFileSafe(
   path: string,
   data: string | Buffer = '',
-): Promise<boolean> {
+  ): Promise<boolean> {
   const temp = await openTemp()
 
-  if (temp) {
-    fs.writeFile(temp.path, data)
-      .then(() => {
-        const directory = dirname(path)
-        if (!existsSync(directory))
-          fs.mkdir(directory, { recursive: true })
+if (temp) {
+fs.writeFile(temp.path, data)
+.then(() => {
+const directory = dirname(path)
+if (!existsSync(directory))
+fs.mkdir(directory, { recursive: true })
 
-        return fs.rename(temp.path, path)
-          .then(() => true)
-          .catch(() => false)
-      })
-      .catch(() => false)
-      .finally(temp.cleanup)
-  }
+      return fs.rename(temp.path, path)
+        .then(() => true)
+        .catch(() => false)
+    })
+    .catch(() => false)
+    .finally(temp.cleanup)
 
-  return false
+}
+
+return false
 }
 
 export function limitText(text: string, maxWidth: number) {
-  if (text.length <= maxWidth)
-    return text
-  return `${text.slice(0, maxWidth)}${c.dim('…')}`
+if (text.length <= maxWidth)
+return text
+return `${text.slice(0, maxWidth)}${c.dim('…')}`
 }
 
 export function formatPackageWithUrl(pkg: string, url?: string, limits = 80) {
-  return url
-    ? terminalLink(
-        pkg,
-        url,
-        {
-          fallback: (_, url) => (pkg.length + url.length > limits)
-            ? pkg
-            : pkg + c.dim` - ${url}`,
-        },
-      )
-    : pkg
+return url
+? terminalLink(
+pkg,
+url,
+{
+fallback: (_, url) => (pkg.length + url.length > limits)
+? pkg
+: pkg + c.dim`- ${url}`,
+},
+)
+: pkg
 }
-
-
 
 ---
 File: /build.config.ts
@@ -1119,25 +1096,23 @@ import { globSync } from 'tinyglobby'
 import { defineBuildConfig } from 'unbuild'
 
 export default defineBuildConfig({
-  entries: globSync(
-    ['src/commands/*.ts'],
-    { expandDirectories: false },
-  ).map(i => ({
-    input: i.slice(0, -3),
-    name: basename(i).slice(0, -3),
-  })),
-  clean: true,
-  declaration: true,
-  rollup: {
-    emitCJS: true,
-    inlineDependencies: true,
-    commonjs: {
-      exclude: ['**/*.d.ts'],
-    },
-  },
+entries: globSync(
+['src/commands/_.ts'],
+{ expandDirectories: false },
+).map(i => ({
+input: i.slice(0, -3),
+name: basename(i).slice(0, -3),
+})),
+clean: true,
+declaration: true,
+rollup: {
+emitCJS: true,
+inlineDependencies: true,
+commonjs: {
+exclude: ['**/_.d.ts'],
+},
+},
 })
-
-
 
 ---
 File: /README.md
@@ -1145,7 +1120,7 @@ File: /README.md
 
 # ni
 
-~~*`npm i` in a yarn project, again? F\*\*k!*~~
+~~_`npm i` in a yarn project, again? F\*\*k!_~~
 
 **ni** - use the right package manager
 
@@ -1481,4 +1456,3 @@ alias nx="nlx"
 # or
 alias nix="nlx"
 ```
-
