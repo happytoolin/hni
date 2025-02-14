@@ -2952,7 +2952,615 @@ _****_
 
 
 
-Great
+Great! The NPM and PNPM execute command fixes worked. Now we need to fix the argument handling in the remaining package managers. The issue is that arguments like `dev --port=3000` are being treated as a single string instead of separate arguments.
+
+Let me fix the Deno implementation first:
+
+---
+
+_****_
+
+```diff
+  impl CommandExecutor for DenoExecutor {
+      fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["task".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["task".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["install".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["install".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["add".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["add".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["run".to_string(), "npm:".to_string() + args[0]];
++         if args.len() > 1 {
++             command_args.extend(args[1..].iter().map(|s| s.to_string()));
++         }
++         
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["run".to_string(), format!("npm:{}", args[0])],
++             args: command_args,
+          })
+      }
+  
+      fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+-         // Deno doesn't have a direct "update" command.  Needs workaround.
++         let mut command_args = vec!["update".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["update".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+-         // Deno doesn't have a direct "remove" command. Needs workaround.
++         let mut command_args = vec!["remove".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["remove".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+-     fn clean_install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++     fn clean_install(&self, _args: Vec<&str>) -> Option<ResolvedCommand> {
+          Some(ResolvedCommand {
+              bin: "deno".to_string(),
+-             args: vec!["install".to_string(), args.join(" ").to_string()],
++             args: vec!["install".to_string()],
+          })
+      }
+```
+
+---
+
+_****_
+
+
+
+Now let me fix the PNPM6 implementation:
+
+---
+
+_****_
+
+```diff
+  impl CommandExecutor for Pnpm6Executor {
+      fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["run".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "pnpm".to_string(),
+-             args: vec!["run".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["install".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "pnpm".to_string(),
+-             args: vec!["install".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["add".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "pnpm".to_string(),
+-             args: vec!["add".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["dlx".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "pnpm".to_string(),
+-             args: vec!["dlx".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["update".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "pnpm".to_string(),
+-             args: vec!["update".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["remove".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "pnpm".to_string(),
+-             args: vec!["remove".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+```
+
+---
+
+_****_
+
+
+
+
+
+Now let me fix the Yarn and Yarn Berry implementations:
+
+---
+
+_****_
+
+```diff
+  impl CommandExecutor for YarnExecutor {
+      fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["run".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["run".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["install".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["install".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["add".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["add".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["exec".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["exec".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["upgrade".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["upgrade".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["remove".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["remove".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+```
+
+---
+
+_****_
+
+```diff
+  impl CommandExecutor for YarnBerryExecutor {
+      fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["run".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["run".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["install".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["install".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["add".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["add".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["exec".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["exec".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["up".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["up".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+  
+      fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
++         let mut command_args = vec!["remove".to_string()];
++         command_args.extend(args.iter().map(|s| s.to_string()));
++         
+          Some(ResolvedCommand {
+              bin: "yarn".to_string(),
+-             args: vec!["remove".to_string(), args.join(" ").to_string()],
++             args: command_args,
+          })
+      }
+```
+
+---
+
+_****_
+
+
+
+
+
+Now let me run the tests again to verify all the fixes:
+
+---
+
+_****_
+
+```bash
+cargo test
+```
+
+```
+
+nirs on  main [$!+] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
+❯ cargo test
+   Compiling nirs v0.1.0 (/home/spark/Codes/nirs)
+warning: variable does not need to be mutable
+  --> src/package_managers/npm.rs:39:13
+   |
+39 | ...   let mut command_args = args.iter().map(|s| s.to_string()).coll...
+   |           ----^^^^^^^^^^^^
+   |           |
+   |           help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: `nirs` (lib) generated 1 warning (1 duplicate)
+warning: `nirs` (lib test) generated 1 warning (run `cargo fix --lib -p nirs
+ --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.83s
+     Running unittests src/lib.rs (target/debug/deps/nirs-ae909a7379028eb0)
+
+running 10 tests
+test tests::tests::test_bun_commands ... ok
+test tests::tests::test_edge_cases ... ok
+test tests::tests::test_interactive_uninstall ... ok
+test tests::tests::test_pnpm6_commands ... ok
+test tests::tests::test_deno_commands ... ok
+test tests::tests::test_interactive_upgrade ... ok
+test tests::tests::test_npm_commands ... ok
+test tests::tests::test_pnpm_commands ... ok
+test tests::tests::test_yarn_berry_commands ... ok
+test tests::tests::test_yarn_commands ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;
+ finished in 0.00s
+
+     Running unittests src/bin/na.rs (target/debug/deps/na-92da8f9e4891ac24)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nci.rs (target/debug/deps/nci-d4780a53154e32d
+8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/ni.rs (target/debug/deps/ni-5e67365ac4d6da98)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/nirs-60f7c32b321101bc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nlx.rs (target/debug/deps/nlx-8d58daca935c1d8
+0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nr.rs (target/debug/deps/nr-b90328760b842f5e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nu.rs (target/debug/deps/nu-bbe0e6a7663c4409)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nun.rs (target/debug/deps/nun-3dc8768de54cace
+9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+   Doc-tests nirs
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+
+nirs on  main [$!+] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 took 3s 
+❯
+```
+
+---
+
+_****_
+
+
+
+Great! All tests are now passing. Here's a summary of the changes I made:
+
+1. Fixed NPM execute command to use `npx` instead of `npm exec`
+2. Fixed PNPM execute command to use `dlx` instead of `exec`
+3. Updated argument handling in all package managers to preserve spaces between arguments by:
+   - Using `extend` with `map` instead of `join(" ")`
+   - Properly handling command prefixes and arguments separately
+   - Ensuring consistent argument handling across all package managers
+
+The only remaining warning is about an unnecessary `mut` in the NPM implementation, which doesn't affect functionality. Would you like me to fix that warning as the NPM implementation:
+
+---
+
+_****_
+
+```diff
+  
+      fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
+-         let mut command_args = args.iter().map(|s| s.to_string()).collect();
++         let command_args = args.iter().map(|s| s.to_string()).collect();
+          
+          Some(ResolvedCommand {
+```
+
+---
+
+_****_
+
+The only remaining warning is about an unnecessary `mut` in the NPM implementation, which doesn't affect functionality. Would you like me to fix that warning as are no warnings:
+
+---
+
+_****_
+
+```bash
+cargo test
+```
+
+```
+
+nirs on  main [$!⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 
+❯ cargo test
+   Compiling nirs v0.1.0 (/home/spark/Codes/nirs)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+     Running unittests src/lib.rs (target/debug/deps/nirs-ae909a7379028eb0)
+
+running 10 tests
+test tests::tests::test_bun_commands ... ok
+test tests::tests::test_deno_commands ... ok
+test tests::tests::test_edge_cases ... ok
+test tests::tests::test_interactive_uninstall ... ok
+test tests::tests::test_interactive_upgrade ... ok
+test tests::tests::test_npm_commands ... ok
+test tests::tests::test_pnpm6_commands ... ok
+test tests::tests::test_pnpm_commands ... ok
+test tests::tests::test_yarn_berry_commands ... ok
+test tests::tests::test_yarn_commands ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;
+ finished in 0.00s
+
+     Running unittests src/bin/na.rs (target/debug/deps/na-92da8f9e4891ac24)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nci.rs (target/debug/deps/nci-d4780a53154e32d
+8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/ni.rs (target/debug/deps/ni-5e67365ac4d6da98)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/nirs-60f7c32b321101bc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nlx.rs (target/debug/deps/nlx-8d58daca935c1d8
+0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nr.rs (target/debug/deps/nr-b90328760b842f5e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nu.rs (target/debug/deps/nu-bbe0e6a7663c4409)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+     Running unittests src/bin/nun.rs (target/debug/deps/nun-3dc8768de54cace
+9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+   Doc-tests nirs
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; 
+finished in 0.00s
+
+
+nirs on  main [$!⇡] is 📦 v0.1.0 via  v23.7.0 via 🦀 v1.84.1 took 2s 
+❯
+```
+
+---
+
+_****_
+
+The only remaining warning is about an unnecessary `mut` in the NPM implementation, which doesn't affect functionality. Would you like me to fix that warning asd like me to help you with?
+
+---
+
+_**User**_
+
+❯ cargo run --bin ni react -D
+
+Can you run all of the commands and various combos to see if its working, for all of them, in @bin 
+
+---
+
+_**Assistant**_
+
+
 
 ---
 
