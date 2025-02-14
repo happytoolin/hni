@@ -167,6 +167,10 @@ jobs:
             --prerelease=${{ github.event.inputs.is_prerelease }} \
             artifacts/*/*
 
+      - name: Update the Cargo.toml
+        run: |
+          sed -i "s/^version = .*/version = \"${NEW_VERSION}\"/" Cargo.toml
+
       - name: Update Cargo.toml and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
