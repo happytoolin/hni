@@ -46,8 +46,6 @@ _****_
 
 _****_
 
-
-
 I see there's a new borrow error related to the `child` variable. Let me fix that by properly handling the ownership:
 
 ---
@@ -75,8 +73,6 @@ _****_
 
 _****_
 
-
-
 I see the issue now. We need to store the child process handle before taking its stdout and stderr. Let me fix this:
 
 ---
@@ -103,8 +99,6 @@ _****_
 ---
 
 _****_
-
-
 
 I apologize for the confusion. It seems that `Child` processes cannot be cloned in Rust. Let's restructure the code to maintain proper ownership:
 
@@ -135,8 +129,6 @@ _****_
 ---
 
 _****_
-
-
 
 I see the issue now. The problem is that we're trying to use `child` after it's been moved. Let's fix this by waiting on the child process directly instead of storing it:
 
@@ -170,10 +162,6 @@ _****_
 ---
 
 _****_
-
-
-
-
 
 I see the issue. We need to handle the locking scope properly. Let me fix this one last time:
 
@@ -220,8 +208,6 @@ _****_
 
 _****_
 
-
-
 Great! The code should now compile successfully. Here's what I fixed:
 
 1. Fixed the `capture_output` function signature and its usage
@@ -239,7 +225,7 @@ Try running `cargo build` now - it should compile without errors. The process ma
 
 _**User**_
 
-@np.rs 
+@np.rs
 
 ---
 
@@ -259,14 +245,11 @@ _****_
 - use std::sync::{Arc, Mutex};
 + use std::sync::Arc;
   use std::time::Duration;
-  
 ```
 
 ---
 
 _****_
-
-
 
 I see we need to fix the UI module to also use `parking_lot::Mutex`. Let me check the UI implementation first:
 
@@ -279,8 +262,6 @@ Read file: src/ui.rs
 ---
 
 _****_
-
-
 
 Now I see the full picture. We need to update both the UI module and the np binary to consistently use `parking_lot::Mutex`. Let me fix both files:
 
@@ -306,10 +287,6 @@ _****_
 
 _****_
 
-
-
-
-
 I see the issue. The `parking_lot::Mutex` doesn't use `unwrap()` as it returns the guard directly. Let me fix that:
 
 ---
@@ -334,8 +311,6 @@ _****_
 ---
 
 _****_
-
-
 
 Now let's try building again. The changes we've made:
 
@@ -474,14 +449,11 @@ _****_
 +         );
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I've added three test cases to verify process termination:
 
@@ -521,20 +493,21 @@ _****_
 
 _****_
 
-
-
 Now when you press 'q' to exit:
+
 1. The TUI will call `terminate_processes()` on the process manager
 2. All child processes will be killed
 3. Their resources (including ports) will be released
 4. The terminal will be restored to its original state
 
 You can run the tests with:
+
 ```bash
 cargo test
 ```
 
 The tests will verify that:
+
 - Processes are properly terminated
 - Port resources are released
 - Process output is captured correctly
@@ -728,8 +701,6 @@ _****_
 
 _****_
 
-
-
 I've made several improvements to make the tests more reliable:
 
 1. Added helper functions:
@@ -762,7 +733,7 @@ Note: These tests assume Python 3 is installed on the system, which is a more re
 
 _**User**_
 
-i think you are too  much stuck on ports, just check if the process it starts are cleaned successfully or not
+i think you are too much stuck on ports, just check if the process it starts are cleaned successfully or not
 
 ---
 
@@ -973,8 +944,6 @@ _****_
 
 _****_
 
-
-
 I've completely rewritten the tests to focus on process cleanup. The key changes are:
 
 1. Added `is_process_running` helper function that works on both Unix and Windows:
@@ -999,16 +968,19 @@ I've completely rewritten the tests to focus on process cleanup. The key changes
    - Checks that some output was captured
 
 The tests now focus on what's important:
+
 - Process termination
 - Handle cleanup
 - Output capture
 
 Try running the tests again with:
+
 ```bash
 cargo test
 ```
 
 These tests should be more reliable as they:
+
 1. Don't depend on network ports
 2. Use simple, reliable commands (`sleep` and basic shell commands)
 3. Directly verify process cleanup
@@ -1018,7 +990,7 @@ These tests should be more reliable as they:
 
 _**User**_
 
-also handle the closing or tui, it keeps running, and ive to manually quit 
+also handle the closing or tui, it keeps running, and ive to manually quit
 
 ---
 
@@ -1114,8 +1086,6 @@ _****_
 
 _****_
 
-
-
 We need to add the `ctrlc` dependency to `Cargo.toml`. Let me do that:
 
 ---
@@ -1123,7 +1093,6 @@ We need to add the `ctrlc` dependency to `Cargo.toml`. Let me do that:
 _****_
 
 ```diff
-  
   [dependencies]
 - anyhow = "1.0.95"
 + anyhow = "1.0"
@@ -1152,8 +1121,6 @@ _****_
 
 _****_
 
-
-
 I've made several improvements to handle TUI cleanup properly:
 
 1. Added signal handling:
@@ -1170,17 +1137,20 @@ I've made several improvements to handle TUI cleanup properly:
    - Added explicit cleanup steps with logging
 
 Now the TUI will properly clean up in these scenarios:
+
 1. User presses 'q' to quit
 2. User presses Ctrl+C
 3. Program encounters an error
 
 The cleanup sequence is:
+
 1. Stop the main event loop
 2. Terminate all running processes
 3. Restore the terminal to its original state
 4. Clean up any remaining resources
 
 Try running the program again. You should be able to:
+
 1. Exit cleanly with 'q'
 2. Exit cleanly with Ctrl+C
 3. See the terminal restored properly in both cases
@@ -1209,8 +1179,6 @@ cargo run --bin np "sleep 100" "echo 'test' && sleep 100"
 ```
 
 ```
-
-
 $(/home/linuxbrew/.linuxbrew/bin/starship prompt --terminal-width="$COLUMNS"
  --keymap="${KEYMAP:-}" --status="$STARSHIP_CMD_STATUS" --pipestatus="${STAR
 SHIP_PIPE_STATUS[*]}" --cmd-duration="${STARSHIP_DURATION:-}" --jobs="$STARS
@@ -1233,8 +1201,6 @@ nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 ---
 
 _****_
-
-
 
 I see there's a compilation error in the UI code. Let me fix that first:
 
@@ -1269,8 +1235,6 @@ _****_
 
 _****_
 
-
-
 Now let me try running the program again:
 
 ---
@@ -1285,11 +1249,6 @@ cargo run --bin np "sleep 100" "echo 'test' && sleep 100"
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

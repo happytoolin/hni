@@ -1,63 +1,61 @@
 Directory Structure:
 
 └── ./
-    └── crates
-        └── turborepo-ui
-            └── src
-                ├── tui
-                │   ├── app.rs
-                │   ├── clipboard.rs
-                │   ├── debouncer.rs
-                │   ├── event.rs
-                │   ├── handle.rs
-                │   ├── input.rs
-                │   ├── mod.rs
-                │   ├── pane.rs
-                │   ├── popup.rs
-                │   ├── preferences.rs
-                │   ├── search.rs
-                │   ├── size.rs
-                │   ├── spinner.rs
-                │   ├── state.rs
-                │   ├── table.rs
-                │   ├── task.rs
-                │   └── term_output.rs
-                ├── wui
-                │   ├── event.rs
-                │   ├── mod.rs
-                │   ├── query.rs
-                │   ├── sender.rs
-                │   └── subscriber.rs
-                ├── color_selector.rs
-                ├── lib.rs
-                ├── line.rs
-                ├── logs.rs
-                ├── output.rs
-                ├── prefixed.rs
-                └── sender.rs
-
-
+└── crates
+└── turborepo-ui
+└── src
+├── tui
+│ ├── app.rs
+│ ├── clipboard.rs
+│ ├── debouncer.rs
+│ ├── event.rs
+│ ├── handle.rs
+│ ├── input.rs
+│ ├── mod.rs
+│ ├── pane.rs
+│ ├── popup.rs
+│ ├── preferences.rs
+│ ├── search.rs
+│ ├── size.rs
+│ ├── spinner.rs
+│ ├── state.rs
+│ ├── table.rs
+│ ├── task.rs
+│ └── term_output.rs
+├── wui
+│ ├── event.rs
+│ ├── mod.rs
+│ ├── query.rs
+│ ├── sender.rs
+│ └── subscriber.rs
+├── color_selector.rs
+├── lib.rs
+├── line.rs
+├── logs.rs
+├── output.rs
+├── prefixed.rs
+└── sender.rs
 
 ---
 File: /crates/turborepo-ui/src/tui/app.rs
 ---
 
 use std::{
-    collections::BTreeMap,
-    io::{self, Stdout, Write},
-    mem,
-    time::Duration,
+collections::BTreeMap,
+io::{self, Stdout, Write},
+mem,
+time::Duration,
 };
 
 use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Layout},
-    widgets::{Clear, TableState},
-    Frame, Terminal,
+backend::{Backend, CrosstermBackend},
+layout::{Constraint, Layout},
+widgets::{Clear, TableState},
+Frame, Terminal,
 };
 use tokio::{
-    sync::{mpsc, oneshot},
-    time::Instant,
+sync::{mpsc, oneshot},
+time::Instant,
 };
 use tracing::{debug, trace};
 use turbopath::AbsoluteSystemPathBuf;
@@ -68,47 +66,47 @@ pub const FRAMERATE: Duration = Duration::from_millis(3);
 const RESIZE_DEBOUNCE_DELAY: Duration = Duration::from_millis(10);
 
 use super::{
-    event::{CacheResult, Direction, OutputLogs, PaneSize, TaskResult},
-    input,
-    preferences::PreferenceLoader,
-    search::SearchResults,
-    AppReceiver, Debouncer, Error, Event, InputOptions, SizeInfo, TaskTable, TerminalPane,
+event::{CacheResult, Direction, OutputLogs, PaneSize, TaskResult},
+input,
+preferences::PreferenceLoader,
+search::SearchResults,
+AppReceiver, Debouncer, Error, Event, InputOptions, SizeInfo, TaskTable, TerminalPane,
 };
 use crate::{
-    tui::{
-        task::{Task, TasksByStatus},
-        term_output::TerminalOutput,
-    },
-    ColorConfig,
+tui::{
+task::{Task, TasksByStatus},
+term_output::TerminalOutput,
+},
+ColorConfig,
 };
 
 #[derive(Debug, Clone)]
 pub enum LayoutSections {
-    Pane,
-    TaskList,
-    Search {
-        previous_selection: String,
-        results: SearchResults,
-    },
+Pane,
+TaskList,
+Search {
+previous_selection: String,
+results: SearchResults,
+},
 }
 
 pub struct App<W> {
-    size: SizeInfo,
-    tasks: BTreeMap<String, TerminalOutput<W>>,
-    tasks_by_status: TasksByStatus,
-    section_focus: LayoutSections,
-    task_list_scroll: TableState,
-    selected_task_index: usize,
-    is_task_selection_pinned: bool,
-    showing_help_popup: bool,
-    done: bool,
-    preferences: PreferenceLoader,
+size: SizeInfo,
+tasks: BTreeMap<String, TerminalOutput<W>>,
+tasks_by_status: TasksByStatus,
+section_focus: LayoutSections,
+task_list_scroll: TableState,
+selected_task_index: usize,
+is_task_selection_pinned: bool,
+showing_help_popup: bool,
+done: bool,
+preferences: PreferenceLoader,
 }
 
 impl<W> App<W> {
-    pub fn new(rows: u16, cols: u16, tasks: Vec<String>, preferences: PreferenceLoader) -> Self {
-        debug!("tasks: {tasks:?}");
-        let size = SizeInfo::new(rows, cols, tasks.iter().map(|s| s.as_str()));
+pub fn new(rows: u16, cols: u16, tasks: Vec<String>, preferences: PreferenceLoader) -> Self {
+debug!("tasks: {tasks:?}");
+let size = SizeInfo::new(rows, cols, tasks.iter().map(|s| s.as_str()));
 
         // Initializes with the planned tasks
         // and will mutate as tasks change
@@ -586,20 +584,21 @@ impl<W> App<W> {
             term.resize(pane_rows, pane_cols);
         })
     }
+
 }
 
 impl<W: Write> App<W> {
-    /// Insert a stdin to be associated with a task
-    pub fn insert_stdin(&mut self, task: &str, stdin: Option<W>) -> Result<(), Error> {
-        let task = self
-            .tasks
-            .get_mut(task)
-            .ok_or_else(|| Error::TaskNotFound {
-                name: task.to_owned(),
-            })?;
-        task.stdin = stdin;
-        Ok(())
-    }
+/// Insert a stdin to be associated with a task
+pub fn insert_stdin(&mut self, task: &str, stdin: Option<W>) -> Result<(), Error> {
+let task = self
+.tasks
+.get_mut(task)
+.ok_or_else(|| Error::TaskNotFound {
+name: task.to_owned(),
+})?;
+task.stdin = stdin;
+Ok(())
+}
 
     #[tracing::instrument(skip_all)]
     pub fn forward_input(&mut self, bytes: &[u8]) -> Result<(), Error> {
@@ -631,19 +630,20 @@ impl<W: Write> App<W> {
         task_output.process(output);
         Ok(())
     }
+
 }
 
 /// Handle the rendering of the `App` widget based on events received by
 /// `receiver`
 pub async fn run_app(
-    tasks: Vec<String>,
-    receiver: AppReceiver,
-    color_config: ColorConfig,
-    repo_root: &AbsoluteSystemPathBuf,
+tasks: Vec<String>,
+receiver: AppReceiver,
+color_config: ColorConfig,
+repo_root: &AbsoluteSystemPathBuf,
 ) -> Result<(), Error> {
-    let mut terminal = startup(color_config)?;
-    let size = terminal.size()?;
-    let preferences = PreferenceLoader::new(repo_root)?;
+let mut terminal = startup(color_config)?;
+let size = terminal.size()?;
+let preferences = PreferenceLoader::new(repo_root)?;
 
     let mut app: App<Box<dyn io::Write + Send>> =
         App::new(size.height, size.width, tasks, preferences);
@@ -662,28 +662,29 @@ pub async fn run_app(
     cleanup(terminal, app, callback)?;
 
     result
+
 }
 
 // Break out inner loop so we can use `?` without worrying about cleaning up the
 // terminal.
 async fn run_app_inner<B: Backend + std::io::Write>(
-    terminal: &mut Terminal<B>,
-    app: &mut App<Box<dyn io::Write + Send>>,
-    mut receiver: AppReceiver,
-    mut crossterm_rx: mpsc::Receiver<crossterm::event::Event>,
+terminal: &mut Terminal<B>,
+app: &mut App<Box<dyn io::Write + Send>>,
+mut receiver: AppReceiver,
+mut crossterm_rx: mpsc::Receiver<crossterm::event::Event>,
 ) -> Result<Option<oneshot::Sender<()>>, Error> {
-    // Render initial state to paint the screen
-    terminal.draw(|f| view(app, f))?;
-    let mut last_render = Instant::now();
-    let mut resize_debouncer = Debouncer::new(RESIZE_DEBOUNCE_DELAY);
-    let mut callback = None;
-    let mut needs_rerender = true;
-    while let Some(event) = poll(app.input_options()?, &mut receiver, &mut crossterm_rx).await {
-        // If we only receive ticks, then there's been no state change so no update
-        // needed
-        if !matches!(event, Event::Tick) {
-            needs_rerender = true;
-        }
+// Render initial state to paint the screen
+terminal.draw(|f| view(app, f))?;
+let mut last_render = Instant::now();
+let mut resize_debouncer = Debouncer::new(RESIZE_DEBOUNCE_DELAY);
+let mut callback = None;
+let mut needs_rerender = true;
+while let Some(event) = poll(app.input_options()?, &mut receiver, &mut crossterm_rx).await {
+// If we only receive ticks, then there's been no state change so no update
+// needed
+if !matches!(event, Event::Tick) {
+needs_rerender = true;
+}
 
         let mut event = Some(event);
         let mut resize_event = None;
@@ -713,16 +714,17 @@ async fn run_app_inner<B: Backend + std::io::Write>(
     }
 
     Ok(callback)
+
 }
 
 /// Blocking poll for events, will only return None if app handle has been
 /// dropped
 async fn poll(
-    input_options: InputOptions<'_>,
-    receiver: &mut AppReceiver,
-    crossterm_rx: &mut mpsc::Receiver<crossterm::event::Event>,
+input_options: InputOptions<'_>,
+receiver: &mut AppReceiver,
+crossterm_rx: &mut mpsc::Receiver<crossterm::event::Event>,
 ) -> Option<Event> {
-    let input_closed = crossterm_rx.is_closed();
+let input_closed = crossterm_rx.is_closed();
 
     if input_closed {
         receiver.recv().await
@@ -745,32 +747,33 @@ async fn poll(
         }
         event
     }
+
 }
 
 const MIN_HEIGHT: u16 = 10;
 const MIN_WIDTH: u16 = 20;
 
 pub fn terminal_big_enough() -> Result<bool, Error> {
-    let (width, height) = crossterm::terminal::size()?;
-    Ok(width >= MIN_WIDTH && height >= MIN_HEIGHT)
+let (width, height) = crossterm::terminal::size()?;
+Ok(width >= MIN_WIDTH && height >= MIN_HEIGHT)
 }
 
 /// Configures terminal for rendering App
 #[tracing::instrument]
 fn startup(color_config: ColorConfig) -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
-    if color_config.should_strip_ansi {
-        crossterm::style::force_color_output(false);
-    }
-    crossterm::terminal::enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    // Ensure all pending writes are flushed before we switch to alternative screen
-    stdout.flush()?;
-    crossterm::execute!(
-        stdout,
-        crossterm::event::EnableMouseCapture,
-        crossterm::terminal::EnterAlternateScreen
-    )?;
-    let backend = CrosstermBackend::new(stdout);
+if color_config.should_strip_ansi {
+crossterm::style::force_color_output(false);
+}
+crossterm::terminal::enable_raw_mode()?;
+let mut stdout = io::stdout();
+// Ensure all pending writes are flushed before we switch to alternative screen
+stdout.flush()?;
+crossterm::execute!(
+stdout,
+crossterm::event::EnableMouseCapture,
+crossterm::terminal::EnterAlternateScreen
+)?;
+let backend = CrosstermBackend::new(stdout);
 
     let mut terminal = Terminal::with_options(
         backend,
@@ -781,152 +784,153 @@ fn startup(color_config: ColorConfig) -> io::Result<Terminal<CrosstermBackend<St
     terminal.hide_cursor()?;
 
     Ok(terminal)
+
 }
 
 /// Restores terminal to expected state
 #[tracing::instrument(skip_all)]
 fn cleanup<B: Backend + io::Write>(
-    mut terminal: Terminal<B>,
-    mut app: App<Box<dyn io::Write + Send>>,
-    callback: Option<oneshot::Sender<()>>,
+mut terminal: Terminal<B>,
+mut app: App<Box<dyn io::Write + Send>>,
+callback: Option<oneshot::Sender<()>>,
 ) -> io::Result<()> {
-    terminal.clear()?;
-    crossterm::execute!(
-        terminal.backend_mut(),
-        crossterm::event::DisableMouseCapture,
-        crossterm::terminal::LeaveAlternateScreen,
-    )?;
-    let tasks_started = app.tasks_by_status.tasks_started();
-    app.persist_tasks(tasks_started)?;
-    app.preferences.flush_to_disk().ok();
-    crossterm::terminal::disable_raw_mode()?;
-    terminal.show_cursor()?;
-    // We can close the channel now that terminal is back restored to a normal state
-    drop(callback);
-    Ok(())
+terminal.clear()?;
+crossterm::execute!(
+terminal.backend_mut(),
+crossterm::event::DisableMouseCapture,
+crossterm::terminal::LeaveAlternateScreen,
+)?;
+let tasks_started = app.tasks_by_status.tasks_started();
+app.persist_tasks(tasks_started)?;
+app.preferences.flush_to_disk().ok();
+crossterm::terminal::disable_raw_mode()?;
+terminal.show_cursor()?;
+// We can close the channel now that terminal is back restored to a normal state
+drop(callback);
+Ok(())
 }
 
 fn update(
-    app: &mut App<Box<dyn io::Write + Send>>,
-    event: Event,
+app: &mut App<Box<dyn io::Write + Send>>,
+event: Event,
 ) -> Result<Option<oneshot::Sender<()>>, Error> {
-    match event {
-        Event::StartTask { task, output_logs } => {
-            app.start_task(&task, output_logs)?;
-        }
-        Event::TaskOutput { task, output } => {
-            app.process_output(&task, &output)?;
-        }
-        Event::Status {
-            task,
-            status,
-            result,
-        } => {
-            app.set_status(task, status, result)?;
-        }
-        Event::InternalStop => {
-            debug!("shutting down due to internal failure");
-            app.done = true;
-        }
-        Event::Stop(callback) => {
-            debug!("shutting down due to message");
-            app.done = true;
-            return Ok(Some(callback));
-        }
-        Event::Tick => {
-            // app.table.tick();
-        }
-        Event::EndTask { task, result } => {
-            app.finish_task(&task, result)?;
-        }
-        Event::Up => {
-            app.previous();
-        }
-        Event::Down => {
-            app.next();
-        }
-        Event::ScrollUp => {
-            app.is_task_selection_pinned = true;
-            app.scroll_terminal_output(Direction::Up)?;
-        }
-        Event::ScrollDown => {
-            app.is_task_selection_pinned = true;
-            app.scroll_terminal_output(Direction::Down)?;
-        }
-        Event::EnterInteractive => {
-            app.is_task_selection_pinned = true;
-            app.interact()?;
-        }
-        Event::ExitInteractive => {
-            app.is_task_selection_pinned = true;
-            app.interact()?;
-        }
-        Event::TogglePinnedTask => {
-            app.update_task_selection_pinned_state()?;
-        }
-        Event::ToggleSidebar => {
-            app.update_sidebar_toggle();
-        }
-        Event::ToggleHelpPopup => {
-            app.showing_help_popup = !app.showing_help_popup;
-        }
-        Event::Input { bytes } => {
-            app.forward_input(&bytes)?;
-        }
-        Event::SetStdin { task, stdin } => {
-            app.insert_stdin(&task, Some(stdin))?;
-        }
-        Event::UpdateTasks { tasks } => {
-            app.update_tasks(tasks)?;
-        }
-        Event::Mouse(m) => {
-            app.handle_mouse(m)?;
-        }
-        Event::CopySelection => {
-            app.copy_selection()?;
-        }
-        Event::RestartTasks { tasks } => {
-            app.restart_tasks(tasks)?;
-        }
-        Event::Resize { rows, cols } => {
-            app.resize(rows, cols);
-        }
-        Event::SearchEnter => {
-            app.enter_search()?;
-        }
-        Event::SearchExit { restore_scroll } => {
-            app.exit_search(restore_scroll);
-        }
-        Event::SearchScroll { direction } => {
-            app.search_scroll(direction)?;
-        }
-        Event::SearchEnterChar(c) => {
-            app.search_enter_char(c)?;
-        }
-        Event::SearchBackspace => {
-            app.search_remove_char()?;
-        }
-        Event::PaneSizeQuery(callback) => {
-            // If caller has already hung up do nothing
-            callback
-                .send(PaneSize {
-                    rows: app.size.pane_rows(),
-                    cols: app.size.pane_cols(),
-                })
-                .ok();
-        }
-    }
-    Ok(None)
+match event {
+Event::StartTask { task, output_logs } => {
+app.start_task(&task, output_logs)?;
+}
+Event::TaskOutput { task, output } => {
+app.process_output(&task, &output)?;
+}
+Event::Status {
+task,
+status,
+result,
+} => {
+app.set_status(task, status, result)?;
+}
+Event::InternalStop => {
+debug!("shutting down due to internal failure");
+app.done = true;
+}
+Event::Stop(callback) => {
+debug!("shutting down due to message");
+app.done = true;
+return Ok(Some(callback));
+}
+Event::Tick => {
+// app.table.tick();
+}
+Event::EndTask { task, result } => {
+app.finish_task(&task, result)?;
+}
+Event::Up => {
+app.previous();
+}
+Event::Down => {
+app.next();
+}
+Event::ScrollUp => {
+app.is_task_selection_pinned = true;
+app.scroll_terminal_output(Direction::Up)?;
+}
+Event::ScrollDown => {
+app.is_task_selection_pinned = true;
+app.scroll_terminal_output(Direction::Down)?;
+}
+Event::EnterInteractive => {
+app.is_task_selection_pinned = true;
+app.interact()?;
+}
+Event::ExitInteractive => {
+app.is_task_selection_pinned = true;
+app.interact()?;
+}
+Event::TogglePinnedTask => {
+app.update_task_selection_pinned_state()?;
+}
+Event::ToggleSidebar => {
+app.update_sidebar_toggle();
+}
+Event::ToggleHelpPopup => {
+app.showing_help_popup = !app.showing_help_popup;
+}
+Event::Input { bytes } => {
+app.forward_input(&bytes)?;
+}
+Event::SetStdin { task, stdin } => {
+app.insert_stdin(&task, Some(stdin))?;
+}
+Event::UpdateTasks { tasks } => {
+app.update_tasks(tasks)?;
+}
+Event::Mouse(m) => {
+app.handle_mouse(m)?;
+}
+Event::CopySelection => {
+app.copy_selection()?;
+}
+Event::RestartTasks { tasks } => {
+app.restart_tasks(tasks)?;
+}
+Event::Resize { rows, cols } => {
+app.resize(rows, cols);
+}
+Event::SearchEnter => {
+app.enter_search()?;
+}
+Event::SearchExit { restore_scroll } => {
+app.exit_search(restore_scroll);
+}
+Event::SearchScroll { direction } => {
+app.search_scroll(direction)?;
+}
+Event::SearchEnterChar(c) => {
+app.search_enter_char(c)?;
+}
+Event::SearchBackspace => {
+app.search_remove_char()?;
+}
+Event::PaneSizeQuery(callback) => {
+// If caller has already hung up do nothing
+callback
+.send(PaneSize {
+rows: app.size.pane_rows(),
+cols: app.size.pane_cols(),
+})
+.ok();
+}
+}
+Ok(None)
 }
 
 fn view<W>(app: &mut App<W>, f: &mut Frame) {
-    let cols = app.size.pane_cols();
-    let horizontal = if app.preferences.is_task_list_visible() {
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(cols)])
-    } else {
-        Layout::horizontal([Constraint::Max(0), Constraint::Length(cols)])
-    };
-    let [table, pane] = horizontal.areas(f.size());
+let cols = app.size.pane_cols();
+let horizontal = if app.preferences.is_task_list_visible() {
+Layout::horizontal([Constraint::Fill(1), Constraint::Length(cols)])
+} else {
+Layout::horizontal([Constraint::Max(0), Constraint::Length(cols)])
+};
+let [table, pane] = horizontal.areas(f.size());
 
     let active_task = app.active_task().unwrap().to_string();
 
@@ -949,9 +953,8 @@ fn view<W>(app: &mut App<W>, f: &mut Frame) {
         f.render_widget(Clear, area); // Clears background underneath popup
         f.render_widget(popup(area), area);
     }
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/clipboard.rs
@@ -964,85 +967,86 @@ use base64::Engine;
 use which::which;
 
 pub fn copy_to_clipboard(s: &str) {
-    match copy_impl(s, &PROVIDER) {
-        Ok(()) => (),
-        Err(err) => tracing::debug!("Unable to copy: {}", err.to_string()),
-    }
+match copy_impl(s, &PROVIDER) {
+Ok(()) => (),
+Err(err) => tracing::debug!("Unable to copy: {}", err.to_string()),
+}
 }
 
 #[allow(dead_code)]
 enum Provider {
-    OSC52,
-    Exec(&'static str, Vec<&'static str>),
-    #[cfg(windows)]
-    Win,
-    NoOp,
+OSC52,
+Exec(&'static str, Vec<&'static str>),
+#[cfg(windows)]
+Win,
+NoOp,
 }
 
 #[cfg(windows)]
 fn detect_copy_provider() -> Provider {
-    Provider::Win
+Provider::Win
 }
 
 #[cfg(target_os = "macos")]
 fn detect_copy_provider() -> Provider {
-    if let Some(provider) = check_prog("pbcopy", &[]) {
-        return provider;
-    }
-    Provider::OSC52
+if let Some(provider) = check_prog("pbcopy", &[]) {
+return provider;
+}
+Provider::OSC52
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn detect_copy_provider() -> Provider {
-    // Wayland
-    if std::env::var("WAYLAND_DISPLAY").is_ok() {
-        if let Some(provider) = check_prog("wl-copy", &["--type", "text/plain"]) {
-            return provider;
-        }
-    }
-    // X11
-    if std::env::var("DISPLAY").is_ok() {
-        if let Some(provider) = check_prog("xclip", &["-i", "-selection", "clipboard"]) {
-            return provider;
-        }
-        if let Some(provider) = check_prog("xsel", &["-i", "-b"]) {
-            return provider;
-        }
-    }
-    // Termux
-    if let Some(provider) = check_prog("termux-clipboard-set", &[]) {
-        return provider;
-    }
-    // Tmux
-    if std::env::var("TMUX").is_ok() {
-        if let Some(provider) = check_prog("tmux", &["load-buffer", "-"]) {
-            return provider;
-        }
-    }
+// Wayland
+if std::env::var("WAYLAND_DISPLAY").is_ok() {
+if let Some(provider) = check_prog("wl-copy", &["--type", "text/plain"]) {
+return provider;
+}
+}
+// X11
+if std::env::var("DISPLAY").is_ok() {
+if let Some(provider) = check_prog("xclip", &["-i", "-selection", "clipboard"]) {
+return provider;
+}
+if let Some(provider) = check_prog("xsel", &["-i", "-b"]) {
+return provider;
+}
+}
+// Termux
+if let Some(provider) = check_prog("termux-clipboard-set", &[]) {
+return provider;
+}
+// Tmux
+if std::env::var("TMUX").is_ok() {
+if let Some(provider) = check_prog("tmux", &["load-buffer", "-"]) {
+return provider;
+}
+}
 
     Provider::OSC52
+
 }
 
 #[allow(dead_code)]
 fn check_prog(cmd: &'static str, args: &[&'static str]) -> Option<Provider> {
-    if which(cmd).is_ok() {
-        Some(Provider::Exec(cmd, args.to_vec()))
-    } else {
-        None
-    }
+if which(cmd).is_ok() {
+Some(Provider::Exec(cmd, args.to_vec()))
+} else {
+None
+}
 }
 
 fn copy_impl(s: &str, provider: &Provider) -> std::io::Result<()> {
-    match provider {
-        Provider::OSC52 => {
-            let mut stdout = std::io::stdout().lock();
-            use std::io::Write;
-            write!(
-                &mut stdout,
-                "\x1b]52;;{}\x07",
-                base64::engine::general_purpose::STANDARD.encode(s)
-            )?;
-        }
+match provider {
+Provider::OSC52 => {
+let mut stdout = std::io::stdout().lock();
+use std::io::Write;
+write!(
+&mut stdout,
+"\x1b]52;;{}\x07",
+base64::engine::general_purpose::STANDARD.encode(s)
+)?;
+}
 
         Provider::Exec(prog, args) => {
             let mut child = std::process::Command::new(prog)
@@ -1069,13 +1073,12 @@ fn copy_impl(s: &str, provider: &Provider) -> std::io::Result<()> {
     };
 
     Ok(())
+
 }
 
 lazy_static::lazy_static! {
-  static ref PROVIDER: Provider = detect_copy_provider();
+static ref PROVIDER: Provider = detect_copy_provider();
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/debouncer.rs
@@ -1084,22 +1087,22 @@ File: /crates/turborepo-ui/src/tui/debouncer.rs
 use std::time::{Duration, Instant};
 
 pub struct Debouncer<T> {
-    value: Option<T>,
-    duration: Duration,
-    start: Option<Instant>,
+value: Option<T>,
+duration: Duration,
+start: Option<Instant>,
 }
 
 impl<T> Debouncer<T> {
-    /// Creates a new debouncer that will yield the latest value after the
-    /// provided duration Duration is reset after the debouncer yields a
-    /// value.
-    pub fn new(duration: Duration) -> Self {
-        Self {
-            value: None,
-            duration,
-            start: None,
-        }
-    }
+/// Creates a new debouncer that will yield the latest value after the
+/// provided duration Duration is reset after the debouncer yields a
+/// value.
+pub fn new(duration: Duration) -> Self {
+Self {
+value: None,
+duration,
+start: None,
+}
+}
 
     /// Returns a value if debouncer duration has elapsed.
     #[must_use]
@@ -1130,8 +1133,8 @@ impl<T> Debouncer<T> {
             self.value = Some(value);
         }
     }
-}
 
+}
 
 ---
 File: /crates/turborepo-ui/src/tui/event.rs
@@ -1142,105 +1145,104 @@ use serde::Serialize;
 use tokio::sync::oneshot;
 
 pub enum Event {
-    StartTask {
-        task: String,
-        output_logs: OutputLogs,
-    },
-    TaskOutput {
-        task: String,
-        output: Vec<u8>,
-    },
-    EndTask {
-        task: String,
-        result: TaskResult,
-    },
-    Status {
-        task: String,
-        status: String,
-        result: CacheResult,
-    },
-    PaneSizeQuery(oneshot::Sender<PaneSize>),
-    Stop(oneshot::Sender<()>),
-    // Stop initiated by the TUI itself
-    InternalStop,
-    Tick,
-    Up,
-    Down,
-    ScrollUp,
-    ScrollDown,
-    SetStdin {
-        task: String,
-        stdin: Box<dyn std::io::Write + Send>,
-    },
-    EnterInteractive,
-    ExitInteractive,
-    Input {
-        bytes: Vec<u8>,
-    },
-    UpdateTasks {
-        tasks: Vec<String>,
-    },
-    Mouse(crossterm::event::MouseEvent),
-    CopySelection,
-    RestartTasks {
-        tasks: Vec<String>,
-    },
-    Resize {
-        rows: u16,
-        cols: u16,
-    },
-    ToggleSidebar,
-    ToggleHelpPopup,
-    TogglePinnedTask,
-    SearchEnter,
-    SearchExit {
-        restore_scroll: bool,
-    },
-    SearchScroll {
-        direction: Direction,
-    },
-    SearchEnterChar(char),
-    SearchBackspace,
+StartTask {
+task: String,
+output_logs: OutputLogs,
+},
+TaskOutput {
+task: String,
+output: Vec<u8>,
+},
+EndTask {
+task: String,
+result: TaskResult,
+},
+Status {
+task: String,
+status: String,
+result: CacheResult,
+},
+PaneSizeQuery(oneshot::Sender<PaneSize>),
+Stop(oneshot::Sender<()>),
+// Stop initiated by the TUI itself
+InternalStop,
+Tick,
+Up,
+Down,
+ScrollUp,
+ScrollDown,
+SetStdin {
+task: String,
+stdin: Box<dyn std::io::Write + Send>,
+},
+EnterInteractive,
+ExitInteractive,
+Input {
+bytes: Vec<u8>,
+},
+UpdateTasks {
+tasks: Vec<String>,
+},
+Mouse(crossterm::event::MouseEvent),
+CopySelection,
+RestartTasks {
+tasks: Vec<String>,
+},
+Resize {
+rows: u16,
+cols: u16,
+},
+ToggleSidebar,
+ToggleHelpPopup,
+TogglePinnedTask,
+SearchEnter,
+SearchExit {
+restore_scroll: bool,
+},
+SearchScroll {
+direction: Direction,
+},
+SearchEnterChar(char),
+SearchBackspace,
 }
 
 pub enum Direction {
-    Up,
-    Down,
+Up,
+Down,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Enum)]
 pub enum TaskResult {
-    Success,
-    Failure,
-    CacheHit,
+Success,
+Failure,
+CacheHit,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Enum)]
 pub enum CacheResult {
-    Hit,
-    Miss,
+Hit,
+Miss,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Enum)]
 pub enum OutputLogs {
-    // Entire task output is persisted after run
-    Full,
-    // None of a task output is persisted after run
-    None,
-    // Only the status line of a task is persisted
-    HashOnly,
-    // Output is only persisted if it is a cache miss
-    NewOnly,
-    // Output is only persisted if the task failed
-    ErrorsOnly,
+// Entire task output is persisted after run
+Full,
+// None of a task output is persisted after run
+None,
+// Only the status line of a task is persisted
+HashOnly,
+// Output is only persisted if it is a cache miss
+NewOnly,
+// Output is only persisted if the task failed
+ErrorsOnly,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PaneSize {
-    pub rows: u16,
-    pub cols: u16,
+pub rows: u16,
+pub cols: u16,
 }
-
 
 ---
 File: /crates/turborepo-ui/src/tui/handle.rs
@@ -1249,57 +1251,57 @@ File: /crates/turborepo-ui/src/tui/handle.rs
 use tokio::sync::{mpsc, oneshot};
 
 use super::{
-    app::FRAMERATE,
-    event::{CacheResult, OutputLogs, PaneSize},
-    Error, Event, TaskResult,
+app::FRAMERATE,
+event::{CacheResult, OutputLogs, PaneSize},
+Error, Event, TaskResult,
 };
 use crate::sender::{TaskSender, UISender};
 
 /// Struct for sending app events to TUI rendering
 #[derive(Debug, Clone)]
 pub struct TuiSender {
-    primary: mpsc::UnboundedSender<Event>,
+primary: mpsc::UnboundedSender<Event>,
 }
 
 /// Struct for receiving app events
 pub struct AppReceiver {
-    primary: mpsc::UnboundedReceiver<Event>,
+primary: mpsc::UnboundedReceiver<Event>,
 }
 
 impl TuiSender {
-    /// Create a new channel for sending app events.
-    ///
-    /// AppSender is meant to be held by the actual task runner
-    /// AppReceiver should be passed to `crate::tui::run_app`
-    pub fn new() -> (Self, AppReceiver) {
-        let (primary_tx, primary_rx) = mpsc::unbounded_channel();
-        let tick_sender = primary_tx.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(FRAMERATE);
-            loop {
-                interval.tick().await;
-                if tick_sender.send(Event::Tick).is_err() {
-                    break;
-                }
-            }
-        });
-        (
-            Self {
-                primary: primary_tx,
-            },
-            AppReceiver {
-                primary: primary_rx,
-            },
-        )
-    }
+/// Create a new channel for sending app events.
+///
+/// AppSender is meant to be held by the actual task runner
+/// AppReceiver should be passed to `crate::tui::run_app`
+pub fn new() -> (Self, AppReceiver) {
+let (primary_tx, primary_rx) = mpsc::unbounded_channel();
+let tick_sender = primary_tx.clone();
+tokio::spawn(async move {
+let mut interval = tokio::time::interval(FRAMERATE);
+loop {
+interval.tick().await;
+if tick_sender.send(Event::Tick).is_err() {
+break;
+}
+}
+});
+(
+Self {
+primary: primary_tx,
+},
+AppReceiver {
+primary: primary_rx,
+},
+)
+}
 }
 
 impl TuiSender {
-    pub fn start_task(&self, task: String, output_logs: OutputLogs) {
-        self.primary
-            .send(Event::StartTask { task, output_logs })
-            .ok();
-    }
+pub fn start_task(&self, task: String, output_logs: OutputLogs) {
+self.primary
+.send(Event::StartTask { task, output_logs })
+.ok();
+}
 
     pub fn end_task(&self, task: String, result: TaskResult) {
         self.primary.send(Event::EndTask { task, result }).ok();
@@ -1369,17 +1371,16 @@ impl TuiSender {
         // Wait for callback to be sent
         callback_rx.await.ok()
     }
+
 }
 
 impl AppReceiver {
-    /// Receive an event, producing a tick event if no events are rec eived by
-    /// the deadline.
-    pub async fn recv(&mut self) -> Option<Event> {
-        self.primary.recv().await
-    }
+/// Receive an event, producing a tick event if no events are rec eived by
+/// the deadline.
+pub async fn recv(&mut self) -> Option<Event> {
+self.primary.recv().await
 }
-
-
+}
 
 ---
 File: /crates/turborepo-ui/src/tui/input.rs
@@ -1391,22 +1392,22 @@ use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::debug;
 
 use super::{
-    app::LayoutSections,
-    event::{Direction, Event},
+app::LayoutSections,
+event::{Direction, Event},
 };
 
 #[derive(Debug, Clone, Copy)]
 pub struct InputOptions<'a> {
-    pub focus: &'a LayoutSections,
-    pub has_selection: bool,
-    pub is_help_popup_open: bool,
+pub focus: &'a LayoutSections,
+pub has_selection: bool,
+pub is_help_popup_open: bool,
 }
 
 pub fn start_crossterm_stream(tx: mpsc::Sender<crossterm::event::Event>) -> Option<JoinHandle<()>> {
-    // quick check if stdin is tty
-    if !atty::is(atty::Stream::Stdin) {
-        return None;
-    }
+// quick check if stdin is tty
+if !atty::is(atty::Stream::Stdin) {
+return None;
+}
 
     let mut events = EventStream::new();
     Some(tokio::spawn(async move {
@@ -1416,140 +1417,141 @@ pub fn start_crossterm_stream(tx: mpsc::Sender<crossterm::event::Event>) -> Opti
             }
         }
     }))
+
 }
 
 impl InputOptions<'_> {
-    /// Maps a crossterm::event::Event to a tui::Event
-    pub fn handle_crossterm_event(self, event: crossterm::event::Event) -> Option<Event> {
-        match event {
-            crossterm::event::Event::Key(k) => translate_key_event(self, k),
-            crossterm::event::Event::Mouse(m) => match m.kind {
-                crossterm::event::MouseEventKind::ScrollDown => Some(Event::ScrollDown),
-                crossterm::event::MouseEventKind::ScrollUp => Some(Event::ScrollUp),
-                crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left)
-                | crossterm::event::MouseEventKind::Drag(crossterm::event::MouseButton::Left) => {
-                    Some(Event::Mouse(m))
-                }
-                _ => None,
-            },
-            crossterm::event::Event::Resize(cols, rows) => Some(Event::Resize { rows, cols }),
-            _ => None,
-        }
-    }
+/// Maps a crossterm::event::Event to a tui::Event
+pub fn handle_crossterm_event(self, event: crossterm::event::Event) -> Option<Event> {
+match event {
+crossterm::event::Event::Key(k) => translate_key_event(self, k),
+crossterm::event::Event::Mouse(m) => match m.kind {
+crossterm::event::MouseEventKind::ScrollDown => Some(Event::ScrollDown),
+crossterm::event::MouseEventKind::ScrollUp => Some(Event::ScrollUp),
+crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left)
+| crossterm::event::MouseEventKind::Drag(crossterm::event::MouseButton::Left) => {
+Some(Event::Mouse(m))
+}
+_ => None,
+},
+crossterm::event::Event::Resize(cols, rows) => Some(Event::Resize { rows, cols }),
+_ => None,
+}
+}
 }
 
 /// Converts a crossterm key event into a TUI interaction event
 fn translate_key_event(options: InputOptions, key_event: KeyEvent) -> Option<Event> {
-    // On Windows events for releasing a key are produced
-    // We skip these to avoid emitting 2 events per key press.
-    // There is still a `Repeat` event for when a key is held that will pass through
-    // this guard.
-    if key_event.kind == KeyEventKind::Release {
-        return None;
-    }
-    match key_event.code {
-        KeyCode::Char('c') if key_event.modifiers == crossterm::event::KeyModifiers::CONTROL => {
-            ctrl_c();
-            Some(Event::InternalStop)
-        }
-        KeyCode::Char('c') if options.has_selection => Some(Event::CopySelection),
-        // Interactive branches
-        KeyCode::Char('z')
-            if matches!(options.focus, LayoutSections::Pane)
-                && key_event.modifiers == crossterm::event::KeyModifiers::CONTROL =>
-        {
-            Some(Event::ExitInteractive)
-        }
-        // If we're in interactive mode, convert the key event to bytes to send to stdin
-        _ if matches!(options.focus, LayoutSections::Pane) => Some(Event::Input {
-            bytes: encode_key(key_event),
-        }),
-        // If we're on the list and user presses `/` enter search mode
-        KeyCode::Char('/') if matches!(options.focus, LayoutSections::TaskList) => {
-            Some(Event::SearchEnter)
-        }
-        KeyCode::Esc if options.is_help_popup_open => Some(Event::ToggleHelpPopup),
-        KeyCode::Esc if matches!(options.focus, LayoutSections::Search { .. }) => {
-            Some(Event::SearchExit {
-                restore_scroll: true,
-            })
-        }
-        KeyCode::Enter if matches!(options.focus, LayoutSections::Search { .. }) => {
-            Some(Event::SearchExit {
-                restore_scroll: false,
-            })
-        }
-        KeyCode::Up if matches!(options.focus, LayoutSections::Search { .. }) => {
-            Some(Event::SearchScroll {
-                direction: Direction::Up,
-            })
-        }
-        KeyCode::Down if matches!(options.focus, LayoutSections::Search { .. }) => {
-            Some(Event::SearchScroll {
-                direction: Direction::Down,
-            })
-        }
-        KeyCode::Backspace if matches!(options.focus, LayoutSections::Search { .. }) => {
-            Some(Event::SearchBackspace)
-        }
-        KeyCode::Char(c) if matches!(options.focus, LayoutSections::Search { .. }) => {
-            Some(Event::SearchEnterChar(c))
-        }
-        // Fall through if we aren't in interactive mode
-        KeyCode::Char('h') => Some(Event::ToggleSidebar),
-        KeyCode::Char('u') => Some(Event::ScrollUp),
-        KeyCode::Char('d') => Some(Event::ScrollDown),
-        KeyCode::Char('m') => Some(Event::ToggleHelpPopup),
-        KeyCode::Char('p') => Some(Event::TogglePinnedTask),
-        KeyCode::Up | KeyCode::Char('k') => Some(Event::Up),
-        KeyCode::Down | KeyCode::Char('j') => Some(Event::Down),
-        KeyCode::Enter | KeyCode::Char('i') => Some(Event::EnterInteractive),
-        _ => None,
-    }
+// On Windows events for releasing a key are produced
+// We skip these to avoid emitting 2 events per key press.
+// There is still a `Repeat` event for when a key is held that will pass through
+// this guard.
+if key_event.kind == KeyEventKind::Release {
+return None;
+}
+match key_event.code {
+KeyCode::Char('c') if key_event.modifiers == crossterm::event::KeyModifiers::CONTROL => {
+ctrl_c();
+Some(Event::InternalStop)
+}
+KeyCode::Char('c') if options.has_selection => Some(Event::CopySelection),
+// Interactive branches
+KeyCode::Char('z')
+if matches!(options.focus, LayoutSections::Pane)
+&& key_event.modifiers == crossterm::event::KeyModifiers::CONTROL =>
+{
+Some(Event::ExitInteractive)
+}
+// If we're in interactive mode, convert the key event to bytes to send to stdin
+_ if matches!(options.focus, LayoutSections::Pane) => Some(Event::Input {
+bytes: encode_key(key_event),
+}),
+// If we're on the list and user presses `/` enter search mode
+KeyCode::Char('/') if matches!(options.focus, LayoutSections::TaskList) => {
+Some(Event::SearchEnter)
+}
+KeyCode::Esc if options.is_help_popup_open => Some(Event::ToggleHelpPopup),
+KeyCode::Esc if matches!(options.focus, LayoutSections::Search { .. }) => {
+Some(Event::SearchExit {
+restore_scroll: true,
+})
+}
+KeyCode::Enter if matches!(options.focus, LayoutSections::Search { .. }) => {
+Some(Event::SearchExit {
+restore_scroll: false,
+})
+}
+KeyCode::Up if matches!(options.focus, LayoutSections::Search { .. }) => {
+Some(Event::SearchScroll {
+direction: Direction::Up,
+})
+}
+KeyCode::Down if matches!(options.focus, LayoutSections::Search { .. }) => {
+Some(Event::SearchScroll {
+direction: Direction::Down,
+})
+}
+KeyCode::Backspace if matches!(options.focus, LayoutSections::Search { .. }) => {
+Some(Event::SearchBackspace)
+}
+KeyCode::Char(c) if matches!(options.focus, LayoutSections::Search { .. }) => {
+Some(Event::SearchEnterChar(c))
+}
+// Fall through if we aren't in interactive mode
+KeyCode::Char('h') => Some(Event::ToggleSidebar),
+KeyCode::Char('u') => Some(Event::ScrollUp),
+KeyCode::Char('d') => Some(Event::ScrollDown),
+KeyCode::Char('m') => Some(Event::ToggleHelpPopup),
+KeyCode::Char('p') => Some(Event::TogglePinnedTask),
+KeyCode::Up | KeyCode::Char('k') => Some(Event::Up),
+KeyCode::Down | KeyCode::Char('j') => Some(Event::Down),
+KeyCode::Enter | KeyCode::Char('i') => Some(Event::EnterInteractive),
+_ => None,
+}
 }
 
 #[cfg(unix)]
 fn ctrl_c() -> Option<Event> {
-    use nix::sys::signal;
-    match signal::raise(signal::SIGINT) {
-        Ok(_) => None,
-        // We're unable to send the signal, stop rendering to force shutdown
-        Err(_) => {
-            debug!("unable to send sigint, shutting down");
-            Some(Event::InternalStop)
-        }
-    }
+use nix::sys::signal;
+match signal::raise(signal::SIGINT) {
+Ok(_) => None,
+// We're unable to send the signal, stop rendering to force shutdown
+Err(_) => {
+debug!("unable to send sigint, shutting down");
+Some(Event::InternalStop)
+}
+}
 }
 
 #[cfg(windows)]
 fn ctrl_c() -> Option<Event> {
-    use windows_sys::Win32::{
-        Foundation::{BOOL, TRUE},
-        System::Console::GenerateConsoleCtrlEvent,
-    };
-    // First parameter corresponds to what event to generate, 0 is a Ctrl-C
-    let ctrl_c_event = 0x0;
-    // Second parameter corresponds to which process group to send the event to.
-    // If 0 is passed the event gets sent to every process connected to the current
-    // Console.
-    let process_group_id = 0x0;
-    let success: BOOL = unsafe {
-        // See docs https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent
-        GenerateConsoleCtrlEvent(ctrl_c_event, process_group_id)
-    };
-    if success == TRUE {
-        None
-    } else {
-        // We're unable to send the Ctrl-C event, stop rendering to force shutdown
-        debug!("unable to send sigint, shutting down");
-        Some(Event::InternalStop)
-    }
+use windows_sys::Win32::{
+Foundation::{BOOL, TRUE},
+System::Console::GenerateConsoleCtrlEvent,
+};
+// First parameter corresponds to what event to generate, 0 is a Ctrl-C
+let ctrl_c_event = 0x0;
+// Second parameter corresponds to which process group to send the event to.
+// If 0 is passed the event gets sent to every process connected to the current
+// Console.
+let process_group_id = 0x0;
+let success: BOOL = unsafe {
+// See docs https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent
+GenerateConsoleCtrlEvent(ctrl_c_event, process_group_id)
+};
+if success == TRUE {
+None
+} else {
+// We're unable to send the Ctrl-C event, stop rendering to force shutdown
+debug!("unable to send sigint, shutting down");
+Some(Event::InternalStop)
+}
 }
 
 // Inspired by mprocs encode_term module
 // https://github.com/pvolok/mprocs/blob/08d17adebd110501106f86124ef1955fb2beb881/src/encode_term.rs
 fn encode_key(key: KeyEvent) -> Vec<u8> {
-    use crossterm::event::KeyCode::*;
+use crossterm::event::KeyCode::*;
 
     if key.kind == KeyEventKind::Release {
         return Vec::new();
@@ -1734,6 +1736,7 @@ fn encode_key(key: KeyEvent) -> Vec<u8> {
     };
 
     buf.into_bytes()
+
 }
 
 /// Map c to its Ctrl equivalent.
@@ -1745,8 +1748,8 @@ fn encode_key(key: KeyEvent) -> Vec<u8> {
 /// produced in combination with SHIFT) that may not be 100%
 /// the right thing to do here for users with non-US layouts.
 fn ctrl_mapping(c: char) -> Option<char> {
-    Some(match c {
-        '@' | '`' | ' ' | '2' => '\x00',
+Some(match c {
+'@' | '`' | ' ' | '2' => '\x00',
         'A' | 'a' => '\x01',
         'B' | 'b' => '\x02',
         'C' | 'c' => '\x03',
@@ -1778,36 +1781,36 @@ fn ctrl_mapping(c: char) -> Option<char> {
         ']' | '5' | '}' => '\x1d',
         '^' | '6' | '~' => '\x1e',
         '_' | '7' | '/' => '\x1f',
-        '8' | '?' => '\x7f', // `Delete`
-        _ => return None,
-    })
+        '8' | '?' => '\x7f', //`Delete`
+_ => return None,
+})
 }
 
 /// if SHIFT is held and we have KeyCode::Char('c') we want to normalize
 /// that keycode to KeyCode::Char('C'); that is what this function does.
 pub fn normalize_shift_to_upper_case(code: KeyCode, modifiers: &KeyModifiers) -> KeyCode {
-    if modifiers.contains(KeyModifiers::SHIFT) {
-        match code {
-            KeyCode::Char(c) if c.is_ascii_lowercase() => KeyCode::Char(c.to_ascii_uppercase()),
-            _ => code,
-        }
-    } else {
-        code
-    }
+if modifiers.contains(KeyModifiers::SHIFT) {
+match code {
+KeyCode::Char(c) if c.is_ascii_lowercase() => KeyCode::Char(c.to_ascii_uppercase()),
+_ => code,
+}
+} else {
+code
+}
 }
 
 fn encode_modifiers(mods: KeyModifiers) -> u8 {
-    let mut number = 0;
-    if mods.contains(KeyModifiers::SHIFT) {
-        number |= 1;
-    }
-    if mods.contains(KeyModifiers::ALT) {
-        number |= 2;
-    }
-    if mods.contains(KeyModifiers::CONTROL) {
-        number |= 4;
-    }
-    number
+let mut number = 0;
+if mods.contains(KeyModifiers::SHIFT) {
+number |= 1;
+}
+if mods.contains(KeyModifiers::ALT) {
+number |= 2;
+}
+if mods.contains(KeyModifiers::CONTROL) {
+number |= 4;
+}
+number
 }
 
 ---
@@ -1843,30 +1846,28 @@ pub use term_output::TerminalOutput;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Failed to send event to TUI: {0}")]
-    Mpsc(String),
-    #[error("No task found with name '{name}'.")]
-    TaskNotFound { name: String },
-    #[error("No task at index {index} (only {len} tasks)")]
-    TaskNotFoundIndex { index: usize, len: usize },
-    #[error("Unable to write to stdin for '{name}': {e}")]
-    Stdin { name: String, e: std::io::Error },
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error("Unable to persist preferences.")]
-    Preferences(#[from] preferences::Error),
+#[error("Failed to send event to TUI: {0}")]
+Mpsc(String),
+#[error("No task found with name '{name}'.")]
+TaskNotFound { name: String },
+#[error("No task at index {index} (only {len} tasks)")]
+TaskNotFoundIndex { index: usize, len: usize },
+#[error("Unable to write to stdin for '{name}': {e}")]
+Stdin { name: String, e: std::io::Error },
+#[error(transparent)]
+Io(#[from] std::io::Error),
+#[error("Unable to persist preferences.")]
+Preferences(#[from] preferences::Error),
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/pane.rs
 ---
 
 use ratatui::{
-    style::{Modifier, Style, Stylize},
-    text::Line,
-    widgets::{Block, Widget},
+style::{Modifier, Style, Stylize},
+text::Line,
+widgets::{Block, Widget},
 };
 use tui_term::widget::PseudoTerminal;
 
@@ -1879,26 +1880,26 @@ const SCROLL_LOGS: &str = "u/d - Scroll logs";
 const TASK_LIST_HIDDEN: &str = "h - Show task list";
 
 pub struct TerminalPane<'a, W> {
-    terminal_output: &'a TerminalOutput<W>,
-    task_name: &'a str,
-    section: &'a LayoutSections,
-    has_sidebar: bool,
+terminal_output: &'a TerminalOutput<W>,
+task_name: &'a str,
+section: &'a LayoutSections,
+has_sidebar: bool,
 }
 
 impl<'a, W> TerminalPane<'a, W> {
-    pub fn new(
-        terminal_output: &'a TerminalOutput<W>,
-        task_name: &'a str,
-        section: &'a LayoutSections,
-        has_sidebar: bool,
-    ) -> Self {
-        Self {
-            terminal_output,
-            section,
-            task_name,
-            has_sidebar,
-        }
-    }
+pub fn new(
+terminal_output: &'a TerminalOutput<W>,
+task_name: &'a str,
+section: &'a LayoutSections,
+has_sidebar: bool,
+) -> Self {
+Self {
+terminal_output,
+section,
+task_name,
+has_sidebar,
+}
+}
 
     fn has_stdin(&self) -> bool {
         self.terminal_output.stdin.is_some()
@@ -1938,27 +1939,28 @@ impl<'a, W> TerminalPane<'a, W> {
             }
         }
     }
+
 }
 
 impl<W> Widget for &TerminalPane<'_, W> {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
-    where
-        Self: Sized,
-    {
-        let screen = self.terminal_output.parser.screen();
-        let block = Block::default()
-            .title(
-                self.terminal_output
-                    .title(self.task_name)
-                    .add_modifier(Modifier::DIM),
-            )
-            .title_bottom(self.footer());
+fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
+where
+Self: Sized,
+{
+let screen = self.terminal_output.parser.screen();
+let block = Block::default()
+.title(
+self.terminal_output
+.title(self.task_name)
+.add_modifier(Modifier::DIM),
+)
+.title_bottom(self.footer());
 
         let term = PseudoTerminal::new(screen).block(block);
         term.render(area, buf)
     }
-}
 
+}
 
 ---
 File: /crates/turborepo-ui/src/tui/popup.rs
@@ -1967,29 +1969,29 @@ File: /crates/turborepo-ui/src/tui/popup.rs
 use std::cmp::min;
 
 use ratatui::{
-    layout::{Constraint, Flex, Layout, Rect},
-    text::Line,
-    widgets::{Block, List, ListItem, Padding},
+layout::{Constraint, Flex, Layout, Rect},
+text::Line,
+widgets::{Block, List, ListItem, Padding},
 };
 
 const BIND_LIST: [&str; 12] = [
-    "m      - Toggle this help popup",
-    "↑ or j - Select previous task",
-    "↓ or k - Select next task",
-    "h      - Toggle task list",
-    "p      - Toggle pinned task selection",
-    "/      - Filter tasks to search term",
-    "ESC    - Clear filter",
-    "i      - Interact with task",
-    "Ctrl+z - Stop interacting with task",
-    "c      - Copy logs selection (Only when logs are selected)",
-    "u      - Scroll logs up",
-    "d      - Scroll logs down",
+"m - Toggle this help popup",
+"↑ or j - Select previous task",
+"↓ or k - Select next task",
+"h - Toggle task list",
+"p - Toggle pinned task selection",
+"/ - Filter tasks to search term",
+"ESC - Clear filter",
+"i - Interact with task",
+"Ctrl+z - Stop interacting with task",
+"c - Copy logs selection (Only when logs are selected)",
+"u - Scroll logs up",
+"d - Scroll logs down",
 ];
 
 pub fn popup_area(area: Rect) -> Rect {
-    let screen_width = area.width;
-    let screen_height = area.height;
+let screen_width = area.width;
+let screen_height = area.height;
 
     let popup_width = BIND_LIST
         .iter()
@@ -2014,10 +2016,11 @@ pub fn popup_area(area: Rect) -> Rect {
     let [area] = horizontal.areas(vertical_area);
 
     area
+
 }
 
 pub fn popup(area: Rect) -> List<'static> {
-    let available_height = area.height.saturating_sub(4) as usize;
+let available_height = area.height.saturating_sub(4) as usize;
 
     let items: Vec<ListItem> = BIND_LIST
         .iter()
@@ -2044,9 +2047,8 @@ pub fn popup(area: Rect) -> List<'static> {
         .padding(Padding::uniform(1));
 
     List::new(items).block(outer)
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/preferences.rs
@@ -2059,25 +2061,25 @@ const TUI_PREFERENCES_PATH_COMPONENTS: &[&str] = &[".turbo", "preferences", "tui
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
+#[error(transparent)]
+Io(#[from] std::io::Error),
+#[error(transparent)]
+Serde(#[from] serde_json::Error),
 }
 
 pub struct PreferenceLoader {
-    file_path: AbsoluteSystemPathBuf,
-    config: Preferences,
+file_path: AbsoluteSystemPathBuf,
+config: Preferences,
 }
 
 impl PreferenceLoader {
-    pub fn new(repo_root: &AbsoluteSystemPathBuf) -> Result<Self, Error> {
-        let file_path = repo_root.join_components(TUI_PREFERENCES_PATH_COMPONENTS);
-        let contents = file_path.read_existing_to_string()?;
-        let config = contents
-            .map(|string| serde_json::from_str(&string))
-            .transpose()?
-            .unwrap_or_default();
+pub fn new(repo_root: &AbsoluteSystemPathBuf) -> Result<Self, Error> {
+let file_path = repo_root.join_components(TUI_PREFERENCES_PATH_COMPONENTS);
+let contents = file_path.read_existing_to_string()?;
+let config = contents
+.map(|string| serde_json::from_str(&string))
+.transpose()?
+.unwrap_or_default();
 
         Ok(Self { file_path, config })
     }
@@ -2107,21 +2109,22 @@ impl PreferenceLoader {
 
         Ok(())
     }
+
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Preferences {
-    pub is_task_list_visible: Option<bool>,
-    pub active_task: Option<String>,
+pub is_task_list_visible: Option<bool>,
+pub active_task: Option<String>,
 }
 
 impl Default for Preferences {
-    fn default() -> Self {
-        Self {
-            active_task: None,
-            is_task_list_visible: Some(true),
-        }
-    }
+fn default() -> Self {
+Self {
+active_task: None,
+is_task_list_visible: Some(true),
+}
+}
 }
 
 ---
@@ -2134,26 +2137,26 @@ use super::task::TasksByStatus;
 
 #[derive(Debug, Clone)]
 pub struct SearchResults {
-    query: String,
-    // We use Rc<str> instead of String here for two reasons:
-    // - Rc for cheap clones since elements in `matches` will always be in `tasks` as well
-    // - Rc<str> implements Borrow<str> meaning we can query a `HashSet<Rc<str>>` using a `&str`
-    // We do not modify the provided task names so we do not need the capabilities of String.
-    tasks: Vec<Arc<str>>,
-    matches: HashSet<Arc<str>>,
+query: String,
+// We use Rc<str> instead of String here for two reasons:
+// - Rc for cheap clones since elements in `matches` will always be in `tasks` as well
+// - Rc<str> implements Borrow<str> meaning we can query a `HashSet<Rc<str>>` using a `&str`
+// We do not modify the provided task names so we do not need the capabilities of String.
+tasks: Vec<Arc<str>>,
+matches: HashSet<Arc<str>>,
 }
 
 impl SearchResults {
-    pub fn new(tasks: &TasksByStatus) -> Self {
-        Self {
-            tasks: tasks
-                .task_names_in_displayed_order()
-                .map(Arc::from)
-                .collect(),
-            query: String::new(),
-            matches: HashSet::new(),
-        }
-    }
+pub fn new(tasks: &TasksByStatus) -> Self {
+Self {
+tasks: tasks
+.task_names_in_displayed_order()
+.map(Arc::from)
+.collect(),
+query: String::new(),
+matches: HashSet::new(),
+}
+}
 
     /// Updates search results with new search body
     pub fn update_tasks(&mut self, tasks: &TasksByStatus) {
@@ -2194,6 +2197,7 @@ impl SearchResults {
     pub fn query(&self) -> &str {
         &self.query
     }
+
 }
 
 ---
@@ -2206,20 +2210,20 @@ const PANE_SIZE_RATIO: f32 = 3.0 / 4.0;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SizeInfo {
-    task_width_hint: u16,
-    rows: u16,
-    cols: u16,
+task_width_hint: u16,
+rows: u16,
+cols: u16,
 }
 
 impl SizeInfo {
-    pub fn new<'a>(rows: u16, cols: u16, tasks: impl Iterator<Item = &'a str>) -> Self {
-        let task_width_hint = TaskTable::width_hint(tasks);
-        Self {
-            rows,
-            cols,
-            task_width_hint,
-        }
-    }
+pub fn new<'a>(rows: u16, cols: u16, tasks: impl Iterator<Item = &'a str>) -> Self {
+let task_width_hint = TaskTable::width_hint(tasks);
+Self {
+rows,
+cols,
+task_width_hint,
+}
+}
 
     pub fn resize(&mut self, rows: u16, cols: u16) {
         self.rows = rows;
@@ -2247,9 +2251,8 @@ impl SizeInfo {
             // We need to account for the left border of the pane
             .saturating_sub(1)
     }
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/spinner.rs
@@ -2264,17 +2267,17 @@ const FRAMERATE: Duration = Duration::from_millis(80);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpinnerState {
-    frame: usize,
-    last_render: Option<Instant>,
+frame: usize,
+last_render: Option<Instant>,
 }
 
 impl SpinnerState {
-    pub fn new() -> Self {
-        Self {
-            frame: 0,
-            last_render: None,
-        }
-    }
+pub fn new() -> Self {
+Self {
+frame: 0,
+last_render: None,
+}
+}
 
     pub fn update(&mut self) {
         if let Some(last_render) = self.last_render {
@@ -2290,12 +2293,13 @@ impl SpinnerState {
     pub fn current(&self) -> &'static str {
         SPINNER_FRAMES[self.frame]
     }
+
 }
 
 impl Default for SpinnerState {
-    fn default() -> Self {
-        Self::new()
-    }
+fn default() -> Self {
+Self::new()
+}
 }
 
 ---
@@ -2305,40 +2309,38 @@ File: /crates/turborepo-ui/src/tui/state.rs
 use std::time::Instant;
 
 enum Event {
-    Tick,
+Tick,
 }
 
 struct State {
-    current_time: Instant,
+current_time: Instant,
 }
 
 struct Focus {
-    task_id: String,
-    focus_type: FocusType,
+task_id: String,
+focus_type: FocusType,
 }
 
 enum FocusType {
-    View,
-    Interact,
+View,
+Interact,
 }
 
 struct DoneTask {
-    id: String,
-    start: Instant,
-    end: Instant,
+id: String,
+start: Instant,
+end: Instant,
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/table.rs
 ---
 
 use ratatui::{
-    layout::{Constraint, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    text::Text,
-    widgets::{Block, Borders, Cell, Row, StatefulWidget, Table, TableState},
+layout::{Constraint, Rect},
+style::{Color, Modifier, Style, Stylize},
+text::Text,
+widgets::{Block, Borders, Cell, Row, StatefulWidget, Table, TableState},
 };
 
 use super::{event::TaskResult, spinner::SpinnerState, task::TasksByStatus};
@@ -2349,25 +2351,25 @@ use super::{event::TaskResult, spinner::SpinnerState, task::TasksByStatus};
 /// - running tasks
 /// - planned tasks
 /// - finished tasks
-///   - failed tasks
-///   - successful tasks
-///   - cached tasks
+/// - failed tasks
+/// - successful tasks
+/// - cached tasks
 pub struct TaskTable<'b> {
-    tasks_by_type: &'b TasksByStatus,
-    spinner: SpinnerState,
+tasks_by_type: &'b TasksByStatus,
+spinner: SpinnerState,
 }
 
 const TASK_NAVIGATE_INSTRUCTIONS: &str = "↑ ↓ - Select";
 const MORE_BINDS_INSTRUCTIONS: &str = "m - More binds";
 
 impl<'b> TaskTable<'b> {
-    /// Construct a new table with all of the planned tasks
-    pub fn new(tasks_by_type: &'b TasksByStatus) -> Self {
-        Self {
-            tasks_by_type,
-            spinner: SpinnerState::default(),
-        }
-    }
+/// Construct a new table with all of the planned tasks
+pub fn new(tasks_by_type: &'b TasksByStatus) -> Self {
+Self {
+tasks_by_type,
+spinner: SpinnerState::default(),
+}
+}
 
     /// Provides a suggested width for the task table
     pub fn width_hint<'a>(tasks: impl Iterator<Item = &'a str>) -> u16 {
@@ -2427,10 +2429,11 @@ impl<'b> TaskTable<'b> {
             .iter()
             .map(move |task| Row::new(vec![Cell::new(task.name()), Cell::new(" ")]))
     }
+
 }
 
 impl<'a> StatefulWidget for &'a TaskTable<'a> {
-    type State = TableState;
+type State = TableState;
 
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
         let table = Table::new(
@@ -2468,9 +2471,8 @@ impl<'a> StatefulWidget for &'a TaskTable<'a> {
         );
         StatefulWidget::render(table, area, buf, state);
     }
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/tui/task.rs
@@ -2486,41 +2488,41 @@ pub struct Planned;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Running {
-    start: Instant,
+start: Instant,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Finished {
-    start: Instant,
-    end: Instant,
-    result: TaskResult,
+start: Instant,
+end: Instant,
+result: TaskResult,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Task<S> {
-    name: String,
-    state: S,
+name: String,
+state: S,
 }
 
 pub enum TaskType {
-    Planned,
-    Running,
-    Finished,
+Planned,
+Running,
+Finished,
 }
 
 impl<S> Task<S> {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+pub fn name(&self) -> &str {
+&self.name
+}
 }
 
 impl Task<Planned> {
-    pub fn new(name: String) -> Task<Planned> {
-        Task {
-            name,
-            state: Planned,
-        }
-    }
+pub fn new(name: String) -> Task<Planned> {
+Task {
+name,
+state: Planned,
+}
+}
 
     pub fn start(self) -> Task<Running> {
         Task {
@@ -2530,23 +2532,24 @@ impl Task<Planned> {
             },
         }
     }
+
 }
 
 impl Task<Running> {
-    pub fn finish(self, result: TaskResult) -> Task<Finished> {
-        let Task {
-            name,
-            state: Running { start },
-        } = self;
-        Task {
-            name,
-            state: Finished {
-                start,
-                result,
-                end: Instant::now(),
-            },
-        }
-    }
+pub fn finish(self, result: TaskResult) -> Task<Finished> {
+let Task {
+name,
+state: Running { start },
+} = self;
+Task {
+name,
+state: Finished {
+start,
+result,
+end: Instant::now(),
+},
+}
+}
 
     pub fn start(&self) -> Instant {
         self.state.start
@@ -2558,12 +2561,13 @@ impl Task<Running> {
             state: Planned,
         }
     }
+
 }
 
 impl Task<Finished> {
-    pub fn start(&self) -> Instant {
-        self.state.start
-    }
+pub fn start(&self) -> Instant {
+self.state.start
+}
 
     pub fn end(&self) -> Instant {
         self.state.end
@@ -2579,26 +2583,27 @@ impl Task<Finished> {
             state: Planned,
         }
     }
+
 }
 
 #[derive(Default)]
 pub struct TaskNamesByStatus {
-    pub running: Vec<String>,
-    pub planned: Vec<String>,
-    pub finished: Vec<String>,
+pub running: Vec<String>,
+pub planned: Vec<String>,
+pub finished: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct TasksByStatus {
-    pub running: Vec<Task<Running>>,
-    pub planned: Vec<Task<Planned>>,
-    pub finished: Vec<Task<Finished>>,
+pub running: Vec<Task<Running>>,
+pub planned: Vec<Task<Planned>>,
+pub finished: Vec<Task<Finished>>,
 }
 
 impl TasksByStatus {
-    pub fn new() -> Self {
-        Self::default()
-    }
+pub fn new() -> Self {
+Self::default()
+}
 
     pub fn all_empty(&self) -> bool {
         self.planned.is_empty() && self.finished.is_empty() && self.running.is_empty()
@@ -2706,8 +2711,8 @@ impl TasksByStatus {
         self.finished.insert(index, task);
         index
     }
-}
 
+}
 
 ---
 File: /crates/turborepo-ui/src/tui/term_output.rs
@@ -2718,41 +2723,41 @@ use std::{io::Write, mem};
 use turborepo_vt100 as vt100;
 
 use super::{
-    event::{CacheResult, Direction, OutputLogs, TaskResult},
-    Error,
+event::{CacheResult, Direction, OutputLogs, TaskResult},
+Error,
 };
 
 const SCROLLBACK_LEN: usize = 1024;
 
 pub struct TerminalOutput<W> {
-    output: Vec<u8>,
-    pub parser: vt100::Parser,
-    pub stdin: Option<W>,
-    pub status: Option<String>,
-    pub output_logs: Option<OutputLogs>,
-    pub task_result: Option<TaskResult>,
-    pub cache_result: Option<CacheResult>,
+output: Vec<u8>,
+pub parser: vt100::Parser,
+pub stdin: Option<W>,
+pub status: Option<String>,
+pub output_logs: Option<OutputLogs>,
+pub task_result: Option<TaskResult>,
+pub cache_result: Option<CacheResult>,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum LogBehavior {
-    Full,
-    Status,
-    Nothing,
+Full,
+Status,
+Nothing,
 }
 
 impl<W> TerminalOutput<W> {
-    pub fn new(rows: u16, cols: u16, stdin: Option<W>) -> Self {
-        Self {
-            output: Vec::new(),
-            parser: vt100::Parser::new(rows, cols, SCROLLBACK_LEN),
-            stdin,
-            status: None,
-            output_logs: None,
-            task_result: None,
-            cache_result: None,
-        }
-    }
+pub fn new(rows: u16, cols: u16, stdin: Option<W>) -> Self {
+Self {
+output: Vec::new(),
+parser: vt100::Parser::new(rows, cols, SCROLLBACK_LEN),
+stdin,
+status: None,
+output_logs: None,
+task_result: None,
+cache_result: None,
+}
+}
 
     pub fn title(&self, task_name: &str) -> String {
         match self.status.as_deref() {
@@ -2879,9 +2884,8 @@ impl<W> TerminalOutput<W> {
     pub fn copy_selection(&self) -> Option<String> {
         self.parser.screen().selected_text()
     }
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/wui/event.rs
@@ -2896,33 +2900,31 @@ use crate::tui::event::{CacheResult, OutputLogs, TaskResult};
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum WebUIEvent {
-    StartTask {
-        task: String,
-        output_logs: OutputLogs,
-    },
-    TaskOutput {
-        task: String,
-        output: Vec<u8>,
-    },
-    EndTask {
-        task: String,
-        result: TaskResult,
-    },
-    CacheStatus {
-        task: String,
-        message: String,
-        result: CacheResult,
-    },
-    UpdateTasks {
-        tasks: Vec<String>,
-    },
-    RestartTasks {
-        tasks: Vec<String>,
-    },
-    Stop,
+StartTask {
+task: String,
+output_logs: OutputLogs,
+},
+TaskOutput {
+task: String,
+output: Vec<u8>,
+},
+EndTask {
+task: String,
+result: TaskResult,
+},
+CacheStatus {
+task: String,
+message: String,
+result: CacheResult,
+},
+UpdateTasks {
+tasks: Vec<String>,
+},
+RestartTasks {
+tasks: Vec<String>,
+},
+Stop,
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/wui/mod.rs
@@ -2942,19 +2944,17 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Failed to start server.")]
-    Server(#[from] std::io::Error),
-    #[error("Failed to start websocket server: {0}")]
-    WebSocket(#[source] axum::Error),
-    #[error("Failed to serialize message: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("Failed to send message.")]
-    Send(#[from] axum::Error),
-    #[error("Failed to send message through channel.")]
-    Broadcast(#[from] tokio::sync::mpsc::error::SendError<WebUIEvent>),
+#[error("Failed to start server.")]
+Server(#[from] std::io::Error),
+#[error("Failed to start websocket server: {0}")]
+WebSocket(#[source] axum::Error),
+#[error("Failed to serialize message: {0}")]
+Serde(#[from] serde_json::Error),
+#[error("Failed to send message.")]
+Send(#[from] axum::Error),
+#[error("Failed to send message through channel.")]
+Broadcast(#[from] tokio::sync::mpsc::error::SendError<WebUIEvent>),
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/wui/query.rs
@@ -2970,28 +2970,28 @@ use crate::wui::subscriber::{TaskState, WebUIState};
 
 #[derive(Debug, Clone, Serialize, SimpleObject)]
 struct RunTask {
-    name: String,
-    state: TaskState,
+name: String,
+state: TaskState,
 }
 
 struct CurrentRun<'a> {
-    state: &'a SharedState,
+state: &'a SharedState,
 }
 
 #[Object]
 impl CurrentRun<'_> {
-    async fn tasks(&self) -> Vec<RunTask> {
-        self.state
-            .lock()
-            .await
-            .tasks()
-            .iter()
-            .map(|(task, state)| RunTask {
-                name: task.clone(),
-                state: state.clone(),
-            })
-            .collect()
-    }
+async fn tasks(&self) -> Vec<RunTask> {
+self.state
+.lock()
+.await
+.tasks()
+.iter()
+.map(|(task, state)| RunTask {
+name: task.clone(),
+state: state.clone(),
+})
+.collect()
+}
 }
 
 /// We keep the state in a `Arc<Mutex<RefCell<T>>>` so both `Subscriber` and
@@ -3005,25 +3005,23 @@ pub type SharedState = Arc<Mutex<WebUIState>>;
 /// in `turborepo_lib::query`)
 /// This is `None` when we're not actually running a task (e.g. `turbo query`)
 pub struct RunQuery {
-    state: Option<SharedState>,
+state: Option<SharedState>,
 }
 
 impl RunQuery {
-    pub fn new(state: Option<SharedState>) -> Self {
-        Self { state }
-    }
+pub fn new(state: Option<SharedState>) -> Self {
+Self { state }
+}
 }
 
 #[Object]
 impl RunQuery {
-    async fn current_run(&self) -> Option<CurrentRun> {
-        Some(CurrentRun {
-            state: self.state.as_ref()?,
-        })
-    }
+async fn current_run(&self) -> Option<CurrentRun> {
+Some(CurrentRun {
+state: self.state.as_ref()?,
+})
 }
-
-
+}
 
 ---
 File: /crates/turborepo-ui/src/wui/sender.rs
@@ -3034,25 +3032,25 @@ use std::io::Write;
 use tracing::log::warn;
 
 use crate::{
-    sender::{TaskSender, UISender},
-    tui::event::{CacheResult, OutputLogs, TaskResult},
-    wui::{event::WebUIEvent, Error},
+sender::{TaskSender, UISender},
+tui::event::{CacheResult, OutputLogs, TaskResult},
+wui::{event::WebUIEvent, Error},
 };
 
 #[derive(Debug, Clone)]
 pub struct WebUISender {
-    pub tx: tokio::sync::mpsc::UnboundedSender<WebUIEvent>,
+pub tx: tokio::sync::mpsc::UnboundedSender<WebUIEvent>,
 }
 
 impl WebUISender {
-    pub fn new(tx: tokio::sync::mpsc::UnboundedSender<WebUIEvent>) -> Self {
-        Self { tx }
-    }
-    pub fn start_task(&self, task: String, output_logs: OutputLogs) {
-        self.tx
-            .send(WebUIEvent::StartTask { task, output_logs })
-            .ok();
-    }
+pub fn new(tx: tokio::sync::mpsc::UnboundedSender<WebUIEvent>) -> Self {
+Self { tx }
+}
+pub fn start_task(&self, task: String, output_logs: OutputLogs) {
+self.tx
+.send(WebUIEvent::StartTask { task, output_logs })
+.ok();
+}
 
     pub fn restart_tasks(&self, tasks: Vec<String>) -> Result<(), crate::Error> {
         self.tx
@@ -3106,9 +3104,8 @@ impl WebUISender {
 
         Ok(())
     }
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/wui/subscriber.rs
@@ -3121,19 +3118,19 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::{
-    tui::event::{CacheResult, TaskResult},
-    wui::{event::WebUIEvent, query::SharedState},
+tui::event::{CacheResult, TaskResult},
+wui::{event::WebUIEvent, query::SharedState},
 };
 
 /// Subscribes to the Web UI events and updates the state
 pub struct Subscriber {
-    rx: tokio::sync::mpsc::UnboundedReceiver<WebUIEvent>,
+rx: tokio::sync::mpsc::UnboundedReceiver<WebUIEvent>,
 }
 
 impl Subscriber {
-    pub fn new(rx: tokio::sync::mpsc::UnboundedReceiver<WebUIEvent>) -> Self {
-        Self { rx }
-    }
+pub fn new(rx: tokio::sync::mpsc::UnboundedReceiver<WebUIEvent>) -> Self {
+Self { rx }
+}
 
     pub async fn watch(
         self,
@@ -3218,55 +3215,55 @@ impl Subscriber {
             }
         }
     }
+
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, Enum)]
 pub enum TaskStatus {
-    Pending,
-    Running,
-    Cached,
-    Failed,
-    Succeeded,
+Pending,
+Running,
+Cached,
+Failed,
+Succeeded,
 }
 
 impl From<TaskResult> for TaskStatus {
-    fn from(result: TaskResult) -> Self {
-        match result {
-            TaskResult::Success => Self::Succeeded,
-            TaskResult::CacheHit => Self::Cached,
-            TaskResult::Failure => Self::Failed,
-        }
-    }
+fn from(result: TaskResult) -> Self {
+match result {
+TaskResult::Success => Self::Succeeded,
+TaskResult::CacheHit => Self::Cached,
+TaskResult::Failure => Self::Failed,
+}
+}
 }
 
 #[derive(Debug, Clone, Serialize, SimpleObject)]
 pub struct TaskState {
-    output: Vec<u8>,
-    status: TaskStatus,
-    cache_result: Option<CacheResult>,
-    /// The message for the cache status, i.e. `cache hit, replaying logs`
-    cache_message: Option<String>,
+output: Vec<u8>,
+status: TaskStatus,
+cache_result: Option<CacheResult>,
+/// The message for the cache status, i.e. `cache hit, replaying logs`
+cache_message: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct WebUIState {
-    tasks: BTreeMap<String, TaskState>,
+tasks: BTreeMap<String, TaskState>,
 }
 
 impl WebUIState {
-    pub fn tasks(&self) -> &BTreeMap<String, TaskState> {
-        &self.tasks
-    }
+pub fn tasks(&self) -> &BTreeMap<String, TaskState> {
+&self.tasks
 }
-
+}
 
 ---
 File: /crates/turborepo-ui/src/color_selector.rs
 ---
 
 use std::{
-    collections::HashMap,
-    sync::{Arc, OnceLock, RwLock},
+collections::HashMap,
+sync::{Arc, OnceLock, RwLock},
 };
 
 use console::{Style, StyledObject};
@@ -3274,35 +3271,35 @@ use console::{Style, StyledObject};
 static COLORS: OnceLock<[Style; 5]> = OnceLock::new();
 
 pub fn get_terminal_package_colors() -> &'static [Style; 5] {
-    COLORS.get_or_init(|| {
-        [
-            Style::new().cyan(),
-            Style::new().magenta(),
-            Style::new().green(),
-            Style::new().yellow(),
-            Style::new().blue(),
-        ]
-    })
+COLORS.get_or_init(|| {
+[
+Style::new().cyan(),
+Style::new().magenta(),
+Style::new().green(),
+Style::new().yellow(),
+Style::new().blue(),
+]
+})
 }
 
 /// Selects colors for tasks and caches accordingly.
 /// Shared between tasks so allows for concurrent access.
 #[derive(Default)]
 pub struct ColorSelector {
-    inner: Arc<RwLock<ColorSelectorInner>>,
+inner: Arc<RwLock<ColorSelectorInner>>,
 }
 
 #[derive(Default)]
 struct ColorSelectorInner {
-    idx: usize,
-    cache: HashMap<String, &'static Style>,
+idx: usize,
+cache: HashMap<String, &'static Style>,
 }
 
 impl ColorSelector {
-    pub fn color_for_key(&self, key: &str) -> &'static Style {
-        if let Some(style) = self.inner.read().expect("lock poisoned").color(key) {
-            return style;
-        }
+pub fn color_for_key(&self, key: &str) -> &'static Style {
+if let Some(style) = self.inner.read().expect("lock poisoned").color(key) {
+return style;
+}
 
         let color = {
             self.inner
@@ -3322,12 +3319,13 @@ impl ColorSelector {
         let style = self.color_for_key(cache_key);
         style.apply_to(format!("{}: ", prefix))
     }
+
 }
 
 impl ColorSelectorInner {
-    fn color(&self, key: &str) -> Option<&'static Style> {
-        self.cache.get(key).copied()
-    }
+fn color(&self, key: &str) -> Option<&'static Style> {
+self.cache.get(key).copied()
+}
 
     fn insert_color(&mut self, key: String) -> &'static Style {
         let colors = get_terminal_package_colors();
@@ -3339,6 +3337,7 @@ impl ColorSelectorInner {
             chosen_color
         })
     }
+
 }
 
 ---
@@ -3368,137 +3367,145 @@ use lazy_static::lazy_static;
 use thiserror::Error;
 
 pub use crate::{
-    color_selector::ColorSelector,
-    line::LineWriter,
-    logs::{replay_logs, replay_logs_with_crlf, LogWriter},
-    output::{OutputClient, OutputClientBehavior, OutputSink, OutputWriter},
-    prefixed::{PrefixedUI, PrefixedWriter},
-    tui::{TaskTable, TerminalPane},
+color_selector::ColorSelector,
+line::LineWriter,
+logs::{replay_logs, replay_logs_with_crlf, LogWriter},
+output::{OutputClient, OutputClientBehavior, OutputSink, OutputWriter},
+prefixed::{PrefixedUI, PrefixedWriter},
+tui::{TaskTable, TerminalPane},
 };
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error(transparent)]
-    Tui(#[from] tui::Error),
-    #[error(transparent)]
-    Wui(#[from] wui::Error),
-    #[error("Cannot read logs: {0}")]
-    CannotReadLogs(#[source] std::io::Error),
-    #[error("Cannot write logs: {0}")]
-    CannotWriteLogs(#[source] std::io::Error),
+#[error(transparent)]
+Tui(#[from] tui::Error),
+#[error(transparent)]
+Wui(#[from] wui::Error),
+#[error("Cannot read logs: {0}")]
+CannotReadLogs(#[source] std::io::Error),
+#[error("Cannot write logs: {0}")]
+CannotWriteLogs(#[source] std::io::Error),
 }
 
 pub fn start_spinner(message: &str) -> ProgressBar {
-    let pb = ProgressBar::new_spinner();
-    if env::var("CI").is_ok() {
-        pb.enable_steady_tick(Duration::from_secs(30));
-    } else {
-        pb.enable_steady_tick(Duration::from_millis(125));
-    }
-    pb.set_style(
-        ProgressStyle::default_spinner()
-            // For more spinners check out the cli-spinners project:
-            // https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
-            .tick_strings(&[
-                "   ",
-                GREY.apply_to(">  ").to_string().as_str(),
-                GREY.apply_to(">> ").to_string().as_str(),
-                GREY.apply_to(">>>").to_string().as_str(),
-                ">>>",
-            ]),
-    );
-    pb.set_message(message.to_string());
+let pb = ProgressBar::new_spinner();
+if env::var("CI").is_ok() {
+pb.enable_steady_tick(Duration::from_secs(30));
+} else {
+pb.enable_steady_tick(Duration::from_millis(125));
+}
+pb.set_style(
+ProgressStyle::default_spinner()
+// For more spinners check out the cli-spinners project:
+// https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
+.tick_strings(&[
+" ",
+GREY.apply_to("> ").to_string().as_str(),
+GREY.apply_to(">> ").to_string().as_str(),
+GREY.apply_to(">>>").to_string().as_str(),
+">>>",
+]),
+);
+pb.set_message(message.to_string());
 
     pb
+
 }
 
 #[macro_export]
 macro_rules! color {
-    ($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         $ui.apply(colored_str)
     }};
+
 }
 
 #[macro_export]
 macro_rules! cprintln {
-    ($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         println!("{}", $ui.apply(colored_str))
     }};
+
 }
 
 #[macro_export]
 macro_rules! cprint {
-    ($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         print!("{}", $ui.apply(colored_str))
     }};
+
 }
 
 #[macro_export]
 macro_rules! cwrite {
-    ($dst:expr, $ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($dst:expr, $ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         write!($dst, "{}", $ui.apply(colored_str))
     }};
+
 }
 
 #[macro_export]
 macro_rules! cwriteln {
-    ($writer:expr, $ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($writer:expr, $ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         writeln!($writer, "{}", $ui.apply(colored_str))
     }};
+
 }
 
 #[macro_export]
 macro_rules! ceprintln {
-    ($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         eprintln!("{}", $ui.apply(colored_str))
     }};
+
 }
 
 #[macro_export]
 macro_rules! ceprint {
-    ($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)*) => {{
-        let formatted_str = format!($format_string $(, $arg)*);
+($ui:expr, $color:expr, $format_string:expr $(, $arg:expr)_) => {{
+let formatted_str = format!($format_string $(, $arg)_);
 
         let colored_str = $color.apply_to(formatted_str);
 
         eprint!("{}", $ui.apply(colored_str))
     }};
+
 }
 
 /// Helper struct to apply any necessary formatting to UI output
 #[derive(Debug, Clone, Copy)]
 pub struct ColorConfig {
-    pub should_strip_ansi: bool,
+pub should_strip_ansi: bool,
 }
 
 impl ColorConfig {
-    pub fn new(should_strip_ansi: bool) -> Self {
-        Self { should_strip_ansi }
-    }
+pub fn new(should_strip_ansi: bool) -> Self {
+Self { should_strip_ansi }
+}
 
     /// Infer the color choice from environment variables and checking if stdout
     /// is a tty
@@ -3559,26 +3566,26 @@ impl ColorConfig {
 
         Cow::Owned(out.join(""))
     }
+
 }
 
 lazy_static! {
-    pub static ref GREY: Style = Style::new().dim();
-    pub static ref CYAN: Style = Style::new().cyan();
-    pub static ref BOLD: Style = Style::new().bold();
-    pub static ref MAGENTA: Style = Style::new().magenta();
-    pub static ref YELLOW: Style = Style::new().yellow();
-    pub static ref BOLD_YELLOW_REVERSE: Style = Style::new().yellow().bold().reverse();
-    pub static ref UNDERLINE: Style = Style::new().underlined();
-    pub static ref BOLD_CYAN: Style = Style::new().cyan().bold();
-    pub static ref BOLD_GREY: Style = Style::new().dim().bold();
-    pub static ref BOLD_GREEN: Style = Style::new().green().bold();
-    pub static ref BOLD_RED: Style = Style::new().red().bold();
+pub static ref GREY: Style = Style::new().dim();
+pub static ref CYAN: Style = Style::new().cyan();
+pub static ref BOLD: Style = Style::new().bold();
+pub static ref MAGENTA: Style = Style::new().magenta();
+pub static ref YELLOW: Style = Style::new().yellow();
+pub static ref BOLD_YELLOW_REVERSE: Style = Style::new().yellow().bold().reverse();
+pub static ref UNDERLINE: Style = Style::new().underlined();
+pub static ref BOLD_CYAN: Style = Style::new().cyan().bold();
+pub static ref BOLD_GREY: Style = Style::new().dim().bold();
+pub static ref BOLD_GREEN: Style = Style::new().green().bold();
+pub static ref BOLD_RED: Style = Style::new().red().bold();
 }
 
 pub const RESET: &str = "\x1b[0m";
 
 pub use dialoguer::theme::ColorfulTheme as DialoguerTheme;
-
 
 ---
 File: /crates/turborepo-ui/src/line.rs
@@ -3589,35 +3596,35 @@ use std::io::Write;
 /// Writer that will buffer writes so the underlying writer is only called with
 /// writes that end in a newline
 pub struct LineWriter<W> {
-    writer: W,
-    buffer: Vec<u8>,
+writer: W,
+buffer: Vec<u8>,
 }
 
 impl<W: Write> LineWriter<W> {
-    pub fn new(writer: W) -> Self {
-        Self {
-            writer,
-            buffer: Vec::with_capacity(512),
-        }
-    }
+pub fn new(writer: W) -> Self {
+Self {
+writer,
+buffer: Vec::with_capacity(512),
+}
+}
 }
 
 impl<W: Write> Write for LineWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        for line in buf.split_inclusive(|c| *c == b'\n') {
-            if line.ends_with(b"\n") {
-                if self.buffer.is_empty() {
-                    self.writer.write_all(line)?;
-                } else {
-                    self.buffer.extend_from_slice(line);
-                    self.writer.write_all(&self.buffer)?;
-                    self.buffer.clear();
-                }
-            } else {
-                // This should only happen on the last chunk?
-                self.buffer.extend_from_slice(line)
-            }
-        }
+fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+for line in buf.split_inclusive(|c| *c == b'\n') {
+if line.ends_with(b"\n") {
+if self.buffer.is_empty() {
+self.writer.write_all(line)?;
+} else {
+self.buffer.extend_from_slice(line);
+self.writer.write_all(&self.buffer)?;
+self.buffer.clear();
+}
+} else {
+// This should only happen on the last chunk?
+self.buffer.extend_from_slice(line)
+}
+}
 
         Ok(buf.len())
     }
@@ -3626,17 +3633,16 @@ impl<W: Write> Write for LineWriter<W> {
         // We don't flush our buffer as that would lead to a write without a newline
         self.writer.flush()
     }
+
 }
-
-
 
 ---
 File: /crates/turborepo-ui/src/logs.rs
 ---
 
 use std::{
-    fs::File,
-    io::{BufRead, BufReader, BufWriter, Write},
+fs::File,
+io::{BufRead, BufReader, BufWriter, Write},
 };
 
 use tracing::{debug, warn};
@@ -3647,27 +3653,27 @@ use crate::Error;
 /// Receives logs and multiplexes them to a log file and/or a prefixed
 /// writer
 pub struct LogWriter<W> {
-    log_file: Option<BufWriter<File>>,
-    writer: Option<W>,
+log_file: Option<BufWriter<File>>,
+writer: Option<W>,
 }
 
 /// Derive didn't work here.
 /// (we don't actually need `W` to implement `Default` here)
 impl<W> Default for LogWriter<W> {
-    fn default() -> Self {
-        Self {
-            log_file: None,
-            writer: None,
-        }
-    }
+fn default() -> Self {
+Self {
+log_file: None,
+writer: None,
+}
+}
 }
 
 impl<W: Write> LogWriter<W> {
-    pub fn with_log_file(&mut self, log_file_path: &AbsoluteSystemPath) -> Result<(), Error> {
-        log_file_path.ensure_dir().map_err(|err| {
-            warn!("error creating log file directory: {:?}", err);
-            Error::CannotWriteLogs(err)
-        })?;
+pub fn with_log_file(&mut self, log_file_path: &AbsoluteSystemPath) -> Result<(), Error> {
+log_file_path.ensure_dir().map_err(|err| {
+warn!("error creating log file directory: {:?}", err);
+Error::CannotWriteLogs(err)
+})?;
 
         let log_file = log_file_path.create().map_err(|err| {
             warn!("error creating log file: {:?}", err);
@@ -3682,22 +3688,23 @@ impl<W: Write> LogWriter<W> {
     pub fn with_writer(&mut self, writer: W) {
         self.writer = Some(writer);
     }
+
 }
 
 impl<W: Write> Write for LogWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match (&mut self.log_file, &mut self.writer) {
-            (Some(log_file), Some(prefixed_writer)) => {
-                let _ = prefixed_writer.write(buf)?;
-                log_file.write(buf)
-            }
-            (Some(log_file), None) => log_file.write(buf),
-            (None, Some(prefixed_writer)) => prefixed_writer.write(buf),
-            (None, None) => {
-                debug!(
-                    "No log file or prefixed writer to write to. This should only happen when \
-                     both caching is disabled and output logs are set to none."
-                );
+fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+match (&mut self.log_file, &mut self.writer) {
+(Some(log_file), Some(prefixed_writer)) => {
+let _ = prefixed_writer.write(buf)?;
+log_file.write(buf)
+}
+(Some(log_file), None) => log_file.write(buf),
+(None, Some(prefixed_writer)) => prefixed_writer.write(buf),
+(None, None) => {
+debug!(
+"No log file or prefixed writer to write to. This should only happen when\
+both caching is disabled and output logs are set to none."
+);
 
                 // Returning the buffer's length so callers don't think this is a failure to
                 // create the buffer
@@ -3716,13 +3723,14 @@ impl<W: Write> Write for LogWriter<W> {
 
         Ok(())
     }
+
 }
 
 pub fn replay_logs<W: Write>(
-    mut output: W,
-    log_file_name: &AbsoluteSystemPath,
+mut output: W,
+log_file_name: &AbsoluteSystemPath,
 ) -> Result<(), Error> {
-    debug!("start replaying logs");
+debug!("start replaying logs");
 
     let log_file = File::open(log_file_name).map_err(|err| {
         warn!("error opening log file: {:?}", err);
@@ -3753,15 +3761,16 @@ pub fn replay_logs<W: Write>(
     debug!("finish replaying logs");
 
     Ok(())
+
 }
 
 /// Replay logs, but enforce crlf line endings
 // TODO: refactor to share code with `replay_logs`
 pub fn replay_logs_with_crlf<W: Write>(
-    mut output: W,
-    log_file_name: &AbsoluteSystemPath,
+mut output: W,
+log_file_name: &AbsoluteSystemPath,
 ) -> Result<(), Error> {
-    debug!("start replaying logs");
+debug!("start replaying logs");
 
     let log_file = File::open(log_file_name).map_err(|err| {
         warn!("error opening log file: {:?}", err);
@@ -3795,6 +3804,7 @@ pub fn replay_logs_with_crlf<W: Write>(
     debug!("finish replaying logs");
 
     Ok(())
+
 }
 
 ---
@@ -3802,9 +3812,9 @@ File: /crates/turborepo-ui/src/output.rs
 ---
 
 use std::{
-    borrow::Cow,
-    io::{self, Write},
-    sync::{Arc, Mutex, RwLock},
+borrow::Cow,
+io::{self, Write},
+sync::{Arc, Mutex, RwLock},
 };
 
 use turborepo_ci::GroupPrefixFn;
@@ -3812,69 +3822,69 @@ use turborepo_ci::GroupPrefixFn;
 /// OutputSink represent a sink for outputs that can be written to from multiple
 /// threads through the use of Loggers.
 pub struct OutputSink<W> {
-    writers: Arc<Mutex<SinkWriters<W>>>,
+writers: Arc<Mutex<SinkWriters<W>>>,
 }
 
 struct SinkWriters<W> {
-    out: W,
-    err: W,
+out: W,
+err: W,
 }
 
 /// OutputClient allows for multiple threads to write to the same OutputSink
 pub struct OutputClient<W> {
-    behavior: OutputClientBehavior,
-    // We could use a RefCell if we didn't use this with async code.
-    // Any locals held across an await must implement Sync and RwLock lets us achieve this
-    buffer: Option<RwLock<Vec<SinkBytes<'static>>>>,
-    writers: Arc<Mutex<SinkWriters<W>>>,
-    primary: Marginals,
-    error: Marginals,
+behavior: OutputClientBehavior,
+// We could use a RefCell if we didn't use this with async code.
+// Any locals held across an await must implement Sync and RwLock lets us achieve this
+buffer: Option<RwLock<Vec<SinkBytes<'static>>>>,
+writers: Arc<Mutex<SinkWriters<W>>>,
+primary: Marginals,
+error: Marginals,
 }
 
 #[derive(Default)]
 struct Marginals {
-    header: Option<GroupPrefixFn>,
-    footer: Option<GroupPrefixFn>,
+header: Option<GroupPrefixFn>,
+footer: Option<GroupPrefixFn>,
 }
 
 pub struct OutputWriter<'a, W> {
-    logger: &'a OutputClient<W>,
-    destination: Destination,
-    buffer: Vec<u8>,
+logger: &'a OutputClient<W>,
+destination: Destination,
+buffer: Vec<u8>,
 }
 
 /// Enum for controlling the behavior of the client
 #[derive(Debug, Clone, Copy)]
 pub enum OutputClientBehavior {
-    /// Every line sent to the client will get immediately sent to the sink
-    Passthrough,
-    /// Every line sent to the client will get immediately sent to the sink,
-    /// but a buffer will be built up as well and returned when finish is called
-    InMemoryBuffer,
-    // Every line sent to the client will get tracked in the buffer only being
-    // sent to the sink once finish is called.
-    Grouped,
+/// Every line sent to the client will get immediately sent to the sink
+Passthrough,
+/// Every line sent to the client will get immediately sent to the sink,
+/// but a buffer will be built up as well and returned when finish is called
+InMemoryBuffer,
+// Every line sent to the client will get tracked in the buffer only being
+// sent to the sink once finish is called.
+Grouped,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Destination {
-    Stdout,
-    Stderr,
+Stdout,
+Stderr,
 }
 
 #[derive(Debug, Clone)]
 struct SinkBytes<'a> {
-    buffer: Cow<'a, [u8]>,
-    destination: Destination,
+buffer: Cow<'a, [u8]>,
+destination: Destination,
 }
 
 impl<W: Write> OutputSink<W> {
-    /// Produces a new sink with the corresponding out and err writers
-    pub fn new(out: W, err: W) -> Self {
-        Self {
-            writers: Arc::new(Mutex::new(SinkWriters { out, err })),
-        }
-    }
+/// Produces a new sink with the corresponding out and err writers
+pub fn new(out: W, err: W) -> Self {
+Self {
+writers: Arc::new(Mutex::new(SinkWriters { out, err })),
+}
+}
 
     /// Produces a new client that will send all bytes that it receives to the
     /// underlying sink. Behavior of how these bytes are sent is controlled
@@ -3897,16 +3907,17 @@ impl<W: Write> OutputSink<W> {
             error: Default::default(),
         }
     }
+
 }
 
 impl<W: Write> OutputClient<W> {
-    pub fn with_header_footer(
-        &mut self,
-        header: Option<GroupPrefixFn>,
-        footer: Option<GroupPrefixFn>,
-    ) {
-        self.primary = Marginals { header, footer };
-    }
+pub fn with_header_footer(
+&mut self,
+header: Option<GroupPrefixFn>,
+footer: Option<GroupPrefixFn>,
+) {
+self.primary = Marginals { header, footer };
+}
 
     pub fn with_error_header_footer(
         &mut self,
@@ -4039,24 +4050,25 @@ impl<W: Write> OutputClient<W> {
             .expect("attempted to add line to nil buffer");
         buffer.write().expect("lock poisoned").push(bytes);
     }
+
 }
 
 impl<W: Write> Write for OutputWriter<'_, W> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        for line in buf.split_inclusive(|b| *b == b'\n') {
-            self.buffer.extend_from_slice(line);
-            // If the line doesn't end in a newline we assume it isn't finished and add it
-            // to the buffer
-            if line.ends_with(b"\n") {
-                self.logger.handle_bytes(SinkBytes {
-                    buffer: self.buffer.as_slice().into(),
-                    destination: self.destination,
-                })?;
-                self.buffer.clear();
-            }
-        }
-        Ok(buf.len())
-    }
+fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+for line in buf.split_inclusive(|b| *b == b'\n') {
+self.buffer.extend_from_slice(line);
+// If the line doesn't end in a newline we assume it isn't finished and add it
+// to the buffer
+if line.ends_with(b"\n") {
+self.logger.handle_bytes(SinkBytes {
+buffer: self.buffer.as_slice().into(),
+destination: self.destination,
+})?;
+self.buffer.clear();
+}
+}
+Ok(buf.len())
+}
 
     fn flush(&mut self) -> io::Result<()> {
         self.logger.handle_bytes(SinkBytes {
@@ -4066,6 +4078,7 @@ impl<W: Write> Write for OutputWriter<'_, W> {
         self.buffer.clear();
         Ok(())
     }
+
 }
 
 ---
@@ -4073,8 +4086,8 @@ File: /crates/turborepo-ui/src/prefixed.rs
 ---
 
 use std::{
-    fmt::{Debug, Display},
-    io::Write,
+fmt::{Debug, Display},
+io::Write,
 };
 
 use console::{Style, StyledObject};
@@ -4088,27 +4101,27 @@ use crate::{ColorConfig, LineWriter};
 /// implementation. We do this because this behavior is what we actually
 /// want for replaying logs.
 pub struct PrefixedUI<W> {
-    color_config: ColorConfig,
-    output_prefix: Option<StyledObject<String>>,
-    warn_prefix: Option<StyledObject<String>>,
-    error_prefix: Option<StyledObject<String>>,
-    out: W,
-    err: W,
-    default_prefix: StyledObject<String>,
+color_config: ColorConfig,
+output_prefix: Option<StyledObject<String>>,
+warn_prefix: Option<StyledObject<String>>,
+error_prefix: Option<StyledObject<String>>,
+out: W,
+err: W,
+default_prefix: StyledObject<String>,
 }
 
 impl<W: Write> PrefixedUI<W> {
-    pub fn new(color_config: ColorConfig, out: W, err: W) -> Self {
-        Self {
-            color_config,
-            out,
-            err,
-            output_prefix: None,
-            warn_prefix: None,
-            error_prefix: None,
-            default_prefix: Style::new().apply_to(String::new()),
-        }
-    }
+pub fn new(color_config: ColorConfig, out: W, err: W) -> Self {
+Self {
+color_config,
+out,
+err,
+output_prefix: None,
+warn_prefix: None,
+error_prefix: None,
+default_prefix: Style::new().apply_to(String::new()),
+}
+}
 
     pub fn with_output_prefix(mut self, output_prefix: StyledObject<String>) -> Self {
         self.output_prefix = Some(self.color_config.apply(output_prefix));
@@ -4169,69 +4182,71 @@ impl<W: Write> PrefixedUI<W> {
             &mut self.out,
         )
     }
+
 }
 
 //
 #[derive(Debug, Clone, Copy)]
 enum Command {
-    Output,
-    Warn,
-    Error,
+Output,
+Warn,
+Error,
 }
 
 /// Wraps a writer with a prefix before the actual message.
 pub struct PrefixedWriter<W> {
-    inner: LineWriter<PrefixedWriterInner<W>>,
+inner: LineWriter<PrefixedWriterInner<W>>,
 }
 
 impl<W: Write> PrefixedWriter<W> {
-    pub fn new(color_config: ColorConfig, prefix: StyledObject<impl Display>, writer: W) -> Self {
-        Self {
-            inner: LineWriter::new(PrefixedWriterInner::new(color_config, prefix, writer)),
-        }
-    }
+pub fn new(color_config: ColorConfig, prefix: StyledObject<impl Display>, writer: W) -> Self {
+Self {
+inner: LineWriter::new(PrefixedWriterInner::new(color_config, prefix, writer)),
+}
+}
 }
 
 impl<W: Write> Write for PrefixedWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.inner.write(buf)
-    }
+fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+self.inner.write(buf)
+}
 
     fn flush(&mut self) -> std::io::Result<()> {
         self.inner.flush()
     }
+
 }
 
 /// Wraps a writer so that a prefix will be added at the start of each line.
 /// Expects to only be called with complete lines.
 struct PrefixedWriterInner<W> {
-    prefix: String,
-    writer: W,
+prefix: String,
+writer: W,
 }
 
 impl<W: Write> PrefixedWriterInner<W> {
-    pub fn new(color_config: ColorConfig, prefix: StyledObject<impl Display>, writer: W) -> Self {
-        let prefix = color_config.apply(prefix).to_string();
-        Self { prefix, writer }
-    }
+pub fn new(color_config: ColorConfig, prefix: StyledObject<impl Display>, writer: W) -> Self {
+let prefix = color_config.apply(prefix).to_string();
+Self { prefix, writer }
+}
 }
 
 impl<W: Write> Write for PrefixedWriterInner<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut is_first = true;
-        for chunk in buf.split_inclusive(|c| *c == b'\r') {
-            // Before we write the chunk we write the prefix as either:
-            // - this is the first iteration and we haven't written the prefix
-            // - the previous chunk ended with a \r and the cursor is currently as the start
-            //   of the line so we want to rewrite the prefix over the existing prefix in
-            //   the line
-            // or if the last chunk is just a newline we can skip rewriting the prefix
-            if is_first || chunk != b"\n" {
-                self.writer.write_all(self.prefix.as_bytes())?;
-            }
-            self.writer.write_all(chunk)?;
-            is_first = false;
-        }
+fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+let mut is_first = true;
+for chunk in buf.split_inclusive(|c| *c == b'\r') {
+// Before we write the chunk we write the prefix as either:
+// - this is the first iteration and we haven't written the prefix
+// - the previous chunk ended with a \r and the cursor is currently as the start
+// of the line so we want to rewrite the prefix over the existing prefix in
+// the line
+// or if the last chunk is just a newline we can skip rewriting the prefix
+if is_first || chunk != b"\n" {
+self.writer.write_all(self.prefix.as_bytes())?;
+}
+self.writer.write_all(chunk)?;
+is_first = false;
+}
 
         // We do end up writing more bytes than this to the underlying writer, but we
         // cannot report this to the callers as the amount of bytes we report
@@ -4242,6 +4257,7 @@ impl<W: Write> Write for PrefixedWriterInner<W> {
     fn flush(&mut self) -> std::io::Result<()> {
         self.writer.flush()
     }
+
 }
 
 ---
@@ -4251,25 +4267,25 @@ File: /crates/turborepo-ui/src/sender.rs
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    tui,
-    tui::event::{CacheResult, OutputLogs, PaneSize, TaskResult},
-    wui::sender,
+tui,
+tui::event::{CacheResult, OutputLogs, PaneSize, TaskResult},
+wui::sender,
 };
 
 /// Enum to abstract over sending events to either the Tui or the Web UI
 #[derive(Debug, Clone)]
 pub enum UISender {
-    Tui(tui::TuiSender),
-    Wui(sender::WebUISender),
+Tui(tui::TuiSender),
+Wui(sender::WebUISender),
 }
 
 impl UISender {
-    pub fn start_task(&self, task: String, output_logs: OutputLogs) {
-        match self {
-            UISender::Tui(sender) => sender.start_task(task, output_logs),
-            UISender::Wui(sender) => sender.start_task(task, output_logs),
-        }
-    }
+pub fn start_task(&self, task: String, output_logs: OutputLogs) {
+match self {
+UISender::Tui(sender) => sender.start_task(task, output_logs),
+UISender::Wui(sender) => sender.start_task(task, output_logs),
+}
+}
 
     pub fn restart_tasks(&self, tasks: Vec<String>) -> Result<(), crate::Error> {
         match self {
@@ -4332,20 +4348,21 @@ impl UISender {
             UISender::Wui(_) => None,
         }
     }
+
 }
 
 #[derive(Debug, Clone)]
 pub struct TaskSender {
-    pub(crate) name: String,
-    pub(crate) handle: UISender,
-    pub(crate) logs: Arc<Mutex<Vec<u8>>>,
+pub(crate) name: String,
+pub(crate) handle: UISender,
+pub(crate) logs: Arc<Mutex<Vec<u8>>>,
 }
 
 impl TaskSender {
-    /// Access the underlying UISender
-    pub fn as_app(&self) -> &UISender {
-        &self.handle
-    }
+/// Access the underlying UISender
+pub fn as_app(&self) -> &UISender {
+&self.handle
+}
 
     /// Mark the task as started
     pub fn start(&self, output_logs: OutputLogs) {
@@ -4382,17 +4399,18 @@ impl TaskSender {
         let status = console::strip_ansi_codes(status).into_owned();
         self.handle.status(self.name.clone(), status, result);
     }
+
 }
 
 impl std::io::Write for TaskSender {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let task = self.name.clone();
-        {
-            self.logs
-                .lock()
-                .expect("log lock poisoned")
-                .extend_from_slice(buf);
-        }
+fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+let task = self.name.clone();
+{
+self.logs
+.lock()
+.expect("log lock poisoned")
+.extend_from_slice(buf);
+}
 
         self.handle
             .output(task, buf.to_vec())
@@ -4403,5 +4421,5 @@ impl std::io::Write for TaskSender {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
-}
 
+}

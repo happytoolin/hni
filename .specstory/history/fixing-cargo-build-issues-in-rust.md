@@ -51,8 +51,6 @@ _****_
 
 _****_
 
-
-
 I see there's a new linter error about using a moved value. This is happening because we're trying to use `state_clone` in both the stdout and stderr handlers. Let me fix that by creating separate clones for each handler:
 
 ---
@@ -85,8 +83,6 @@ _****_
 
 _****_
 
-
-
 Now I need to fix the main function to properly pass the tick_rate to run_app and remove the duplicate code at the end of the function:
 
 ---
@@ -94,7 +90,6 @@ Now I need to fix the main function to properly pass the tick_rate to run_app an
 _****_
 
 ```diff
-  
   fn main() -> Result<()> {
 -     // setup terminal
 -     enable_raw_mode()?;
@@ -152,8 +147,6 @@ _****_
 
 _****_
 
-
-
 I've made all the necessary fixes to resolve the build issues:
 
 1. Fixed the ratatui imports by:
@@ -173,6 +166,7 @@ I've made all the necessary fixes to resolve the build issues:
    - Properly organizing the terminal setup and cleanup
 
 The code should now build successfully. The application will:
+
 1. Initialize logging
 2. Set up the terminal UI
 3. Run the commands in parallel while displaying their output
@@ -191,6 +185,7 @@ great, add info about the process id, and the keybinds
 _**Assistant**_
 
 I'll add process ID (PID) information to the display and show keybinds at the bottom of the screen. I'll modify the code to:
+
 1. Add PID tracking to ProcessState
 2. Add a help text showing keybinds
 3. Update the UI layout to accommodate the help section
@@ -263,14 +258,11 @@ _****_
 +                 .block(Block::default().title("Help").borders(Borders::ALL));
 +             f.render_widget(help, chunks[1]);
           })?;
-  
 ```
 
 ---
 
 _****_
-
-
 
 I've made the following improvements to the code:
 
@@ -292,6 +284,7 @@ I've made the following improvements to the code:
    - Maintained the horizontal split for processes and output in the main area
 
 The UI now shows more information and is more user-friendly with the visible keybinds. The process list entries will look like:
+
 ```
 [1234] command1
 [5678] command2
@@ -386,8 +379,6 @@ _****_
 
 _****_
 
-
-
 I've made several improvements to the UI:
 
 1. Moved PID display:
@@ -425,6 +416,7 @@ when i press q, or ctrl c, it should exit the processes gracefully and send the 
 _**Assistant**_
 
 I'll modify the code to handle graceful shutdown when pressing 'q' or receiving Ctrl+C (SIGINT). We'll need to:
+
 1. Track child processes
 2. Send termination signals to them
 3. Wait for them to finish
@@ -534,14 +526,11 @@ _****_
 + 
 +     Ok(())
   }
-  
 ```
 
 ---
 
 _****_
-
-
 
 We need to add the `ctrlc` dependency to handle Ctrl+C signals. Let me check the Cargo.toml file:
 
@@ -554,8 +543,6 @@ Read file: Cargo.toml
 ---
 
 _****_
-
-
 
 Let me add the `ctrlc` dependency and update the code to use `signal-hook` instead since it's already a dependency:
 
@@ -600,8 +587,6 @@ _****_
 
 _****_
 
-
-
 The changes I've made will now properly handle process termination in several ways:
 
 1. Added graceful shutdown handling:
@@ -624,12 +609,14 @@ The changes I've made will now properly handle process termination in several wa
    - Resources are properly cleaned up
 
 The application will now:
+
 1. Properly handle Ctrl+C and SIGTERM signals
 2. Gracefully terminate all child processes when quitting
 3. Clean up resources properly
 4. Log termination events for debugging
 
 When you press 'q' or Ctrl+C, the application will:
+
 1. Log the termination request
 2. Send termination signals to all child processes
 3. Wait for processes to finish
@@ -750,8 +737,6 @@ _****_
 
 _****_
 
-
-
 Let me fix the borrowing issues in the termination function:
 
 ---
@@ -809,10 +794,6 @@ _****_
 
 _****_
 
-
-
-
-
 Let me fix the remaining borrowing issues by restructuring the code to avoid multiple borrows:
 
 ---
@@ -864,8 +845,6 @@ _****_
 
 _****_
 
-
-
 The code should now properly terminate processes. Here's what the improved termination process does:
 
 1. First Attempt (SIGTERM):
@@ -893,7 +872,4 @@ The termination is now more robust and should properly clean up all child proces
 
 ---
 
-
-
 ---
-

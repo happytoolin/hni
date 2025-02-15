@@ -11,7 +11,7 @@ good, now see if this can be improved
 _**Assistant**_
 
 <think>
-Okay, let's see how to improve the provided Rust code. The user wants to run multiple commands in parallel and handle signals like Ctrl+C properly. 
+Okay, let's see how to improve the provided Rust code. The user wants to run multiple commands in parallel and handle signals like Ctrl+C properly.
 
 First, I'll look at the code structure. The main function uses crossbeam threads and channels. The current code spawns a thread for each command, which is good. But maybe there's room for better error handling and code organization.
 
@@ -205,6 +205,7 @@ Key improvements made:
 9. Added more timing information to success/failure messages
 
 These changes improve:
+
 - Observability with timing information
 - Proper signal handling with appropriate exit codes
 - More responsive termination
@@ -224,9 +225,9 @@ _**Assistant**_
 <think>
 Okay, let's see what the user is asking. They provided a code snippet where after pressing Ctrl+C, one command is marked as interrupted and another as failed. The output shows both servers closing, but one is marked as failed. The user wants that if a command exits successfully, it shouldn't show an error, and only actual failures should be errors.
 
-Looking at the code, when a command is interrupted (Ctrl+C), we send CommandResult::Interrupted. However, in the case where the command handles the signal gracefully and exits with code 0, it should be considered a success. But in the current code, when the signal is received, we kill the process and check the exit code. If it's 0, we mark it as Success, otherwise Interrupted. But in the human-edited part, after killing, we wait for the process and set the result based on the exit code. 
+Looking at the code, when a command is interrupted (Ctrl+C), we send CommandResult::Interrupted. However, in the case where the command handles the signal gracefully and exits with code 0, it should be considered a success. But in the current code, when the signal is received, we kill the process and check the exit code. If it's 0, we mark it as Success, otherwise Interrupted. But in the human-edited part, after killing, we wait for the process and set the result based on the exit code.
 
-Wait, in the signal handling block, after killing the child process, we call child.wait() and check the exit code. If the exit code is 0, we set Success, else Interrupted. But if the process was killed, the exit code might not be 0. However, in the example, the server might catch the SIGINT and exit gracefully with 0, so it should be Success. But in the output, one command is Interrupted and the other is Failure. 
+Wait, in the signal handling block, after killing the child process, we call child.wait() and check the exit code. If the exit code is 0, we set Success, else Interrupted. But if the process was killed, the exit code might not be 0. However, in the example, the server might catch the SIGINT and exit gracefully with 0, so it should be Success. But in the output, one command is Interrupted and the other is Failure.
 
 Looking at the code for when the command completes normally (not interrupted): when child.try_wait() returns Some(status), we check if status.success(). If yes, Success, else Failure. But if the process was terminated by a signal (like SIGINT), status.code() is None, and status.success() would be false. So in that case, even if the process was killed by a signal, it would be marked as Failure. But when we manually kill via signal, we have a separate path.
 
@@ -239,16 +240,16 @@ Wait, in the example output, the node.js servers might handle SIGINT and exit wi
 In the signal handling block (when we receive the termination signal), we kill the child and then:
 
 let result = match exit_status.and_then(|s| s.code()) {
-    Some(0) => CommandResult::Success,
-    _ => CommandResult::Interrupted,
+Some(0) => CommandResult::Success,
+_ => CommandResult::Interrupted,
 };
 
 So if the exit code is 0, it's Success; otherwise, Interrupted. But in the normal completion path (when the process exits without us killing it), we have:
 
 let result = if status.success() {
-    Success
+Success
 } else {
-    Failure
+Failure
 };
 
 But status.success() returns true only if the exit code is 0. However, if the process was terminated by a signal (like SIGINT), status.code() returns None, and status.success() returns false. So in that case, even if the process was killed by a signal, it's marked as Failure, which is incorrect.
@@ -260,14 +261,14 @@ To fix this, in the normal completion path (when try_wait returns Ok(Some(status
 So in the code where we process the status:
 
 let result = if status.success() {
-    Success
+Success
 } else {
-    // Check if the process was terminated by a signal
-    if status.code().is_none() {
-        Interrupted
-    } else {
-        Failure
-    }
+// Check if the process was terminated by a signal
+if status.code().is_none() {
+Interrupted
+} else {
+Failure
+}
 };
 
 This way, if the exit code is None (terminated by signal), it's Interrupted; otherwise, it's Failure.
@@ -278,6 +279,7 @@ So the fix is to adjust the normal completion path to handle signal termination 
 </think>
 
 I see the issue. When we receive a termination signal, we should differentiate between:
+
 - Commands that exited cleanly (exit code 0) after receiving SIGINT
 - Commands that failed to terminate cleanly
 
@@ -356,16 +358,19 @@ Here are the specific changes needed:
 ```
 
 This will:
+
 1. Properly distinguish between clean exits (success) and forced termination (interrupted)
 2. Add more detailed logging about the nature of failures
 3. Only show errors for actual failures (non-zero exit codes), while using warnings for signal-based termination
 
 The output will now show:
+
 - Success messages for clean exits
 - Warnings for signal-terminated processes
 - Errors only for actual failures
 
 Example output would now look like:
+
 ```
 ❯ ./target/debug/np "PORT=3001 node index.js" "node index.js"
 INFO  Running commands in parallel...
@@ -388,11 +393,6 @@ fix the warnings
 
 _**Assistant**_
 
-
-
 ---
 
-
-
 ---
-

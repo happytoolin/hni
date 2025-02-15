@@ -517,14 +517,11 @@ _****_
 +     if let Err(err) = run_app(&process_manager) {
 +         error!("Application error: {:?}", err);
       }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I've refactored the code to improve its organization and maintainability. Here are the key improvements made:
 
@@ -616,8 +613,6 @@ _****_
 
 _****_
 
-
-
 I've fixed the borrow checker issues by:
 
 1. Separating the immutable and mutable borrows:
@@ -627,6 +622,7 @@ I've fixed the borrow checker issues by:
 2. Using block scoping to ensure the locks are dropped at the appropriate time
 
 This change resolves both error messages:
+
 - `cannot borrow state as immutable because it is also borrowed as mutable`
 
 There's also a warning about a mutable variable that doesn't need to be mutable. Let me fix that as well:
@@ -648,8 +644,6 @@ _****_
 
 _****_
 
-
-
 I've also noticed a deprecation warning about using `f.size()`. Let me fix that as well:
 
 ---
@@ -668,8 +662,6 @@ _****_
 ---
 
 _****_
-
-
 
 I've made three fixes to address all the issues:
 
@@ -903,7 +895,7 @@ _****_
 +         }
 +     }
 + }
-+ 
++
 ```
 
 ---
@@ -1031,14 +1023,12 @@ _****_
 +         }
 +     }
 + }
-+ 
++
 ```
 
 ---
 
 _****_
-
-
 
 Now, let's update the main file:
 
@@ -1383,8 +1373,6 @@ _****_
 
 _****_
 
-
-
 Now we need to update `src/lib.rs` to expose our new modules:
 
 ---
@@ -1405,8 +1393,6 @@ _****_
 
 _****_
 
-
-
 Let's fix the remaining linter errors in `np.rs`:
 
 ---
@@ -1424,8 +1410,6 @@ _****_
 ---
 
 _****_
-
-
 
 I've now split the code into three files and fixed all the issues:
 
@@ -1448,11 +1432,13 @@ I've now split the code into three files and fixed all the issues:
    - Main event loop
 
 The code is now better organized with clear separation of concerns. Each module has a specific responsibility:
+
 - Process management handles running and controlling processes
 - UI handles display and user interaction
 - Main file coordinates between the two and handles program lifecycle
 
 I also:
+
 1. Added proper module declarations in `lib.rs`
 2. Fixed missing imports and type annotations
 3. Made appropriate fields and methods public
@@ -1462,7 +1448,4 @@ Would you like me to explain any part of the refactoring in more detail?
 
 ---
 
-
-
 ---
-
