@@ -1,0 +1,81 @@
+name: Brew Formula Update
+
+on:
+  release:
+    types: [created, published]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get nirs version
+        id: get_version
+        run: |
+          VERSION=$(grep version Cargo.toml | head -n 1 | awk '{print $3}' | tr -d '"')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=version::$VERSION"
+
+      - name: Download binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Download binaries from release
+          echo "Downloading binaries from release..."
+
+          BINARIES="na nci ni nlx nr nu nun"
+          OS_ARCHS="Linux-aarch64 Linux-x86_64 macOS-aarch64 macOS-x86_64 Windows-x86_64"
+
+          for BINARY in $BINARIES; do
+            for OS_ARCH in $OS_ARCHS; do
+              if [[ "$OS_ARCH" == "Windows-x86_64" ]]; then
+                gh release download -R spa5k/nirs -p "$BINARY-$OS_ARCH.exe"
+              else
+                gh release download -R spa5k/nirs -p "$BINARY-$OS_ARCH"
+              fi
+            done
+          done
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+
+      - name: Update Homebrew formula
+        run: |
+          # Calculate SHA256 hashes for each binary
+          MACOS_X86_64_SHA256=$(sha256sum na-macOS-x86_64 | cut -d ' ' -f 1)
+          MACOS_AARCH64_SHA256=$(sha256sum na-macOS-aarch64 | cut -d ' ' -f 1)
+          LINUX_X86_64_SHA256=$(sha256sum na-Linux-x86_64 | cut -d ' ' -f 1)
+          LINUX_AARCH64_SHA256=$(sha256sum na-Linux-aarch64 | cut -d ' ' -f 1)
+
+          # Create the formula from template
+          cp nirs.rb.template nirs.rb
+
+          # Replace placeholders
+          sed -i "s/{{VERSION}}/\${{ env.VERSION }}/g" nirs.rb
+          sed -i "s/{{MACOS_X86_64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/v\${{ env.VERSION }}\/na-macOS-x86_64/g" nirs.rb
+          sed -i "s/{{MACOS_X86_64_SHA256}}/$MACOS_X86_64_SHA256/g" nirs.rb
+          sed -i "s/{{MACOS_AARCH64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/v\${{ env.VERSION }}\/na-macOS-aarch64/g" nirs.rb
+          sed -i "s/{{MACOS_AARCH64_SHA256}}/$MACOS_AARCH64_SHA256/g" nirs.rb
+          sed -i "s/{{LINUX_X86_64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/v\${{ env.VERSION }}\/na-Linux-x86_64/g" nirs.rb
+          sed -i "s/{{LINUX_X86_64_SHA256}}/$LINUX_X86_64_SHA256/g" nirs.rb
+          sed -i "s/{{LINUX_AARCH64_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/v\${{ env.VERSION }}\/na-Linux-aarch64/g" nirs.rb
+          sed -i "s/{{LINUX_AARCH64_SHA256}}/$LINUX_AARCH64_SHA256/g" nirs.rb
+          sed -i "s/{{BASE_URL}}/https:\/\/github.com\/spa5k\/nirs\/releases\/download\/v\${{ env.VERSION }}/g" nirs.rb
+
+          # Commit and push changes
+          git add nirs.rb
+          git commit -m "Update Homebrew formula for version v\${{ env.VERSION }}"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

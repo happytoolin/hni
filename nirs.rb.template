@@ -1,0 +1,57 @@
+class Nirs < Formula
+  desc "A Rust implementation of the ni command-line tool for simplified package management"
+  homepage "https://github.com/spark/nirs"
+  version "{{VERSION}}"
+
+  on_macos do
+    if Hardware::CPU.intel?
+      url "{{MACOS_X86_64_URL}}", using: CurlDownloadStrategy
+      sha256 "{{MACOS_X86_64_SHA256}}"
+    end
+    if Hardware::CPU.arm?
+      url "{{MACOS_AARCH64_URL}}", using: CurlDownloadStrategy
+      sha256 "{{MACOS_AARCH64_SHA256}}"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.intel?
+      url "{{LINUX_X86_64_URL}}", using: CurlDownloadStrategy
+      sha256 "{{LINUX_X86_64_SHA256}}"
+    end
+    if Hardware::CPU.arm?
+      url "{{LINUX_AARCH64_URL}}", using: CurlDownloadStrategy
+      sha256 "{{LINUX_AARCH64_SHA256}}"
+    end
+  end
+
+  def install
+    # Install all binaries
+    %w[na nci ni nlx nr nu nun np ns].each do |app|
+      os = case RbConfig::CONFIG['host_os']
+           when /darwin/
+             "macOS"
+           when /linux/
+             "Linux"
+           else
+             raise "Unsupported OS: #{RbConfig::CONFIG['host_os']}"
+           end
+      arch = Hardware::CPU.intel? ? "x86_64" : "aarch64"
+      binary_name = "\#{app}-\#{os}-\#{arch}"
+      binary_url = "{{BASE_URL}}/\#{binary_name}"
+      
+      # Download the binary
+      system "curl", "-L", binary_url, "-o", app
+
+      # Make the binary executable
+      chmod +x", app
+
+      # Install the binary
+      bin.install app
+    end
+  end
+
+  test do
+    system "\#{bin}/na", "--version"
+  end
+end

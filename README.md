@@ -157,6 +157,22 @@ cargo test
 - Write tests for `src/bin/np.rs`
 - Write tests for `src/bin/ns.rs`
 
+## Installation via Brew
+
+To install `nirs` using Brew, follow these steps:
+
+1. Tap the repository:
+
+   ```bash
+   brew tap spa5k/nirs
+   ```
+
+2. Install `nirs`:
+
+   ```bash
+   brew install nirs
+   ```
+
 ## License
 
 MIT
