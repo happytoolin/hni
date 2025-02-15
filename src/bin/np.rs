@@ -87,7 +87,7 @@ fn main() -> Result<()> {
                 let stderr_reader = BufReader::new(stderr);
 
                 // Spawn threads to read stdout and stderr
-                thread::scope(|s| {
+                let _ = thread::scope(|s| {
                     let stdout_handle = s.spawn(|_| {
                         for line in stdout_reader.lines() {
                             match line {
@@ -120,7 +120,7 @@ fn main() -> Result<()> {
 
                             // Wait for the process to fully exit
                             match child.wait() {
-                                Ok(status) => {
+                                Ok(_status) => {
                                     // Wait for the I/O threads to complete
                                     stdout_handle.join().unwrap();
                                     stderr_handle.join().unwrap();

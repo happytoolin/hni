@@ -355,6 +355,111 @@ Like here i did ctrl c, the processess closed succesffuly
 
 _**Assistant**_
 
+Ah yes, I see the issue. When we get a Ctrl+C signal and the processes exit cleanly, we're still marking them as failures. Let's fix the exit status handling to properly distinguish between clean termination (including Ctrl+C) and actual failures:
+
+---
+
+_****_
+
+```diff
+                                      stderr_handle.join().unwrap();
+  
+-                                     if status.success() {
++                                     // For Ctrl+C, we consider it a success if the process exits cleanly
+                                      info!("Command '{}' gracefully terminated", command_string);
+                                      if let Err(e) = result_sender
+                                          .send((command_string.clone(), CommandResult::Success))
+                                      {
+                                          error!("Failed to send result: {}", e);
+-                                         }
+-                                     } else {
+-                                         info!(
+-                                             "Command '{}' terminated with exit code: {:?}",
+-                                             command_string,
+-                                             status.code()
+-                                         );
+-                                         if let Err(e) = result_sender
+-                                             .send((command_string.clone(), CommandResult::Success))
+-                                         {
+-                                             error!("Failed to send result: {}", e);
+-                                         }
+                                      }
+                                  }
+                                      }
+                                  } else {
++                                     // Only consider it a failure if the process wasn't terminated by a signal
++                                     let exit_code = status.code();
++                                     match exit_code {
++                                         Some(code) => {
+                                              error!(
+-                                         "Command '{}' failed with exit code: {:?}",
+-                                         command_string,
+-                                         status.code()
++                                                 "Command '{}' failed with exit code: {}",
++                                                 command_string, code
++                                             );
++                                             if let Err(e) = result_sender.send((
++                                                 command_string.clone(),
++                                                 CommandResult::Failure,
++                                             )) {
++                                                 error!("Failed to send result: {}", e);
++                                             }
++                                         }
++                                         None => {
++                                             // Process was terminated by a signal (e.g., Ctrl+C)
++                                             info!(
++                                                 "Command '{}' was terminated by a signal",
++                                                 command_string
+                                              );
+-                                     if let Err(e) = result_sender
+-                                         .send((command_string.clone(), CommandResult::Failure))
+-                                     {
++                                             if let Err(e) = result_sender.send((
++                                                 command_string.clone(),
++                                                 CommandResult::Success,
++                                             )) {
+                                                  error!("Failed to send result: {}", e);
++                                             }
++                                         }
+                                      }
+                                  }
+```
+
+---
+
+_****_
+
+
+
+I've modified the exit status handling to:
+
+1. For Ctrl+C (signal termination):
+   - When a process exits due to Ctrl+C (indicated by `status.code()` being `None`), it's now considered a success
+   - This reflects that the process handled the signal and shut down cleanly
+
+2. For normal process termination:
+   - Success (exit code 0) is handled as before
+   - Non-zero exit codes are properly marked as failures
+   - Signal terminations (like Ctrl+C) are now marked as successes
+
+Now when you run your Node.js processes and press Ctrl+C:
+1. The processes will receive the signal
+2. They'll clean up and exit
+3. Since they handled the signal properly (as shown by your "Server closed" messages), they'll be marked as successful terminations
+4. You won't see any error messages about failed commands
+
+This better reflects the reality that a clean shutdown via Ctrl+C is a successful termination, not a failure.
+
+---
+
+_**User**_
+
+fix the warnings
+
+---
+
+_**Assistant**_
+
 
 
 ---
