@@ -1,12 +1,16 @@
 use anyhow::Result;
+use crossbeam::channel::{unbounded, Receiver, Sender};
+use crossbeam::thread;
 use log::{debug, error, info, warn};
-use signal_hook::consts::signal::{SIGINT, SIGTERM};
 use std::env;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread;
+
+#[derive(Debug)]
+enum CommandResult {
+    Success,
+    Failure,
+}
 
 fn main() -> Result<()> {
     // Initialize logger with nice formatting
@@ -24,118 +28,198 @@ fn main() -> Result<()> {
 
     info!("Running commands in parallel...");
 
-    let term = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(SIGTERM, Arc::clone(&term))?;
-    signal_hook::flag::register(SIGINT, Arc::clone(&term))?;
+    // Use crossbeam channels for signal handling
+    let (signal_sender, signal_receiver): (Sender<()>, Receiver<()>) = unbounded();
 
-    let mut handles = vec![];
-    let _child_processes: Vec<u32> = vec![];
-    let mut failed = false;
+    ctrlc::set_handler(move || {
+        if let Err(e) = signal_sender.send(()) {
+            error!("Failed to send signal: {}", e);
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
 
-    for command_string in args {
-        let command_string = command_string.clone();
-        let cwd = cwd.clone();
-        let term = Arc::clone(&term);
+    let (result_sender, result_receiver): (
+        Sender<(String, CommandResult)>,
+        Receiver<(String, CommandResult)>,
+    ) = unbounded();
 
-        let handle = thread::spawn(move || -> Result<bool> {
-            debug!("Executing command: {}", command_string);
+    thread::scope(|s| {
+        for command_string in args {
+            let command_string = command_string.clone();
+            let signal_receiver = signal_receiver.clone();
+            let result_sender = result_sender.clone();
+            let cwd = cwd.clone();
 
-            let mut cmd = Command::new("sh");
-            cmd.arg("-c").arg(&command_string);
-            cmd.current_dir(cwd);
-            cmd.stdout(Stdio::piped());
-            cmd.stderr(Stdio::piped());
+            s.spawn(move |_| {
+                debug!("Executing command: {}", command_string);
 
-            let mut child = cmd.spawn()?;
+                let mut cmd = if cfg!(target_os = "windows") {
+                    let mut cmd = Command::new("cmd");
+                    cmd.args(["/C", &command_string]);
+                    cmd
+                } else {
+                    let mut cmd = Command::new("sh");
+                    cmd.args(["-c", &command_string]);
+                    cmd
+                };
 
-            let stdout = child.stdout.take().expect("Could not capture stdout");
-            let stderr = child.stderr.take().expect("Could not capture stderr");
+                cmd.current_dir(&cwd);
+                cmd.stdout(Stdio::piped());
+                cmd.stderr(Stdio::piped());
 
-            let stdout_reader = BufReader::new(stdout);
-            let stderr_reader = BufReader::new(stderr);
-
-            // Spawn threads to read stdout and stderr
-            let stdout_handle = thread::spawn(move || {
-                let reader = BufReader::new(stdout_reader);
-                for line in reader.lines() {
-                    match line {
-                        Ok(line) => println!("{}", line),
-                        Err(e) => error!("Error reading stdout: {}", e),
+                let mut child = match cmd.spawn() {
+                    Ok(child) => child,
+                    Err(e) => {
+                        error!("Failed to spawn command '{}': {}", command_string, e);
+                        if let Err(send_err) =
+                            result_sender.send((command_string.clone(), CommandResult::Failure))
+                        {
+                            error!("Failed to send result: {}", send_err);
+                        }
+                        return;
                     }
-                }
-            });
+                };
 
-            let stderr_handle = thread::spawn(move || {
-                let reader = BufReader::new(stderr_reader);
-                for line in reader.lines() {
-                    match line {
-                        Ok(line) => eprintln!("{}", line),
-                        Err(e) => error!("Error reading stderr: {}", e),
-                    }
-                }
-            });
+                let stdout = child.stdout.take().expect("Could not capture stdout");
+                let stderr = child.stderr.take().expect("Could not capture stderr");
 
-            loop {
-                if term.load(Ordering::Relaxed) {
-                    info!(
-                        "Received termination signal. Stopping command: {}",
-                        command_string
-                    );
-                    // Attempt to kill the child process
-                    if let Err(e) = Command::new("kill")
-                        .arg("-s")
-                        .arg("SIGINT")
-                        .arg(child.id().to_string())
-                        .status()
-                    {
-                        error!("Failed to kill process: {}", e);
-                    }
-                    break;
-                }
+                let stdout_reader = BufReader::new(stdout);
+                let stderr_reader = BufReader::new(stderr);
 
-                match child.try_wait() {
-                    Ok(Some(status)) => {
-                        stdout_handle.join().unwrap();
-                        stderr_handle.join().unwrap();
-                        if status.success() {
-                            info!("Command completed successfully!");
-                            return Ok(true);
-                        } else {
-                            error!("Command failed with exit code: {:?}", status.code());
-                            return Ok(false);
+                // Spawn threads to read stdout and stderr
+                thread::scope(|s| {
+                    let stdout_handle = s.spawn(|_| {
+                        for line in stdout_reader.lines() {
+                            match line {
+                                Ok(line) => println!("{}", line),
+                                Err(e) => error!("Error reading stdout: {}", e),
+                            }
+                        }
+                    });
+
+                    let stderr_handle = s.spawn(|_| {
+                        for line in stderr_reader.lines() {
+                            match line {
+                                Ok(line) => eprintln!("{}", line),
+                                Err(e) => error!("Error reading stderr: {}", e),
+                            }
+                        }
+                    });
+
+                    loop {
+                        if signal_receiver.try_recv().is_ok() {
+                            info!(
+                                "Received termination signal. Stopping command: {}",
+                                command_string
+                            );
+
+                            // More cross-platform compatible way to kill the process
+                            if let Err(e) = child.kill() {
+                                error!("Failed to kill process: {}", e);
+                            }
+
+                            // Wait for the process to fully exit
+                            match child.wait() {
+                                Ok(status) => {
+                                    // Wait for the I/O threads to complete
+                                    stdout_handle.join().unwrap();
+                                    stderr_handle.join().unwrap();
+
+                                    // For Ctrl+C, we consider it a success if the process exits cleanly
+                                    info!("Command '{}' gracefully terminated", command_string);
+                                    if let Err(e) = result_sender
+                                        .send((command_string.clone(), CommandResult::Success))
+                                    {
+                                        error!("Failed to send result: {}", e);
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Error waiting for process to exit: {}", e);
+                                    if let Err(send_err) = result_sender
+                                        .send((command_string.clone(), CommandResult::Failure))
+                                    {
+                                        error!("Failed to send result: {}", send_err);
+                                    }
+                                }
+                            }
+                            return;
+                        }
+
+                        match child.try_wait() {
+                            Ok(Some(status)) => {
+                                // Wait for the I/O threads to complete
+                                stdout_handle.join().unwrap();
+                                stderr_handle.join().unwrap();
+
+                                if status.success() {
+                                    info!("Command '{}' completed successfully!", command_string);
+                                    if let Err(e) = result_sender
+                                        .send((command_string.clone(), CommandResult::Success))
+                                    {
+                                        error!("Failed to send result: {}", e);
+                                    }
+                                } else {
+                                    // Only consider it a failure if the process wasn't terminated by a signal
+                                    let exit_code = status.code();
+                                    match exit_code {
+                                        Some(code) => {
+                                            error!(
+                                                "Command '{}' failed with exit code: {}",
+                                                command_string, code
+                                            );
+                                            if let Err(e) = result_sender.send((
+                                                command_string.clone(),
+                                                CommandResult::Failure,
+                                            )) {
+                                                error!("Failed to send result: {}", e);
+                                            }
+                                        }
+                                        None => {
+                                            // Process was terminated by a signal (e.g., Ctrl+C)
+                                            info!(
+                                                "Command '{}' was terminated by a signal",
+                                                command_string
+                                            );
+                                            if let Err(e) = result_sender.send((
+                                                command_string.clone(),
+                                                CommandResult::Success,
+                                            )) {
+                                                error!("Failed to send result: {}", e);
+                                            }
+                                        }
+                                    }
+                                }
+                                return;
+                            }
+                            Ok(None) => {
+                                // Sleep to avoid busy-waiting
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                            }
+                            Err(e) => {
+                                error!("Error waiting for process: {}", e);
+                                if let Err(send_err) = result_sender
+                                    .send((command_string.clone(), CommandResult::Failure))
+                                {
+                                    error!("Failed to send result: {}", send_err);
+                                }
+                                return;
+                            }
                         }
                     }
-                    Ok(None) => {
-                        // Sleep to avoid busy-waiting
-                        thread::sleep(std::time::Duration::from_millis(100));
-                    }
-                    Err(e) => {
-                        error!("Error waiting for process: {}", e);
-                        return Err(e.into());
-                    }
-                }
-            }
+                });
+            });
+        }
+    })
+    .unwrap();
 
-            Ok(false)
-        });
-        handles.push(handle);
-    }
-
-    for handle in handles {
-        match handle.join() {
-            Ok(result) => match result {
-                Ok(success) => {
-                    if !success {
-                        failed = true;
-                    }
-                }
-                Err(e) => {
-                    error!("Command failed: {:?}", e);
-                    failed = true;
-                }
-            },
-            Err(e) => {
-                error!("Thread panicked: {:?}", e);
+    // Ensure all threads complete and collect results
+    let mut failed = false;
+    drop(result_sender); // Drop the original sender so the loop terminates when all threads are done.
+    for (command_string, result) in result_receiver {
+        match result {
+            CommandResult::Success => {}
+            CommandResult::Failure => {
+                error!("Command failed: {}", command_string);
                 failed = true;
             }
         }
