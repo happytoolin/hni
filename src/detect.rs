@@ -102,28 +102,38 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     // Check packageManager field in package.json
     debug!("Checking packageManager in package.json");
     let package_json_path = cwd.join("package.json");
-    if package_json_path.exists() {
-        if let Ok(contents) = fs::read_to_string(package_json_path) {
-            if let Ok(json) = serde_json::from_str::<Value>(&contents) {
-                if let Some(package_manager) = json.get("packageManager") {
-                    if let Some(pm) = package_manager.as_str() {
-                        info!("Found packageManager in package.json: {}", pm);
-                        match pm.split("@").next().unwrap() {
-                            "npm" => return Ok(Some(PackageManagerFactoryEnum::Npm)),
-                            "yarn" => return Ok(Some(PackageManagerFactoryEnum::Yarn)),
-                            "pnpm" => return Ok(Some(PackageManagerFactoryEnum::Pnpm)),
-                            "bun" => return Ok(Some(PackageManagerFactoryEnum::Bun)),
-                            _ => warn!("Unknown package manager: {}", pm),
-                        }
-                    } else {
-                        warn!("packageManager field is not a string");
-                    }
+    let package_json_result: Result<Option<Value>> = if package_json_path.exists() {
+        match fs::read_to_string(package_json_path) {
+            Ok(contents) => match serde_json::from_str::<Value>(&contents) {
+                Ok(json) => Ok(Some(json)),
+                Err(e) => {
+                    warn!("Failed to parse package.json: {}", e);
+                    Ok(None)
+                }
+            },
+            Err(e) => {
+                warn!("Failed to read package.json: {}", e);
+                Ok(None)
+            }
+        }
+    } else {
+        Ok(None)
+    };
+
+    if let Ok(Some(json)) = package_json_result {
+        if let Some(package_manager) = json.get("packageManager") {
+            if let Some(pm) = package_manager.as_str() {
+                info!("Found packageManager in package.json: {}", pm);
+                match pm.split("@").next().unwrap() {
+                    "npm" => return Ok(Some(PackageManagerFactoryEnum::Npm)),
+                    "yarn" => return Ok(Some(PackageManagerFactoryEnum::Yarn)),
+                    "pnpm" => return Ok(Some(PackageManagerFactoryEnum::Pnpm)),
+                    "bun" => return Ok(Some(PackageManagerFactoryEnum::Bun)),
+                    _ => warn!("Unknown package manager: {}", pm),
                 }
             } else {
-                warn!("Failed to parse package.json");
+                warn!("packageManager field is not a string");
             }
-        } else {
-            warn!("Failed to read package.json");
         }
     }
 
@@ -131,21 +141,16 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     let locks = get_locks();
     debug!("Checking for {} known lockfile patterns", locks.len());
 
-    for (lock, package_manager) in locks.iter() {
-        let lockfile = cwd.join(lock);
-        trace!("Checking for lockfile: {}", lockfile.display());
-
-        if lockfile.exists() {
-            info!(
-                "Found package manager {} (lockfile: {})",
-                package_manager, lock
-            );
-            debug!(
-                "Using package manager {} based on lockfile {}",
-                package_manager, lock
-            );
-            return Ok(Some(*package_manager));
-        }
+    if let Some((lock, package_manager)) = locks.iter().find(|(lock, _)| cwd.join(lock).exists()) {
+        info!(
+            "Found package manager {} (lockfile: {})",
+            package_manager, lock
+        );
+        debug!(
+            "Using package manager {} based on lockfile {}",
+            package_manager, lock
+        );
+        return Ok(Some(*package_manager));
     }
 
     // Check for config file
@@ -239,31 +244,39 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     Ok(None)
 }
 
+fn get_package_manager_from_package_json(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
+    let package_json_path = cwd.join("package.json");
+    if let Ok(contents) = fs::read_to_string(package_json_path) {
+        if let Ok(json) = serde_json::from_str::<Value>(&contents) {
+            if let Some(package_manager) = json.get("packageManager") {
+                if let Some(pm) = package_manager.as_str() {
+                    info!("Found packageManager in package.json: {}", pm);
+                    return match pm.split("@").next().unwrap() {
+                        "npm" => Some(PackageManagerFactoryEnum::Npm),
+                        "yarn" => Some(PackageManagerFactoryEnum::Yarn),
+                        "pnpm" => Some(PackageManagerFactoryEnum::Pnpm),
+                        "bun" => Some(PackageManagerFactoryEnum::Bun),
+                        _ => {
+                            warn!("Unknown package manager: {}", pm);
+                            None
+                        }
+                    };
+                } else {
+                    warn!("packageManager field is not a string");
+                }
+            }
+        }
+    }
+    None
+}
+
 pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
     trace!("Running synchronous package manager detection");
 
     // Check packageManager field in package.json
     debug!("Checking packageManager in package.json");
-    let package_json_path = cwd.join("package.json");
-    if package_json_path.exists() {
-        if let Ok(contents) = fs::read_to_string(package_json_path) {
-            if let Ok(json) = serde_json::from_str::<Value>(&contents) {
-                if let Some(package_manager) = json.get("packageManager") {
-                    if let Some(pm) = package_manager.as_str() {
-                        info!("Found packageManager in package.json: {}", pm);
-                        match pm.split("@").next().unwrap() {
-                            "npm" => return Some(PackageManagerFactoryEnum::Npm),
-                            "yarn" => return Some(PackageManagerFactoryEnum::Yarn),
-                            "pnpm" => return Some(PackageManagerFactoryEnum::Pnpm),
-                            "bun" => return Some(PackageManagerFactoryEnum::Bun),
-                            _ => warn!("Unknown package manager: {}", pm),
-                        }
-                    } else {
-                        warn!("packageManager field is not a string");
-                    }
-                }
-            }
-        }
+    if let Some(pm) = get_package_manager_from_package_json(cwd) {
+        return Some(pm);
     }
 
     // Fallback to checking for npm if no lockfile is found
