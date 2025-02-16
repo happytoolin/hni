@@ -57,8 +57,139 @@ pub fn parse_na(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCo
 
 pub fn parse_nlx(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
     let package_manager = agent.create_package_manager();
+    let command_args = match agent {
+        PackageManagerFactoryEnum::Npm => vec!["npx"],
+        PackageManagerFactoryEnum::Yarn => vec!["yarn", "dlx"],
+        PackageManagerFactoryEnum::Pnpm => vec!["pnpm"],
+        PackageManagerFactoryEnum::Bun => vec!["bun"],
+        PackageManagerFactoryEnum::Deno => vec!["deno", "x"],
+        PackageManagerFactoryEnum::YarnBerry => vec!["yarn", "dlx"],
+        PackageManagerFactoryEnum::Pnpm6 => vec!["pnpm", "dlx"],
+    };
+
     package_manager
         .executor
-        .execute(args.to_vec().iter().map(|s| s.as_str()).collect())
-        .expect("Failed to execute execute command")
+        .execute(
+            command_args
+                .into_iter()
+                .chain(args.iter().map(|s| s.as_str()))
+                .collect(),
+        )
+        .expect("Failed to execute command")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::detect::PackageManagerFactoryEnum;
+
+    #[test]
+    fn test_parse_ni() {
+        let agents = [
+            (PackageManagerFactoryEnum::Npm, vec!["install"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["add"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["add"]),
+            (PackageManagerFactoryEnum::Bun, vec!["add"]),
+        ];
+
+        for (agent, expected) in agents {
+            let args = vec!["lodash".to_string()];
+            let command = parse_ni(agent, &args);
+            assert_eq!(command.args, [expected, vec!["lodash"]].concat());
+        }
+    }
+
+    #[test]
+    fn test_parse_nu() {
+        let agents = [
+            (PackageManagerFactoryEnum::Npm, vec!["update"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["upgrade"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["update"]),
+            (PackageManagerFactoryEnum::Bun, vec!["update"]),
+        ];
+
+        for (agent, expected) in agents {
+            let args = vec!["react".to_string()];
+            let command = parse_nu(agent, &args);
+            assert_eq!(command.args, [expected, vec!["react"]].concat());
+        }
+    }
+
+    #[test]
+    fn test_parse_nun() {
+        let agents = [
+            (PackageManagerFactoryEnum::Npm, vec!["uninstall"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["remove"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["remove"]),
+            (PackageManagerFactoryEnum::Bun, vec!["remove"]),
+        ];
+
+        for (agent, expected) in agents {
+            let args = vec!["vue".to_string()];
+            let command = parse_nun(agent, &args);
+            assert_eq!(command.args, [expected, vec!["vue"]].concat());
+        }
+    }
+
+    #[test]
+    fn test_parse_nci() {
+        let agents = [
+            (PackageManagerFactoryEnum::Npm, vec!["ci"]),
+            (
+                PackageManagerFactoryEnum::Yarn,
+                vec!["install", "--frozen-lockfile"],
+            ),
+            (
+                PackageManagerFactoryEnum::Pnpm,
+                vec!["install", "--frozen-lockfile"],
+            ),
+            (
+                PackageManagerFactoryEnum::Bun,
+                vec!["install", "--frozen-lockfile"],
+            ),
+        ];
+
+        for (agent, expected) in agents {
+            let args = vec![];
+            let command = parse_nci(agent, &args);
+            assert_eq!(command.args, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_na() {
+        let agents = [
+            (PackageManagerFactoryEnum::Npm, vec!["run"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["run"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["run"]),
+            (PackageManagerFactoryEnum::Bun, vec!["run"]),
+        ];
+
+        for (agent, expected) in agents {
+            let args = vec!["build".to_string()];
+            let command = parse_na(agent, &args);
+            assert_eq!(command.args, [expected, vec!["build"]].concat());
+        }
+    }
+
+    #[test]
+    fn test_parse_nlx() {
+        let agents = [
+            (PackageManagerFactoryEnum::Npm, vec!["npx"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["exec", "yarn", "dlx"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["dlx", "pnpm"]),
+            (PackageManagerFactoryEnum::Bun, vec!["x", "bun"]),
+        ];
+
+        for (agent, expected) in agents {
+            let args = vec!["vitest".to_string()];
+            let command = parse_nlx(agent, &args);
+            let expected_args: Vec<&str> = expected
+                .iter()
+                .chain(vec!["vitest"].iter())
+                .map(|s| *s)
+                .collect();
+            assert_eq!(command.args, expected_args);
+        }
+    }
 }

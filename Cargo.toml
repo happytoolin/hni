@@ -78,4 +78,4 @@ name = "ns"
 path = "src/bin/ns.rs"
 
 [dev-dependencies]
-tempfile = "3.10.0"
+tempfile = "3.16.0"

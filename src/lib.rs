@@ -38,3 +38,11 @@ pub mod runner;
 
 mod command_executor;
 pub use command_executor::execute_command;
+
+// Re-export parse functions
+pub use crate::parse::{
+    parse_na, parse_nci, parse_ni, parse_nlx, parse_nu, parse_nun, PackageManager,
+};
+
+// Re-export detect functions
+pub use crate::detect::PackageManagerFactoryEnum;

@@ -141,24 +141,27 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         .add_source(File::from(cwd.join("nirs.json")).required(false))
         .add_source(File::from(cwd.join("nirs.yaml")).required(false))
         .add_source(
-            File::with_name(&format!(
-                "{}/.config/nirs.toml",
-                env::var("HOME").unwrap_or_default()
-            ))
+            File::from(
+                Path::new(&env::var("HOME").unwrap_or_default())
+                    .join(".config")
+                    .join("nirs.toml"),
+            )
             .required(false),
         )
         .add_source(
-            File::with_name(&format!(
-                "{}/.config/nirs.json",
-                env::var("HOME").unwrap_or_default()
-            ))
+            File::from(
+                Path::new(&env::var("HOME").unwrap_or_default())
+                    .join(".config")
+                    .join("nirs.json"),
+            )
             .required(false),
         )
         .add_source(
-            File::with_name(&format!(
-                "{}/.config/nirs.yaml",
-                env::var("HOME").unwrap_or_default()
-            ))
+            File::from(
+                Path::new(&env::var("HOME").unwrap_or_default())
+                    .join(".config")
+                    .join("nirs.yaml"),
+            )
             .required(false),
         )
         .add_source(Environment::with_prefix("NIRS"))
@@ -171,9 +174,7 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         }
         Err(e) => {
             warn!("Failed to load config: {}", e);
-            NirsConfig {
-                default_package_manager: None,
-            }
+            return Ok(None);
         }
     };
 

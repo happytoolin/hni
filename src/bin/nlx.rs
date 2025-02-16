@@ -1,12 +1,12 @@
-use std::env;
+use std::{env, process::Command};
 
 use anyhow::Result;
 use log::{debug, info, warn};
-use nirs::{execute_command, logger};
+use nirs::{detect, parse_nlx};
 
 fn main() -> Result<()> {
     // Initialize logger with nice formatting
-    logger::init();
+    nirs::logger::init();
 
     let cwd = env::current_dir()?;
     debug!("Current working directory: {}", cwd.display());
@@ -17,21 +17,16 @@ fn main() -> Result<()> {
         std::process::exit(1);
     }
 
-    // Split each argument individually to preserve spaces between arguments
-    let args: Vec<&str> = args.iter().map(AsRef::as_ref).collect();
     debug!("Parsed arguments: {:?}", args);
-
     info!("Executing command with arguments: {:?}", args);
-    let mut cmd = execute_command(&cwd, "execute", args)?;
 
-    info!(
-        "Executing: {} with args: {:?}",
-        cmd.get_program().to_string_lossy(),
-        cmd.get_args().collect::<Vec<_>>()
-    );
+    let agent = detect::detect(&cwd)?;
+    let resolved = parse_nlx(agent.expect("No package manager detected"), &args);
+
+    info!("Executing: {} with args: {:?}", resolved.bin, resolved.args);
 
     debug!("Starting command execution...");
-    let status = cmd.status()?;
+    let status = Command::new(&resolved.bin).args(&resolved.args).status()?;
 
     if !status.success() {
         let code = status.code().unwrap_or(1);
