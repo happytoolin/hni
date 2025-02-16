@@ -2,7 +2,8 @@ use anyhow::Result;
 use config::{Config, Environment, File};
 use log::{debug, info, trace, warn};
 use serde::Deserialize;
-use std::{collections::HashMap, env, path::Path};
+use serde_json::Value;
+use std::{collections::HashMap, env, fs, path::Path};
 
 use crate::{
     package_managers::{
@@ -84,6 +85,35 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         return Ok(None);
     }
 
+    // Check packageManager field in package.json
+    debug!("Checking packageManager in package.json");
+    let package_json_path = cwd.join("package.json");
+    if package_json_path.exists() {
+        if let Ok(contents) = fs::read_to_string(package_json_path) {
+            if let Ok(json) = serde_json::from_str::<Value>(&contents) {
+                if let Some(package_manager) = json.get("packageManager") {
+                    if let Some(pm) = package_manager.as_str() {
+                        info!("Found packageManager in package.json: {}", pm);
+                        match pm.split("@").next().unwrap() {
+                            "npm" => return Ok(Some(PackageManagerFactoryEnum::Npm)),
+                            "yarn" => return Ok(Some(PackageManagerFactoryEnum::Yarn)),
+                            "pnpm" => return Ok(Some(PackageManagerFactoryEnum::Pnpm)),
+                            "bun" => return Ok(Some(PackageManagerFactoryEnum::Bun)),
+                            _ => warn!("Unknown package manager: {}", pm),
+                        }
+                    } else {
+                        warn!("packageManager field is not a string");
+                    }
+                }
+            } else {
+                warn!("Failed to parse package.json");
+            }
+        } else {
+            warn!("Failed to read package.json");
+        }
+    }
+
+    // Check for lockfiles
     let locks = get_locks();
     debug!("Checking for {} known lockfile patterns", locks.len());
 
@@ -104,8 +134,8 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         }
     }
 
-    debug!("No lockfile found, checking PATH for npm fallback");
-
+    // Check for config file
+    debug!("No lockfile or packageManager found, checking config");
     let config = Config::builder()
         .add_source(File::with_name("nirs.toml").required(false))
         .add_source(File::with_name("nirs.json").required(false))
@@ -134,23 +164,22 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         nirs_config.default_package_manager
     );
 
-    // Prioritize config over PATH
     if let Some(pm) = nirs_config.default_package_manager {
         match pm.as_str() {
             "npm" => {
-                info!("No lockfile found, defaulting to npm from config");
+                info!("No lockfile or packageManager found, defaulting to npm from config");
                 return Ok(Some(PackageManagerFactoryEnum::Npm));
             }
             "yarn" => {
-                info!("No lockfile found, defaulting to yarn from config");
+                info!("No lockfile or packageManager found, defaulting to yarn from config");
                 return Ok(Some(PackageManagerFactoryEnum::Yarn));
             }
             "pnpm" => {
-                info!("No lockfile found, defaulting to pnpm from config");
+                info!("No lockfile or packageManager found, defaulting to pnpm from config");
                 return Ok(Some(PackageManagerFactoryEnum::Pnpm));
             }
             "bun" => {
-                info!("No lockfile found, defaulting to bun from config");
+                info!("No lockfile or packageManager found, defaulting to bun from config");
                 return Ok(Some(PackageManagerFactoryEnum::Bun));
             }
             _ => {
@@ -158,21 +187,24 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
                 if let Ok(path) = env::var("PATH") {
                     trace!("PATH environment variable: {}", path);
                     if path.contains("npm") {
-                        info!("No lockfile found, defaulting to npm (found in PATH)");
+                        info!("No lockfile or packageManager found, defaulting to npm from config");
                         debug!("Using npm as fallback package manager");
                         return Ok(Some(PackageManagerFactoryEnum::Npm));
+                    } else {
+                        return Ok(None);
                     }
+                } else {
+                    return Ok(None);
                 }
-                return Ok(None);
             }
         }
     }
 
-    // If no config, fallback to npm if in PATH
+    // Fallback to npm if in PATH
     if let Ok(path) = env::var("PATH") {
         trace!("PATH environment variable: {}", path);
         if path.contains("npm") {
-            info!("No lockfile found, defaulting to npm (found in PATH)");
+            info!("No lockfile or packageManager found, defaulting to npm (found in PATH)");
             debug!("Using npm as fallback package manager");
             return Ok(Some(PackageManagerFactoryEnum::Npm));
         }
@@ -184,11 +216,28 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
 
 pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
     trace!("Running synchronous package manager detection");
-    let locks = get_locks();
-    for (lock, package_manager) in locks.iter() {
-        if cwd.join(lock).exists() {
-            debug!("Sync detection found package manager: {}", package_manager);
-            return Some(*package_manager);
+
+    // Check packageManager field in package.json
+    debug!("Checking packageManager in package.json");
+    let package_json_path = cwd.join("package.json");
+    if package_json_path.exists() {
+        if let Ok(contents) = fs::read_to_string(package_json_path) {
+            if let Ok(json) = serde_json::from_str::<Value>(&contents) {
+                if let Some(package_manager) = json.get("packageManager") {
+                    if let Some(pm) = package_manager.as_str() {
+                        info!("Found packageManager in package.json: {}", pm);
+                        match pm.split("@").next().unwrap() {
+                            "npm" => return Some(PackageManagerFactoryEnum::Npm),
+                            "yarn" => return Some(PackageManagerFactoryEnum::Yarn),
+                            "pnpm" => return Some(PackageManagerFactoryEnum::Pnpm),
+                            "bun" => return Some(PackageManagerFactoryEnum::Bun),
+                            _ => warn!("Unknown package manager: {}", pm),
+                        }
+                    } else {
+                        warn!("packageManager field is not a string");
+                    }
+                }
+            }
         }
     }
 
