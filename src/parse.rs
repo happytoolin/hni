@@ -1,4 +1,5 @@
 use crate::{detect::PackageManagerFactoryEnum, CommandExecutor, ResolvedCommand};
+use anyhow::{anyhow, Result};
 
 pub struct PackageManager {
     pub name: PackageManagerFactoryEnum,
@@ -15,57 +16,39 @@ impl PackageManagerFactoryEnum {
     }
 }
 
-pub fn parse_ni(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+fn parse_command(
+    agent: PackageManagerFactoryEnum,
+    args: &[String],
+    command: fn(&dyn CommandExecutor, Vec<&str>) -> Option<ResolvedCommand>,
+) -> Result<ResolvedCommand> {
     let package_manager = agent.create_package_manager();
-    package_manager
-        .executor
-        .add(args.to_vec().iter().map(|s| s.as_str()).collect())
-        .expect("Failed to execute add command")
+    let args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    command(package_manager.executor.as_ref(), args).ok_or(anyhow!("Failed to execute command"))
+}
+
+pub fn parse_ni(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+    parse_command(agent, args, |executor, args| executor.add(args)).unwrap()
 }
 
 pub fn parse_nu(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
-    let package_manager = agent.create_package_manager();
-    package_manager
-        .executor
-        .upgrade(args.to_vec().iter().map(|s| s.as_str()).collect())
-        .expect("Failed to execute upgrade command")
+    parse_command(agent, args, |executor, args| executor.upgrade(args)).unwrap()
 }
 
 pub fn parse_nun(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
-    let package_manager = agent.create_package_manager();
-    package_manager
-        .executor
-        .uninstall(args.to_vec().iter().map(|s| s.as_str()).collect())
-        .expect("Failed to execute uninstall command")
+    parse_command(agent, args, |executor, args| executor.uninstall(args)).unwrap()
 }
 
 pub fn parse_nci(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
-    let package_manager = agent.create_package_manager();
-    package_manager
-        .executor
-        .clean_install(args.to_vec().iter().map(|s| s.as_str()).collect())
-        .expect("Failed to execute clean_install command")
+    parse_command(agent, args, |executor, args| executor.clean_install(args)).unwrap()
 }
 
 pub fn parse_na(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
-    let package_manager = agent.create_package_manager();
-    package_manager
-        .executor
-        .run(args.to_vec().iter().map(|s| s.as_str()).collect())
-        .expect("Failed to execute run command")
+    parse_command(agent, args, |executor, args| executor.run(args)).unwrap()
 }
 
-pub fn parse_nlx(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCommand {
+pub fn parse_nlx(agent: PackageManagerFactoryEnum, args: &[String]) -> Result<ResolvedCommand> {
     let package_manager = agent.create_package_manager();
-    let command_args = match agent {
-        PackageManagerFactoryEnum::Npm => vec!["npx"],
-        PackageManagerFactoryEnum::Yarn => vec!["yarn", "dlx"],
-        PackageManagerFactoryEnum::Pnpm => vec!["pnpm"],
-        PackageManagerFactoryEnum::Bun => vec!["bun"],
-        PackageManagerFactoryEnum::Deno => vec!["deno", "x"],
-        PackageManagerFactoryEnum::YarnBerry => vec!["yarn", "dlx"],
-        PackageManagerFactoryEnum::Pnpm6 => vec!["pnpm", "dlx"],
-    };
+    let command_args = agent.get_nlx_command();
 
     package_manager
         .executor
@@ -75,7 +58,7 @@ pub fn parse_nlx(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedC
                 .chain(args.iter().map(|s| s.as_str()))
                 .collect(),
         )
-        .expect("Failed to execute command")
+        .ok_or(anyhow!("Failed to execute command"))
 }
 
 #[cfg(test)]
@@ -189,7 +172,7 @@ mod tests {
                 .chain(vec!["vitest"].iter())
                 .map(|s| *s)
                 .collect();
-            assert_eq!(command.args, expected_args);
+            assert_eq!(command.unwrap().args, expected_args);
         }
     }
 }

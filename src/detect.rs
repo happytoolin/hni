@@ -24,6 +24,20 @@ pub enum PackageManagerFactoryEnum {
     Pnpm6,
 }
 
+impl PackageManagerFactoryEnum {
+    pub fn get_nlx_command(&self) -> Vec<&str> {
+        match self {
+            PackageManagerFactoryEnum::Npm => vec!["npx"],
+            PackageManagerFactoryEnum::Yarn => vec!["yarn", "dlx"],
+            PackageManagerFactoryEnum::Pnpm => vec!["pnpm"],
+            PackageManagerFactoryEnum::Bun => vec!["bun"],
+            PackageManagerFactoryEnum::Deno => vec!["deno", "x"],
+            PackageManagerFactoryEnum::YarnBerry => vec!["yarn", "dlx"],
+            PackageManagerFactoryEnum::Pnpm6 => vec!["pnpm", "dlx"],
+        }
+    }
+}
+
 impl std::fmt::Display for PackageManagerFactoryEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

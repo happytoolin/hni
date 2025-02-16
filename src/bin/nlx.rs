@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     info!("Executing command with arguments: {:?}", args);
 
     let agent = detect::detect(&cwd)?;
-    let resolved = parse_nlx(agent.expect("No package manager detected"), &args);
+    let resolved = parse_nlx(agent.expect("No package manager detected"), &args)?;
 
     info!("Executing: {} with args: {:?}", resolved.bin, resolved.args);
 
