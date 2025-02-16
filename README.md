@@ -99,7 +99,10 @@ The tool automatically detects your package manager based on lockfiles in the fo
 2. `pnpm-lock.yaml` → PNPM
 3. `yarn.lock` → Yarn
 4. `package-lock.json` or `npm-shrinkwrap.json` → npm
-5. Fallback to npm if no lockfile is found
+
+## Configuration
+
+`nirs` can be configured using a `.nirs` file in the project directory or in the home directory. The configuration file format is TOML. See `memory_bank/config.md` for details.
 
 ## Logging
 

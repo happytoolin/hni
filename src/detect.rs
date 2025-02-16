@@ -1,4 +1,7 @@
+use anyhow::Result;
+use config::{Config, Environment, File};
 use log::{debug, info, trace, warn};
+use serde::Deserialize;
 use std::{collections::HashMap, env, path::Path};
 
 use crate::{
@@ -8,8 +11,6 @@ use crate::{
     },
     PackageManagerFactory,
 };
-
-use anyhow::Result;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PackageManagerFactoryEnum {
@@ -65,6 +66,16 @@ pub fn get_locks() -> HashMap<&'static str, PackageManagerFactoryEnum> {
     locks
 }
 
+#[derive(Debug, Deserialize)]
+struct NirsConfig {
+    #[serde(default = "default_package_manager")]
+    default_package_manager: Option<String>,
+}
+
+fn default_package_manager() -> Option<String> {
+    Some("npm".to_string())
+}
+
 pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     info!("Detecting package manager in directory: {}", cwd.display());
 
@@ -94,7 +105,70 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     }
 
     debug!("No lockfile found, checking PATH for npm fallback");
-    // Fallback to checking for npm if no lockfile is found
+
+    let config = Config::builder()
+        .add_source(File::with_name("nirs.toml").required(false))
+        .add_source(File::with_name("nirs.json").required(false))
+        .add_source(File::with_name("nirs.yaml").required(false))
+        .add_source(File::with_name(&format!("{}/nirs.toml", env!("HOME"))).required(false))
+        .add_source(File::with_name(&format!("{}/nirs.json", env!("HOME"))).required(false))
+        .add_source(File::with_name(&format!("{}/nirs.yaml", env!("HOME"))).required(false))
+        .add_source(Environment::with_prefix("NIRS"))
+        .build()?;
+
+    let nirs_config: NirsConfig = match config.try_deserialize() {
+        Ok(c) => {
+            info!("Config loaded successfully: {:?}", c);
+            c
+        }
+        Err(e) => {
+            warn!("Failed to load config: {}", e);
+            NirsConfig {
+                default_package_manager: None,
+            }
+        }
+    };
+
+    debug!(
+        "Default package manager from config: {:?}",
+        nirs_config.default_package_manager
+    );
+
+    // Prioritize config over PATH
+    if let Some(pm) = nirs_config.default_package_manager {
+        match pm.as_str() {
+            "npm" => {
+                info!("No lockfile found, defaulting to npm from config");
+                return Ok(Some(PackageManagerFactoryEnum::Npm));
+            }
+            "yarn" => {
+                info!("No lockfile found, defaulting to yarn from config");
+                return Ok(Some(PackageManagerFactoryEnum::Yarn));
+            }
+            "pnpm" => {
+                info!("No lockfile found, defaulting to pnpm from config");
+                return Ok(Some(PackageManagerFactoryEnum::Pnpm));
+            }
+            "bun" => {
+                info!("No lockfile found, defaulting to bun from config");
+                return Ok(Some(PackageManagerFactoryEnum::Bun));
+            }
+            _ => {
+                warn!("Invalid default package manager in config: {}", pm);
+                if let Ok(path) = env::var("PATH") {
+                    trace!("PATH environment variable: {}", path);
+                    if path.contains("npm") {
+                        info!("No lockfile found, defaulting to npm (found in PATH)");
+                        debug!("Using npm as fallback package manager");
+                        return Ok(Some(PackageManagerFactoryEnum::Npm));
+                    }
+                }
+                return Ok(None);
+            }
+        }
+    }
+
+    // If no config, fallback to npm if in PATH
     if let Ok(path) = env::var("PATH") {
         trace!("PATH environment variable: {}", path);
         if path.contains("npm") {
@@ -105,7 +179,7 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     }
 
     warn!("No package manager detected in {}", cwd.display());
-    Ok(None)
+    return Ok(None);
 }
 
 pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {

@@ -7,7 +7,7 @@
 - **Package Managers (Supported):** npm, yarn, pnpm, bun
 - **Testing:** `cargo test`
 - **Logging:** Custom logging module (`src/logger.rs`)
-- **Configuration:** `ini` crate for `.nirc` file, environment variables.
+- **Configuration:** `config` crate for `.nirs` file (TOML, YAML, JSON, etc.), environment variables. See `memory_bank/config.md` for details.
 
 **Development Setup:**
 
