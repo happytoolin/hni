@@ -137,12 +137,30 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     // Check for config file
     debug!("No lockfile or packageManager found, checking config");
     let config = Config::builder()
-        .add_source(File::with_name("nirs.toml").required(false))
-        .add_source(File::with_name("nirs.json").required(false))
-        .add_source(File::with_name("nirs.yaml").required(false))
-        .add_source(File::with_name(&format!("{}/nirs.toml", env!("HOME"))).required(false))
-        .add_source(File::with_name(&format!("{}/nirs.json", env!("HOME"))).required(false))
-        .add_source(File::with_name(&format!("{}/nirs.yaml", env!("HOME"))).required(false))
+        .add_source(File::from(cwd.join("nirs.toml")).required(false))
+        .add_source(File::from(cwd.join("nirs.json")).required(false))
+        .add_source(File::from(cwd.join("nirs.yaml")).required(false))
+        .add_source(
+            File::with_name(&format!(
+                "{}/.config/nirs.toml",
+                env::var("HOME").unwrap_or_default()
+            ))
+            .required(false),
+        )
+        .add_source(
+            File::with_name(&format!(
+                "{}/.config/nirs.json",
+                env::var("HOME").unwrap_or_default()
+            ))
+            .required(false),
+        )
+        .add_source(
+            File::with_name(&format!(
+                "{}/.config/nirs.yaml",
+                env::var("HOME").unwrap_or_default()
+            ))
+            .required(false),
+        )
         .add_source(Environment::with_prefix("NIRS"))
         .build()?;
 
@@ -184,34 +202,26 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
             }
             _ => {
                 warn!("Invalid default package manager in config: {}", pm);
-                if let Ok(path) = env::var("PATH") {
-                    trace!("PATH environment variable: {}", path);
-                    if path.contains("npm") {
-                        info!("No lockfile or packageManager found, defaulting to npm from config");
-                        debug!("Using npm as fallback package manager");
-                        return Ok(Some(PackageManagerFactoryEnum::Npm));
-                    } else {
-                        return Ok(None);
-                    }
-                } else {
-                    return Ok(None);
-                }
+                return Ok(None);
             }
         }
     }
 
-    // Fallback to npm if in PATH
-    if let Ok(path) = env::var("PATH") {
-        trace!("PATH environment variable: {}", path);
-        if path.contains("npm") {
-            info!("No lockfile or packageManager found, defaulting to npm (found in PATH)");
-            debug!("Using npm as fallback package manager");
-            return Ok(Some(PackageManagerFactoryEnum::Npm));
+    // Add check for CI environment before falling back to npm
+    if env::var("CI").is_err() {
+        // Only check PATH in non-CI environments
+        if let Ok(path) = env::var("PATH") {
+            trace!("PATH environment variable: {}", path);
+            if path.split(':').any(|p| Path::new(p).join("npm").exists()) {
+                info!("No lockfile or packageManager found, defaulting to npm (found in PATH)");
+                debug!("Using npm as fallback package manager");
+                return Ok(Some(PackageManagerFactoryEnum::Npm));
+            }
         }
     }
 
     warn!("No package manager detected in {}", cwd.display());
-    return Ok(None);
+    Ok(None)
 }
 
 pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
@@ -242,12 +252,10 @@ pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
     }
 
     // Fallback to checking for npm if no lockfile is found
-    if env::var("PATH")
-        .ok()
-        .is_some_and(|path| path.contains("npm"))
-    {
-        debug!("Sync detection defaulting to npm");
-        return Some(PackageManagerFactoryEnum::Npm);
+    if let Ok(path) = env::var("PATH") {
+        if path.split(':').any(|p| Path::new(p).join("npm").exists()) {
+            return Some(PackageManagerFactoryEnum::Npm);
+        }
     }
 
     debug!("Sync detection found no package manager");

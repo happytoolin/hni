@@ -76,3 +76,6 @@ path = "src/bin/np.rs"
 [[bin]]
 name = "ns"
 path = "src/bin/ns.rs"
+
+[dev-dependencies]
+tempfile = "3.10.0"

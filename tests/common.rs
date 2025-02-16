@@ -1,4 +1,12 @@
+use std::fs::File;
+use std::io::Error;
+
 use nirs::CommandExecutor;
+
+pub fn create_empty_file(path: &str) -> Result<(), Error> {
+    File::create(path)?;
+    Ok(())
+}
 
 pub fn assert_command(
     executor: &Box<dyn CommandExecutor>,
