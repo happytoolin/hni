@@ -25,7 +25,6 @@ pub mod package_managers {
     pub mod deno;
     pub mod npm;
     pub mod pnpm;
-    pub mod pnpm6;
     pub mod yarn;
     pub mod yarn_berry;
 

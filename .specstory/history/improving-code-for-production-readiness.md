@@ -472,6 +472,298 @@ refactor config related parts to its own file
 
 _**Assistant**_
 
+<think>
+Okay, the user wants to refactor the config-related parts of the code into their own file. Let me look at the current code to see what needs to be moved.
+
+In the detect.rs file, there's a struct NirsConfig and a function read_config. The read_config function uses the config crate to build a configuration by reading from various sources. The goal is to move these parts to a new file, probably called config.rs.
+
+First, I'll create a new file src/config.rs. I'll move the NirsConfig struct there. Also, the read_config function, which is responsible for loading the configuration, should be moved to this new file. But wait, the read_config function in detect.rs is specifically for getting the package manager from the config. Hmm, maybe I need to split this into a more general config loading function and the specific part that reads the package manager.
+
+Looking at the original code, the read_config function in detect.rs does two things: it builds the config using Config::builder() and then deserializes it into NirsConfig. Then, it processes the default_package_manager field. To make this modular, the config loading part (building the config and deserializing) should be in the new config.rs, and the part that extracts the package manager can stay in detect.rs, but call the new config functions.
+
+Wait, but the user said to refactor config-related parts to their own file. So maybe the NirsConfig struct and the functions related to loading the config should go to config.rs. The read_config function in detect.rs uses the config to get the package manager, so perhaps that function should be split. The part that builds the config and deserializes it can be moved to config.rs, and the part that processes the default_package_manager remains in detect.rs but uses the new config module.
+
+So, in the new config.rs, I'll have a function like load_config that reads the config from files and environment, and returns the NirsConfig. Then, in detect.rs, the read_config function will call this load_config and handle the default_package_manager field.
+
+Also, the original read_config function in detect.rs uses dirs_next::config_dir(), which is part of the config loading, so that should be moved to the new config module.
+
+Let me outline the steps:
+
+1. Create src/config.rs.
+2. Move the NirsConfig struct to config.rs.
+3. Create a public function load_config in config.rs that handles building the config from files and environment, and returns NirsConfig.
+4. Update the detect.rs file to use this new load_config function.
+5. Modify the original read_config function in detect.rs to call the new load_config and process the default_package_manager.
+
+Wait, but the original read_config function in detect.rs is called read_config, which might be confusing with the new config.rs functions. Maybe rename it to something like get_config_package_manager.
+
+But according to the user's instruction, the config-related parts should be moved. So the NirsConfig struct and the code that loads the config (the Config::builder() part) should be in config.rs. The processing of the default_package_manager can stay in detect.rs.
+
+So, in config.rs:
+
+- Define NirsConfig.
+- Define a function (maybe load_nirs_config) that takes a &Path (cwd) and returns Result<NirsConfig>.
+
+In detect.rs:
+
+- Remove NirsConfig and the config loading code from read_config.
+- Instead, import the config module and use load_nirs_config to get the NirsConfig.
+- Then, process the default_package_manager as before.
+
+Also, need to make sure that any dependencies (like the config crate) are properly included in the new file. The original code uses config::Config, Environment, File, etc., so those need to be moved to the new config.rs.
+
+Another thing: the original read_config function in detect.rs uses dirs_next::config_dir(), which is part of the config loading process. That should be moved to the new config.rs.
+
+Putting it all together:
+
+In config.rs:
+
+pub struct NirsConfig { ... }
+
+pub fn load(cwd: &Path) -> Result<NirsConfig> { ... }
+
+Then, in detect.rs's read_config function:
+
+call config::load(cwd) to get the NirsConfig, then process the default_package_manager.
+
+This way, all config loading logic is encapsulated in config.rs.
+
+I also need to make sure that the anyhow::Result is properly handled, and any errors are propagated correctly.
+
+Testing this, the code in detect.rs would import the config module, use config::load, and then proceed as before.
+
+Additionally, in the main lib.rs or wherever the modules are declared, the new config module needs to be declared as a public module.
+
+So, in lib.rs or similar:
+
+pub mod config;
+
+Then, in detect.rs, use crate::config;
+
+This should make the new module accessible.
+
+Now, let me write the code for config.rs.
+
+The original read_config function in detect.rs has this code for building the config:
+
+let config = Config::builder()
+    .add_source( ... )
+    .add_source( ... )
+    .add_source(Environment::with_prefix("NIRS"))
+    .build()
+    .context("Failed to build config")?;
+
+This part should be moved to config.rs's load function.
+
+Also, the NirsConfig struct is in config.rs.
+
+So, the new config.rs would look like:
+
+use anyhow::{Context, Result};
+use config::{Config, Environment, File};
+use dirs_next::config_dir;
+use std::path::Path;
+
+#[derive(Debug, serde::Deserialize)]
+pub struct NirsConfig {
+    #[serde(default)]
+    pub default_package_manager: Option<String>,
+}
+
+pub fn load(cwd: &Path) -> Result<NirsConfig> {
+    let config_dir = config_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?;
+
+    let config = Config::builder()
+        .add_source(
+            ["nirs.toml", "nirs.json", "nirs.yaml"]
+                .iter()
+                .filter_map(|f| {
+                    let path = cwd.join(f);
+                    if path.exists() {
+                        match path.metadata() {
+                            Ok(meta) if meta.len() > 0 => {
+                                Some(Ok(File::from(path).required(false)))
+                            }
+                            Ok(_) => {
+                                log::trace!("Empty config file: {}", f);
+                                None
+                            }
+                            Err(e) => Some(Err(e.into())),
+                        }
+                    } else {
+                        log::trace!("Config file {} not found", f);
+                        None
+                    }
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>()?,
+        )
+        .add_source(
+            ["nirs.toml", "nirs.json", "nirs.yaml"]
+                .iter()
+                .map(|f| File::from(config_dir.join(f)).required(false))
+                .collect::<Vec<_>>(),
+        )
+        .add_source(Environment::with_prefix("NIRS"))
+        .build()
+        .context("Failed to build config")?;
+
+    config.try_deserialize().context("Failed to deserialize config")
+}
+
+Then, in detect.rs, the read_config function becomes:
+
+use crate::config;
+
+fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+    let nirs_config = config::load(cwd)?;
+
+    nirs_config
+        .default_package_manager
+        .as_deref()
+        .map(|pm| match pm {
+            "npm" => Ok(PackageManagerFactoryEnum::Npm),
+            "yarn" => Ok(PackageManagerFactoryEnum::Yarn),
+            "pnpm" => Ok(PackageManagerFactoryEnum::Pnpm),
+            "bun" => Ok(PackageManagerFactoryEnum::Bun),
+            other => Err(anyhow::anyhow!(
+                "Invalid package manager in config: {}",
+                other
+            )),
+        })
+        .transpose()
+}
+
+This way, all the config loading logic is moved to config.rs, and detect.rs only handles the package manager part.
+
+Also, need to make sure that the serde::Deserialize derive is present in the NirsConfig in config.rs, and that the necessary dependencies (like serde) are included.
+
+Additionally, the log::trace! calls in config.rs require that the log crate is imported, but since it's already a dependency in the project, that should be fine.
+
+Finally, in the original detect.rs, the code that was handling the config is now replaced with a call to config::load, which is much cleaner.
+
+This refactor improves code organization by separating concerns: config loading is in its own module, and the package manager detection logic remains in detect.rs.
+</think>
+
+I'll help refactor the config-related code into a separate module. Here are the changes:
+
+1. First, create a new file for config handling:
+
+```rust:src/config.rs
+use anyhow::{Context, Result};
+use config::{Config, Environment, File};
+use dirs_next::config_dir;
+use serde::Deserialize;
+use std::path::Path;
+
+#[derive(Debug, Deserialize)]
+pub struct NirsConfig {
+    #[serde(default)]
+    pub default_package_manager: Option<String>,
+}
+
+pub fn load(cwd: &Path) -> Result<NirsConfig> {
+    let config_dir = config_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?;
+
+    let config = Config::builder()
+        .add_source(
+            ["nirs.toml", "nirs.json", "nirs.yaml"]
+                .iter()
+                .filter_map(|f| {
+                    let path = cwd.join(f);
+                    if path.exists() {
+                        match path.metadata() {
+                            Ok(meta) if meta.len() > 0 => {
+                                Some(Ok(File::from(path).required(false)))
+                            }
+                            Ok(_) => {
+                                log::trace!("Empty config file: {}", f);
+                                None
+                            }
+                            Err(e) => Some(Err(e.into())),
+                        }
+                    } else {
+                        log::trace!("Config file {} not found", f);
+                        None
+                    }
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>()?,
+        )
+        .add_source(
+            ["nirs.toml", "nirs.json", "nirs.yaml"]
+                .iter()
+                .map(|f| File::from(config_dir.join(f)).required(false))
+                .collect::<Vec<_>>(),
+        )
+        .add_source(Environment::with_prefix("NIRS"))
+        .build()
+        .context("Failed to build config")?;
+
+    config.try_deserialize().context("Failed to deserialize config")
+}
+```
+
+2. Update the detect.rs file to use the new config module:
+
+```rust:src/detect.rs
+// Remove the NirsConfig struct and config loading implementation
+// Add this at the top with other imports
+use crate::config;
+
+// Update the read_config function
+fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+    let nirs_config = config::load(cwd)?;
+
+    nirs_config
+        .default_package_manager
+        .as_deref()
+        .map(|pm| match pm {
+            "npm" => Ok(PackageManagerFactoryEnum::Npm),
+            "yarn" => Ok(PackageManagerFactoryEnum::Yarn),
+            "pnpm" => Ok(PackageManagerFactoryEnum::Pnpm),
+            "bun" => Ok(PackageManagerFactoryEnum::Bun),
+            other => Err(anyhow::anyhow!(
+                "Invalid package manager in config: {}",
+                other
+            )),
+        })
+        .transpose()
+}
+
+// Remove the old config loading implementation from this file
+```
+
+Key improvements in this refactor:
+1. Separated config loading logic from detection logic
+2. Made NirsConfig public for proper module access
+3. Centralized config file handling in a dedicated module
+4. Maintained the same error handling and logging capabilities
+5. Exposed a clean interface for config loading
+
+Don't forget to add the module declaration in your lib.rs/main.rs:
+```rust:src/lib.rs
+pub mod config;
+pub mod detect;
+// ... other modules
+```
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+mismatched types
+expected struct `NirsConfig`
+     found enum `std::option::Option<_>`
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
 
 
 ---

@@ -6,8 +6,8 @@ use std::{env, fs, path::Path};
 use crate::{
     config,
     package_managers::{
-        bun::BunFactory, deno::DenoFactory, npm::NpmFactory, pnpm::PnpmFactory,
-        pnpm6::Pnpm6Factory, yarn::YarnFactory, yarn_berry::YarnBerryFactory,
+        bun::BunFactory, deno::DenoFactory, npm::NpmFactory, pnpm::PnpmFactory, yarn::YarnFactory,
+        yarn_berry::YarnBerryFactory,
     },
     PackageManagerFactory,
 };
@@ -68,11 +68,11 @@ impl PackageManagerFactoryEnum {
         match self {
             PackageManagerFactoryEnum::Npm => Box::new(NpmFactory {}),
             PackageManagerFactoryEnum::Yarn => Box::new(YarnFactory {}),
-            PackageManagerFactoryEnum::Pnpm => Box::new(PnpmFactory {}),
+            PackageManagerFactoryEnum::Pnpm => Box::new(PnpmFactory::new(false)),
             PackageManagerFactoryEnum::Bun => Box::new(BunFactory {}),
             PackageManagerFactoryEnum::Deno => Box::new(DenoFactory {}),
             PackageManagerFactoryEnum::YarnBerry => Box::new(YarnBerryFactory {}),
-            PackageManagerFactoryEnum::Pnpm6 => Box::new(Pnpm6Factory {}),
+            PackageManagerFactoryEnum::Pnpm6 => Box::new(PnpmFactory::new(true)),
         }
     }
 }
@@ -82,6 +82,7 @@ const LOCKFILES: &[(&str, PackageManagerFactoryEnum)] = &[
     ("bun.lockb", PackageManagerFactoryEnum::Bun),
     ("bun.lock", PackageManagerFactoryEnum::Bun),
     ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm),
+    ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm6),
     ("yarn.lock", PackageManagerFactoryEnum::Yarn),
     ("package-lock.json", PackageManagerFactoryEnum::Npm),
     ("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm),
@@ -172,7 +173,14 @@ fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryE
     match name {
         "npm" => Ok(PackageManagerFactoryEnum::Npm),
         "yarn" => Ok(PackageManagerFactoryEnum::Yarn),
-        "pnpm" => Ok(PackageManagerFactoryEnum::Pnpm),
+        "pnpm" => {
+            let version = version.parse::<f32>().unwrap_or(0.0);
+            Ok(if version >= 7.0 {
+                PackageManagerFactoryEnum::Pnpm
+            } else {
+                PackageManagerFactoryEnum::Pnpm6
+            })
+        }
         "bun" => Ok(PackageManagerFactoryEnum::Bun),
         other => Err(anyhow::anyhow!(
             "Unsupported package manager '{}' in {}",
@@ -214,9 +222,9 @@ fn detect_via_lockfiles(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>>
 
 // Update the read_config function
 fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
-    let nirs_config = config::load(cwd)?;
+    let config = config::load(cwd)?;
 
-    nirs_config
+    config
         .default_package_manager
         .as_deref()
         .map(|pm| match pm {
