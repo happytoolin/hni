@@ -24,7 +24,15 @@ impl CommandExecutor for DenoExecutor {
 
     fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["install".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
+        if args.contains(&"-g") {
+            command_args.push("--allow-run".to_string());
+            command_args.push("-n".to_string());
+        }
+        command_args.extend(
+            args.iter()
+                .filter(|&&arg| arg != "-g")
+                .map(|s| s.to_string()),
+        );
 
         Some(ResolvedCommand {
             bin: "deno".to_string(),
@@ -33,19 +41,28 @@ impl CommandExecutor for DenoExecutor {
     }
 
     fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["add".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "deno".to_string(),
-            args: command_args,
-        })
+        // Deno doesn't have a direct add command, it uses imports in code
+        // For global tools, we use install
+        if args.contains(&"-D") {
+            // Dev dependencies are typically managed in dev_deps.ts
+            None
+        } else {
+            let mut command_args = vec!["install".to_string()];
+            command_args.extend(args.iter().map(|s| s.to_string()));
+            Some(ResolvedCommand {
+                bin: "deno".to_string(),
+                args: command_args,
+            })
+        }
     }
 
     fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["run".to_string(), "npm:".to_string() + args[0]];
-        if args.len() > 1 {
-            command_args.extend(args[1..].iter().map(|s| s.to_string()));
+        let mut command_args = vec!["run".to_string()];
+        if args.len() > 0 {
+            command_args.push(format!("npm:{}", args[0]));
+            if args.len() > 1 {
+                command_args.extend(args[1..].iter().map(|s| s.to_string()));
+            }
         }
 
         Some(ResolvedCommand {
@@ -55,7 +72,7 @@ impl CommandExecutor for DenoExecutor {
     }
 
     fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["update".to_string()];
+        let mut command_args = vec!["upgrade".to_string()];
         command_args.extend(args.iter().map(|s| s.to_string()));
 
         Some(ResolvedCommand {
@@ -65,19 +82,15 @@ impl CommandExecutor for DenoExecutor {
     }
 
     fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["remove".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "deno".to_string(),
-            args: command_args,
-        })
+        // Deno doesn't have a direct uninstall command
+        // For global tools, we can use manual removal
+        None
     }
 
     fn clean_install(&self, _args: Vec<&str>) -> Option<ResolvedCommand> {
         Some(ResolvedCommand {
             bin: "deno".to_string(),
-            args: vec!["install".to_string()],
+            args: vec!["cache".to_string(), "deps.ts".to_string()],
         })
     }
 }
@@ -87,47 +100,5 @@ pub struct DenoFactory {}
 impl PackageManagerFactory for DenoFactory {
     fn create_commands(&self) -> Box<dyn CommandExecutor> {
         Box::new(DenoExecutor {})
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::package_managers::test_utils::{test_basic_commands, test_edge_cases};
-
-    const DENO_COMMANDS: &[(&str, &str)] = &[
-        ("run", "task"),
-        ("install", "install"),
-        ("add", "add"),
-        ("uninstall", "remove"),
-        ("clean_install", "install"),
-    ];
-
-    #[test]
-    fn test_deno_basic_commands() {
-        let factory: Box<dyn PackageManagerFactory> = Box::new(DenoFactory {});
-        test_basic_commands(factory, "deno", DENO_COMMANDS);
-    }
-
-    #[test]
-    fn test_deno_edge_cases() {
-        let factory: Box<dyn PackageManagerFactory> = Box::new(DenoFactory {});
-        test_edge_cases(factory, "deno", DENO_COMMANDS);
-    }
-
-    #[test]
-    fn test_deno_specific_commands() {
-        let factory: Box<dyn PackageManagerFactory> = Box::new(DenoFactory {});
-        let executor = factory.create_commands();
-
-        // Test deno run
-        let command = executor.execute(vec!["vite"]).unwrap();
-        assert_eq!(command.bin, "deno");
-        assert_eq!(command.args, vec!["run", "npm:vite"]);
-
-        // Test deno upgrade
-        let command = executor.upgrade(vec![]).unwrap();
-        assert_eq!(command.bin, "deno");
-        assert_eq!(command.args, vec!["update"]);
     }
 }

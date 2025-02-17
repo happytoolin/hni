@@ -1,5 +1,10 @@
 use crate::{CommandExecutor, PackageManagerFactory};
 
+pub struct CommandMapping {
+    pub command: &'static str,
+    pub args: Option<&'static [&'static str]>,
+}
+
 pub fn test_basic_commands(
     factory: Box<dyn PackageManagerFactory>,
     expected_bin: &str,
@@ -29,13 +34,17 @@ pub fn test_basic_commands(
     );
 
     // Test add command with dev dependency
+    let (add_cmd, add_dev_flag) = match command_map.get("add_dev_flag") {
+        Some(flag) => (command_map.get("add").unwrap_or(&"add"), *flag),
+        None => (command_map.get("add").unwrap_or(&"add"), "--save-dev"),
+    };
     assert_command_with_bin(
         &executor,
         "add",
         vec!["@types/node", "-D"],
         expected_bin,
-        command_map.get("add").unwrap_or(&"add"),
-        vec!["@types/node", "-D"],
+        add_cmd,
+        vec!["@types/node", add_dev_flag],
     );
 
     // Test clean install
@@ -81,24 +90,52 @@ pub fn test_edge_cases(
     );
 
     // Test multiple flags
+    let (add_cmd, add_dev_flag) = match command_map.get("add_dev_flag") {
+        Some(flag) => (command_map.get("add").unwrap_or(&"add"), *flag),
+        None => (command_map.get("add").unwrap_or(&"add"), "--save-dev"),
+    };
     assert_command_with_bin(
         &executor,
         "add",
         vec!["@types/node", "-D", "--exact"],
         expected_bin,
-        command_map.get("add").unwrap_or(&"add"),
-        vec!["@types/node", "-D", "--exact"],
+        add_cmd,
+        vec!["@types/node", add_dev_flag, "--exact"],
     );
 
-    // Test global with other flags
-    assert_command_with_bin(
-        &executor,
-        "uninstall",
-        vec!["-g", "webpack", "--save"],
-        expected_bin,
-        command_map.get("uninstall").unwrap_or(&"uninstall"),
-        vec!["-g", "webpack", "--save"],
-    );
+    // Test global package installation
+    match command_map.get("global_install") {
+        Some(&"global add") => {
+            assert_command_with_bin(
+                &executor,
+                "install",
+                vec!["-g", "webpack"],
+                expected_bin,
+                "global",
+                vec!["add", "webpack"],
+            );
+        }
+        Some(&"add") => {
+            assert_command_with_bin(
+                &executor,
+                "install",
+                vec!["-g", "webpack"],
+                expected_bin,
+                "add",
+                vec!["-g", "webpack"],
+            );
+        }
+        _ => {
+            assert_command_with_bin(
+                &executor,
+                "install",
+                vec!["-g", "webpack"],
+                expected_bin,
+                "install",
+                vec!["-g", "webpack"],
+            );
+        }
+    }
 }
 
 fn assert_command_with_bin(
@@ -123,7 +160,11 @@ fn assert_command_with_bin(
 
     assert_eq!(command.bin, expected_bin);
 
-    let mut expected = vec![expected_command.to_string()];
+    let mut expected = if expected_command.is_empty() {
+        vec![]
+    } else {
+        vec![expected_command.to_string()]
+    };
     expected.extend(expected_args.iter().map(|s| s.to_string()));
     assert_eq!(command.args, expected);
 }

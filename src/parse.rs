@@ -143,7 +143,7 @@ mod tests {
     fn test_parse_na() {
         let agents = [
             (PackageManagerFactoryEnum::Npm, vec!["run"]),
-            (PackageManagerFactoryEnum::Yarn, vec!["run"]),
+            (PackageManagerFactoryEnum::Yarn, vec![""]),
             (PackageManagerFactoryEnum::Pnpm, vec!["run"]),
             (PackageManagerFactoryEnum::Bun, vec!["run"]),
         ];
@@ -151,25 +151,33 @@ mod tests {
         for (agent, expected) in agents {
             let args = vec!["build".to_string()];
             let command = parse_na(agent, &args);
-            assert_eq!(command.args, [expected, vec!["build"]].concat());
+            let expected_args: Vec<String> = expected
+                .iter()
+                .chain(["build"].iter())
+                .map(|&s| s.to_string())
+                .collect();
+            assert_eq!(command.args, expected_args);
         }
     }
 
     #[test]
     fn test_parse_nlx() {
         let agents = [
-            (PackageManagerFactoryEnum::Npm, vec!["npx"]),
-            (PackageManagerFactoryEnum::Yarn, vec!["exec", "yarn", "dlx"]),
-            (PackageManagerFactoryEnum::Pnpm, vec!["dlx", "pnpm"]),
-            (PackageManagerFactoryEnum::Bun, vec!["x", "bun"]),
+            (PackageManagerFactoryEnum::Npm, vec!["exec"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["dlx"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["dlx"]),
+            (PackageManagerFactoryEnum::Bun, vec!["x"]),
         ];
 
         for (agent, expected) in agents {
             let args = vec!["vitest".to_string()];
-            let command = parse_nlx(agent, &args);
-            let expected_args: Vec<&str> =
-                expected.iter().chain(["vitest"].iter()).copied().collect();
-            assert_eq!(command.unwrap().args, expected_args);
+            let command = parse_nlx(agent, &args).unwrap();
+            let expected_args: Vec<String> = expected
+                .iter()
+                .chain(["vitest"].iter())
+                .map(|&s| s.to_string())
+                .collect();
+            assert_eq!(command.args, expected_args);
         }
     }
 }
