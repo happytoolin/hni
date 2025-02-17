@@ -1,11 +1,10 @@
 use anyhow::{Context, Result};
-use config::{Config, Environment, File};
 use log::{debug, info, trace, warn};
-use serde::Deserialize;
 use serde_json::Value;
 use std::{env, fs, path::Path};
 
 use crate::{
+    config,
     package_managers::{
         bun::BunFactory, deno::DenoFactory, npm::NpmFactory, pnpm::PnpmFactory,
         pnpm6::Pnpm6Factory, yarn::YarnFactory, yarn_berry::YarnBerryFactory,
@@ -91,12 +90,6 @@ const LOCKFILES: &[(&str, PackageManagerFactoryEnum)] = &[
 pub fn get_locks() -> &'static [(&'static str, PackageManagerFactoryEnum)] {
     trace!("Returning static lockfile list");
     LOCKFILES
-}
-
-#[derive(Debug, Deserialize)]
-struct NirsConfig {
-    #[serde(default)]
-    default_package_manager: Option<String>,
 }
 
 // Improved error handling with context
@@ -219,46 +212,9 @@ fn detect_via_lockfiles(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>>
         .transpose()
 }
 
-// Improved config loading with pattern matching
+// Update the read_config function
 fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
-    let config_dir = dirs_next::config_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?;
-
-    let config = Config::builder()
-        .add_source(
-            ["nirs.toml", "nirs.json", "nirs.yaml"]
-                .iter()
-                .filter_map(|f| {
-                    let path = cwd.join(f);
-                    if path.exists() {
-                        match path.metadata() {
-                            Ok(meta) if meta.len() > 0 => {
-                                Some(Ok(File::from(path).required(false)))
-                            }
-                            Ok(_) => {
-                                trace!("Empty config file: {}", f);
-                                None
-                            }
-                            Err(e) => Some(Err(e.into())),
-                        }
-                    } else {
-                        trace!("Config file {} not found", f);
-                        None
-                    }
-                })
-                .collect::<Result<Vec<_>, anyhow::Error>>()?,
-        )
-        .add_source(
-            ["nirs.toml", "nirs.json", "nirs.yaml"]
-                .iter()
-                .map(|f| File::from(config_dir.join(f)).required(false))
-                .collect::<Vec<_>>(),
-        )
-        .add_source(Environment::with_prefix("NIRS"))
-        .build()
-        .context("Failed to build config")?;
-
-    let nirs_config: NirsConfig = config.try_deserialize()?;
+    let nirs_config = config::load(cwd)?;
 
     nirs_config
         .default_package_manager

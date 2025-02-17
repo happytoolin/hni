@@ -397,7 +397,82 @@ First error is a type mismatch in `detect_via_lockfiles`. The function is suppos
 
 Second error is about type annotations needed in the config file handling. The `filter_map` is returning a `Result<File, E>`, but the error type isn't specified. The `File::from(path).required(false)` creates a `config::File`, but the error type isn't clear. Since we're using `anyhow::Result`, we need to convert the error into `anyhow::Error`. Using `Ok(File::from(path).required(false))` might not be sufficient because the error from `metadata()` is a `std::io::Error`, which needs to be converted. Adding `.context()` to the metadata check and using `anyhow::Result` will help.
 
-Third error is similar to the second, about type annotations
+Third error is similar to the second, about type annotations. The `collect::<Result<Vec<_>, _>>()` might not infer the error type correctly. By adding context to the metadata call and ensuring the error is wrapped in `anyhow`, we can make the types align.
+
+So the steps are:
+
+1. In `detect_via_lockfiles`, change `Ok(pm)` to `Ok(*pm)` to dereference the double reference.
+2. In the config filter_map, handle the metadata error with `.context()` and adjust the return to include `anyhow::Result`.
+3. Ensure all errors are properly converted to `anyhow::Error` using `with_context` or `context`.
+
+Testing these changes should resolve the type mismatches and inference issues.
+</think>
+
+Here are the final fixes to resolve the remaining type issues:
+
+1. Fix lockfile detection reference issue:
+```rust:src/detect.rs
+fn detect_via_lockfiles(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+    // ... existing code ...
+    
+    detected
+        .first()
+        .map(|(pm, lockfile)| {
+            info!("Selected {} via lockfile {}", pm, lockfile);
+            Ok(**pm)  // Double dereference to get the concrete value
+        })
+        .transpose()
+}
+```
+
+2. Fix config file error type annotations:
+```rust:src/detect.rs
+fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+    let config = Config::builder()
+        .add_source(
+            ["nirs.toml", "nirs.json", "nirs.yaml"]
+                .iter()
+                .filter_map(|f| {
+                    let path = cwd.join(f);
+                    if path.exists() {
+                        match path.metadata() {
+                            Ok(meta) if meta.len() > 0 => {
+                                Some(Ok(File::from(path).required(false)))
+                            }
+                            Ok(_) => {
+                                trace!("Empty config file: {}", f);
+                                None
+                            }
+                            Err(e) => Some(Err(e.into())),
+                        }
+                    } else {
+                        trace!("Config file {} not found", f);
+                        None
+                    }
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>()?,
+        )
+        // ... rest of the config setup ...
+```
+
+These changes resolve:
+1. The double reference in lockfile detection by dereferencing to get the concrete enum value
+2. Proper error handling in config file loading with explicit error conversion
+3. Type annotations for the Result type in config collection
+
+The code should now compile while maintaining all previous improvements and proper error handling.
+
+---
+
+_**User**_
+
+refactor config related parts to its own file
+
+---
+
+_**Assistant**_
+
+
 
 ---
 

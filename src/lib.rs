@@ -51,3 +51,5 @@ pub use crate::parse::{
 
 // Re-export detect functions
 pub use crate::detect::PackageManagerFactoryEnum;
+
+pub mod config;
