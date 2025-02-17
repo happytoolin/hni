@@ -4,9 +4,9 @@
 
 _**User**_
 
-the test here fails sometimes randomly - like here, - its not just this test, see whats the problem, run this a few times by doing this and fix the problem - 
+the test here fails sometimes randomly - like here, - its not just this test, see whats the problem, run this a few times by doing this and fix the problem -
 
-cargo test --package nirs --test detect_tests --  --show-output 
+cargo test --package nirs --test detect_tests -- --show-output
 
 ---
 
@@ -26,6 +26,7 @@ fn test_detect_sync_returns_none_when_no_package_manager_is_found() {
 ```
 
 The error shows:
+
 ```
 assertion `left == right` failed
   left: Some(Npm)
@@ -43,8 +44,6 @@ cargo test --package nirs --test detect_tests --  --show-output
 ```
 
 ```
-
-
 <-test detect_tests --  --show-output
 warning: function `assert_command` is never used
   --> tests/common.rs:11:8
@@ -123,8 +122,6 @@ nirs on  main [$?] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
 Let me run it a few more times to observe the behavior.
 
 ---
@@ -136,7 +133,6 @@ cargo test --package nirs --test detect_tests --  --show-output
 ```
 
 ```
-
 nirs on  main [$?] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --test detect_tests --  --show-output
 warning: function `assert_command` is never used
@@ -216,8 +212,6 @@ nirs on  main [$?] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
 After analyzing the code and running the tests multiple times, I can see the issue. The problem is in the `detect_sync` function in `src/detect.rs`. Let's look at the relevant parts:
 
 ```rust
@@ -251,6 +245,7 @@ env::set_var("PATH", "");
 But it's not restoring the PATH after the test completes. This can affect other tests that rely on PATH. Additionally, the test itself might be affected by PATH values from previous test runs.
 
 Let's fix this by:
+
 1. Saving the original PATH before modifying it
 2. Restoring the PATH after the test completes
 3. Making sure we clean up any temporary files
@@ -285,14 +280,11 @@ _****_
 + 
 +     assert_eq!(result, None);
   }
-  
 ```
 
 ---
 
 _****_
-
-
 
 Now let's run the tests multiple times to verify the fix:
 
@@ -305,7 +297,6 @@ for i in {1..5}; do echo "Run $i:"; cargo test --package nirs --test detect_test
 ```
 
 ```
-
 < detect_tests -- --show-output; done
 Run 1:
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -663,8 +654,6 @@ s
 
 _****_
 
-
-
 Great! The fix has resolved the flaky test issue. The test now passes consistently across multiple runs. Here's what we fixed:
 
 1. We properly save and restore the PATH environment variable in the test, ensuring that:
@@ -678,6 +667,7 @@ Great! The fix has resolved the flaky test issue. The test now passes consistent
 The key issue was that environment variables are global state that can affect other tests. By properly managing this state (saving before modification and restoring afterward), we've made the test more reliable and prevented it from interfering with other tests.
 
 This is a common pattern when dealing with global state in tests:
+
 1. Save the original state
 2. Modify the state for the test
 3. Run the test
@@ -842,8 +832,6 @@ _****_
 
 _****_
 
-
-
 I've made several improvements to the tests:
 
 1. Added file cleanup checks to all tests that create files
@@ -853,12 +841,14 @@ I've made several improvements to the tests:
 5. Added proper error handling with the `?` operator where appropriate
 
 The changes follow this pattern for each test:
+
 1. Create a named path variable for better readability
 2. Check if the file exists and delete it if it does
 3. Create the new file
 4. Use the same path variable for all operations
 
 This helps prevent issues where:
+
 - Files from previous test runs might interfere with current tests
 - Files from one test might affect another test
 - Temporary files might be left behind
@@ -874,7 +864,6 @@ cargo test --package nirs --test detect_tests --  --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --test detect_tests --  --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -978,11 +967,6 @@ s
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

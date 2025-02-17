@@ -188,6 +188,7 @@ mod tests {
 ```
 
 This test suite covers:
+
 1. Package manager detection from package.json's packageManager field
 2. Lock file detection and priority order
 3. Config file override functionality
@@ -206,6 +207,7 @@ tempfile = "3.3.0"
 ```
 
 The tests use tempfile to create isolated test environments and cover:
+
 - Different lock file scenarios
 - Config file priorities
 - Environment variable handling
@@ -227,7 +229,7 @@ fix the tests
 _**Assistant**_
 
 <think>
-Okay, let's look at the test failures. The user mentioned that three tests are failing: test_invalid_package_manager_field, test_ci_environment_fallback, and test_unknown_package_manager. 
+Okay, let's look at the test failures. The user mentioned that three tests are failing: test_invalid_package_manager_field, test_ci_environment_fallback, and test_unknown_package_manager.
 
 First, for test_invalid_package_manager_field, the test creates a package.json with a numeric packageManager field. The current code in get_package_manager_from_package_json might not handle this correctly. Let me check that function. Oh, right, it uses as_str(), which would return None if the field isn't a string. But in the detect function, when parsing package.json, if the packageManager field isn't a string, it logs a warning but proceeds. However, in the test, the detection might still find a lockfile or config, leading to a Some result instead of None. Wait, but in the test setup, there's no lockfile or config, so why is the result not None? Maybe the test isn't properly isolated. Or perhaps the CI environment check is interfering. Wait, the test_invalid_package_manager_field doesn't set CI, so the fallback to npm in PATH might be happening. If the test environment has npm in PATH, then detect would return Npm, causing the assertion failure. So the test needs to ensure that npm isn't in the PATH during this test.
 
@@ -303,6 +305,7 @@ fn test_unknown_package_manager() {
 ```
 
 The key changes are:
+
 1. Added PATH environment manipulation in failing tests to prevent false npm detection
 2. Ensured clean environment state restoration after each test
 3. Prevented npm fallback in tests that should return None
@@ -320,7 +323,7 @@ fix it, see why its happening, you can also update the main code if needed
 _**Assistant**_
 
 <think>
-Okay, let's see why the tests are still failing. The user mentioned that after applying the previous fixes, three tests are still failing: test_ci_environment_fallback, test_invalid_package_manager_field, and test_unknown_package_manager. 
+Okay, let's see why the tests are still failing. The user mentioned that after applying the previous fixes, three tests are still failing: test_ci_environment_fallback, test_invalid_package_manager_field, and test_unknown_package_manager.
 
 First, I need to understand what each of these tests is supposed to do and why they might be failing.
 
@@ -344,12 +347,12 @@ Looking at the NirsConfig struct:
 
 #[derive(Debug, Deserialize)]
 struct NirsConfig {
-    #[serde(default = "default_package_manager")]
-    default_package_manager: Option<String>,
+#[serde(default = "default_package_manager")]
+default_package_manager: Option<String>,
 }
 
 fn default_package_manager() -> Option<String> {
-    Some("npm".to_string())
+Some("npm".to_string())
 }
 
 This means that if the config is not present, the default_package_manager field will be initialized using default_package_manager function, which returns Some("npm"). Therefore, even without any config files, the code will see the default_package_manager as Some("npm"), leading it to select npm as the default. That's why in the test_ci_environment_fallback, even though CI is set, the code is still returning npm because the config's default is set to npm.
@@ -367,7 +370,7 @@ Change the serde default to be None. The default_package_manager function should
 Wait, looking back at the original code:
 
 fn default_package_manager() -> Option<String> {
-    Some("npm".to_string())
+Some("npm".to_string())
 }
 
 This is used as the default for the NirsConfig's default_package_manager. So even if the user doesn't have any config files, the default_package_manager is Some("npm"), which the code then uses. That's not correct. The intention was probably that the default_package_manager is None unless specified in the config, and the fallback to npm is only when the PATH has npm. But the current code's default is forcing npm as the default via the config's default, which is incorrect.
@@ -376,8 +379,8 @@ So the fix is to remove the default for the default_package_manager in the NirsC
 
 #[derive(Debug, Deserialize)]
 struct NirsConfig {
-    #[serde(default)]
-    default_package_manager: Option<String>,
+#[serde(default)]
+default_package_manager: Option<String>,
 }
 
 And remove the default_package_manager function. Because #[serde(default)] on an Option will set it to None if not present in the config.
@@ -462,11 +465,13 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
 ```
 
 Key changes:
+
 1. Removed the default "npm" value from config parsing
 2. Moved CI environment check to the start of detection
 3. Improved config handling to only use explicit config values
 
 These changes ensure:
+
 - Config doesn't implicitly default to npm
 - CI environment properly skips all detection
 - Fallback to npm only happens when explicitly configured or found in PATH
@@ -598,12 +603,14 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
 ```
 
 Key changes:
+
 1. Restored proper lock file priority order
 2. Fixed test expectations to match actual lock file priority
 3. Ensured npm fallback happens after all other detection methods
 4. Maintained detection order: package.json > lock files > config > npm fallback
 
 The tests should now pass with:
+
 - package.json detection first
 - lock files in defined priority order
 - config override when no higher priority matches
@@ -628,7 +635,4 @@ Wait, HashMaps in Rust don't maintain insertion order. Oh right, the `get_locks`
 
 ---
 
-
-
 ---
-

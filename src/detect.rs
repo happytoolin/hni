@@ -402,24 +402,26 @@ mod tests {
     #[test]
     fn test_invalid_package_manager_field() {
         let dir = tempdir().unwrap();
-        // Backup original PATH
+        // Create isolated empty PATH directory
+        let empty_path_dir = tempdir().unwrap();
         let original_path = env::var("PATH").unwrap();
-        env::set_var("PATH", ""); // Clear PATH to prevent npm fallback
+        env::set_var("PATH", empty_path_dir.path().to_str().unwrap());
 
         create_temp_file(dir.path(), "package.json", r#"{"packageManager": 123}"#);
 
         let result = detect(dir.path()).unwrap();
         assert!(result.is_none());
 
-        // Restore original PATH
         env::set_var("PATH", original_path);
     }
 
     #[test]
     fn test_unknown_package_manager() {
         let dir = tempdir().unwrap();
+        // Create isolated empty PATH directory
+        let empty_path_dir = tempdir().unwrap();
         let original_path = env::var("PATH").unwrap();
-        env::set_var("PATH", ""); // Clear PATH to prevent npm fallback
+        env::set_var("PATH", empty_path_dir.path().to_str().unwrap());
 
         create_temp_file(
             dir.path(),

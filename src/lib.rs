@@ -31,6 +31,9 @@ pub mod package_managers {
     pub mod yarn_berry;
 }
 
+mod command;
+
+pub use command::NirsCommand;
 pub mod detect;
 pub mod logger;
 pub mod parse;
