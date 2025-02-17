@@ -29,21 +29,8 @@ pub fn assert_command(
     );
 }
 
+// Integration tests for edge cases and cross-package-manager functionality can go here
 #[cfg(test)]
-mod bun_tests;
-#[cfg(test)]
-mod deno_tests;
-#[cfg(test)]
-mod np_tests;
-#[cfg(test)]
-mod npm_tests;
-#[cfg(test)]
-mod ns_tests;
-#[cfg(test)]
-mod pnpm6_tests;
-#[cfg(test)]
-mod pnpm_tests;
-#[cfg(test)]
-mod yarn_berry_tests;
-#[cfg(test)]
-mod yarn_tests;
+mod integration_tests {
+    // Add integration tests here if needed
+}

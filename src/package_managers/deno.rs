@@ -89,3 +89,45 @@ impl PackageManagerFactory for DenoFactory {
         Box::new(DenoExecutor {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::package_managers::test_utils::{test_basic_commands, test_edge_cases};
+
+    const DENO_COMMANDS: &[(&str, &str)] = &[
+        ("run", "task"),
+        ("install", "install"),
+        ("add", "add"),
+        ("uninstall", "remove"),
+        ("clean_install", "install"),
+    ];
+
+    #[test]
+    fn test_deno_basic_commands() {
+        let factory: Box<dyn PackageManagerFactory> = Box::new(DenoFactory {});
+        test_basic_commands(factory, "deno", DENO_COMMANDS);
+    }
+
+    #[test]
+    fn test_deno_edge_cases() {
+        let factory: Box<dyn PackageManagerFactory> = Box::new(DenoFactory {});
+        test_edge_cases(factory, "deno", DENO_COMMANDS);
+    }
+
+    #[test]
+    fn test_deno_specific_commands() {
+        let factory: Box<dyn PackageManagerFactory> = Box::new(DenoFactory {});
+        let executor = factory.create_commands();
+
+        // Test deno run
+        let command = executor.execute(vec!["vite"]).unwrap();
+        assert_eq!(command.bin, "deno");
+        assert_eq!(command.args, vec!["run", "npm:vite"]);
+
+        // Test deno upgrade
+        let command = executor.upgrade(vec![]).unwrap();
+        assert_eq!(command.bin, "deno");
+        assert_eq!(command.args, vec!["update"]);
+    }
+}

@@ -79,3 +79,45 @@ impl PackageManagerFactory for NpmFactory {
         Box::new(NpmExecutor {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::package_managers::test_utils::{test_basic_commands, test_edge_cases};
+
+    const NPM_COMMANDS: &[(&str, &str)] = &[
+        ("run", "run"),
+        ("install", "install"),
+        ("add", "install"),
+        ("uninstall", "uninstall"),
+        ("clean_install", "ci"),
+    ];
+
+    #[test]
+    fn test_npm_basic_commands() {
+        let factory: Box<dyn PackageManagerFactory> = Box::new(NpmFactory {});
+        test_basic_commands(factory, "npm", NPM_COMMANDS);
+    }
+
+    #[test]
+    fn test_npm_edge_cases() {
+        let factory: Box<dyn PackageManagerFactory> = Box::new(NpmFactory {});
+        test_edge_cases(factory, "npm", NPM_COMMANDS);
+    }
+
+    #[test]
+    fn test_npm_specific_commands() {
+        let factory: Box<dyn PackageManagerFactory> = Box::new(NpmFactory {});
+        let executor = factory.create_commands();
+
+        // Test npx execution
+        let command = executor.execute(vec!["vite"]).unwrap();
+        assert_eq!(command.bin, "npx");
+        assert_eq!(command.args, vec!["vite"]);
+
+        // Test npm update
+        let command = executor.upgrade(vec![]).unwrap();
+        assert_eq!(command.bin, "npm");
+        assert_eq!(command.args, vec!["update"]);
+    }
+}

@@ -20,7 +20,6 @@ pub trait PackageManagerFactory {
     fn create_commands(&self) -> Box<dyn CommandExecutor>;
 }
 
-// Re-export modules
 pub mod package_managers {
     pub mod bun;
     pub mod deno;
@@ -29,11 +28,14 @@ pub mod package_managers {
     pub mod pnpm6;
     pub mod yarn;
     pub mod yarn_berry;
+
+    #[cfg(test)]
+    pub(crate) mod test_utils;
 }
 
 mod command;
-
 pub use command::NirsCommand;
+
 pub mod detect;
 pub mod logger;
 pub mod parse;
