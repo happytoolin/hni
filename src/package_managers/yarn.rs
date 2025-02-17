@@ -16,7 +16,7 @@ impl CommandExecutor for YarnExecutor {
     }
 
     fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = if args.contains(&"-g") {
+        let command_args = if args.contains(&"-g") {
             let mut cmd = vec!["global".to_string(), "add".to_string()];
             cmd.extend(
                 args.iter()

@@ -1,10 +1,5 @@
 use crate::{CommandExecutor, PackageManagerFactory};
 
-pub struct CommandMapping {
-    pub command: &'static str,
-    pub args: Option<&'static [&'static str]>,
-}
-
 pub fn test_basic_commands(
     factory: Box<dyn PackageManagerFactory>,
     expected_bin: &str,
@@ -15,7 +10,7 @@ pub fn test_basic_commands(
 
     // Test run command
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "run",
         vec!["dev", "--port=3000"],
         expected_bin,
@@ -25,7 +20,7 @@ pub fn test_basic_commands(
 
     // Test install command
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "install",
         vec!["vite"],
         expected_bin,
@@ -39,7 +34,7 @@ pub fn test_basic_commands(
         None => (command_map.get("add").unwrap_or(&"add"), "--save-dev"),
     };
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "add",
         vec!["@types/node", "-D"],
         expected_bin,
@@ -60,7 +55,7 @@ pub fn test_basic_commands(
         .unwrap_or_else(|| vec!["--frozen-lockfile"]);
 
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "clean_install",
         vec![],
         expected_bin,
@@ -79,7 +74,7 @@ pub fn test_edge_cases(
 
     // Test empty args
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "install",
         vec![],
         expected_bin,
@@ -89,7 +84,7 @@ pub fn test_edge_cases(
 
     // Test args with spaces
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "run",
         vec!["test:unit", "--coverage"],
         expected_bin,
@@ -103,7 +98,7 @@ pub fn test_edge_cases(
         None => (command_map.get("add").unwrap_or(&"add"), "--save-dev"),
     };
     assert_command_with_bin(
-        &executor,
+        &*executor,
         "add",
         vec!["@types/node", "-D", "--exact"],
         expected_bin,
@@ -115,7 +110,7 @@ pub fn test_edge_cases(
     if let Some(global_cmd) = command_map.get("global_install") {
         let parts: Vec<&str> = global_cmd.split(' ').collect();
         assert_command_with_bin(
-            &executor,
+            &*executor,
             "install",
             vec!["-g", "webpack"],
             expected_bin,
@@ -126,7 +121,7 @@ pub fn test_edge_cases(
 }
 
 fn assert_command_with_bin(
-    executor: &Box<dyn CommandExecutor>,
+    executor: &dyn CommandExecutor,
     action: &str,
     args: Vec<&str>,
     expected_bin: &str,
