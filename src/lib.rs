@@ -51,3 +51,5 @@ pub use crate::parse::{
 pub use crate::detect::PackageManagerFactoryEnum;
 
 pub mod config;
+
+pub mod update_checker;

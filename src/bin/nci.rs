@@ -44,9 +44,15 @@ impl NirsCommand for NciCommand {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Initialize logger with nice formatting
     logger::init();
+
+    // Check for updates
+    if let Err(e) = nirs::update_checker::check_for_update().await {
+        warn!("Update check failed: {}", e);
+    }
 
     let args: Vec<String> = env::args().skip(1).collect();
     let command = NciCommand;

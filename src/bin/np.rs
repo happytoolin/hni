@@ -2,7 +2,7 @@ use anyhow::Result;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::thread;
 use log::{debug, error, info, warn};
-use nirs::{logger, NirsCommand};
+use nirs::{logger, update_checker, NirsCommand};
 use std::env;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
@@ -227,9 +227,15 @@ impl NirsCommand for NpCommand {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Initialize logger with nice formatting
     logger::init();
+
+    // Check for updates
+    if let Err(e) = update_checker::check_for_update().await {
+        warn!("Update check failed: {}", e);
+    }
 
     let args: Vec<String> = env::args().skip(1).collect();
     let command = NpCommand;

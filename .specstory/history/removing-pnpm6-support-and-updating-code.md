@@ -164,6 +164,7 @@ mod tests {
 ```
 
 These changes:
+
 1. Remove legacy pnpm6 executor and simplify the pnpm factory
 2. Remove pnpm6 detection logic and enum variant
 3. Update pnpm command generation to use modern `dlx`
@@ -176,11 +177,6 @@ The code now only supports pnpm 7+ and uses the modern command structure consist
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

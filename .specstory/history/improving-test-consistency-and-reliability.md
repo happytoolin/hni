@@ -4,7 +4,7 @@
 
 _**User**_
 
-make the tests consistent, they fail randomly - 
+make the tests consistent, they fail randomly -
 
 ---
 
@@ -23,8 +23,6 @@ Read file: src/detect.rs
 ---
 
 _****_
-
-
 
 The issue is in the test environment setup. The test is trying to isolate the PATH environment, but there are a few problems that could cause inconsistency:
 
@@ -72,14 +70,11 @@ _****_
 - 
 -         env::set_var("PATH", original_path);
       }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I've made several improvements to make the test more consistent:
 
@@ -187,8 +182,6 @@ _****_
 
 _****_
 
-
-
 Let me also fix the `test_npm_fallback_when_in_path` test since it also deals with PATH manipulation:
 
 ---
@@ -248,8 +241,6 @@ _****_
 
 _****_
 
-
-
 I've made several improvements to make all the tests that deal with environment variables more consistent and reliable:
 
 1. All tests now properly save and restore both PATH and CI environment variables
@@ -260,6 +251,7 @@ I've made several improvements to make all the tests that deal with environment 
 6. All environment variable handling is consistent across all tests
 
 These changes should make the tests more reliable by:
+
 1. Properly isolating test environments
 2. Handling all relevant environment variables (PATH and CI)
 3. Ensuring proper cleanup even on test failure
@@ -272,7 +264,7 @@ The tests should now run consistently without random failures. Let me know if yo
 
 _**User**_
 
-run the test 10 times, you will see it still fails randomly 
+run the test 10 times, you will see it still fails randomly
 
 ---
 
@@ -539,14 +531,11 @@ _****_
 -         assert_eq!(result, Some(PackageManagerFactoryEnum::Bun));
 -     }
   }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I've made several significant improvements to make the tests more consistent:
 
@@ -583,11 +572,6 @@ The main reason for the previous random failures was likely that some tests were
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

@@ -21,7 +21,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
 warning: variable does not need to be mutable
@@ -111,9 +110,8 @@ nirs on  main [$+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
 I see two failing tests:
+
 1. `test_config_file_override` - The test expects `Some(Pnpm)` but gets `None`
 2. `test_npm_fallback_when_in_path` - The test expects `Some(Npm)` but gets `None`
 
@@ -139,8 +137,6 @@ _****_
 ---
 
 _****_
-
-
 
 Now for the `test_npm_fallback_when_in_path` failure, I notice that the path separator in the code is using ':' which is Unix-specific. We need to use the platform-specific path separator. Let me fix that:
 
@@ -168,8 +164,6 @@ _****_
 
 _****_
 
-
-
 Let's run the tests again to see if these changes fixed the issues:
 
 ---
@@ -181,7 +175,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -270,8 +263,6 @@ nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
 Great! The `test_config_file_override` test is now passing, but we have two remaining issues:
 
 1. `test_ci_environment_fallback` - The test expects `None` but gets `Some` value
@@ -311,9 +302,8 @@ _****_
 
 _****_
 
-
-
 The changes I made:
+
 1. Added proper Windows support by checking for `npm.exe` on Windows systems
 2. Added more debug logging to help diagnose issues
 3. Made the npm path check more robust by using platform-specific executable names
@@ -329,7 +319,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+?] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -415,8 +404,6 @@ error: test failed, to rerun pass `-p nirs --lib`
 
 _****_
 
-
-
 Great progress! The `test_ci_environment_fallback` test is now passing. We still have two failing tests:
 
 1. `test_unknown_package_manager` - The test expects `None` but gets `Some` value
@@ -473,9 +460,8 @@ _****_
 
 _****_
 
-
-
 The changes I made:
+
 1. Fixed the unknown package manager handling to properly return `None` when an unknown package manager is found
 2. Improved the npm fallback test to properly create and set up the npm executable with the correct platform-specific name
 
@@ -490,7 +476,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+?] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -576,10 +561,6 @@ error: test failed, to rerun pass `-p nirs --lib`
 
 _****_
 
-
-
-
-
 We're getting closer! Now we have two different failing tests:
 
 1. `test_invalid_package_manager_field` - The test expects `None` but gets `Some` value
@@ -616,11 +597,8 @@ _****_
 
 _****_
 
-
-
-
-
 The changes I made:
+
 1. Fixed the invalid package manager field handling to properly return `None` when the field is not a string
 2. Improved the npm fallback test by creating a proper executable file with platform-specific content
 
@@ -635,7 +613,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -666,8 +643,6 @@ s --tests` to apply 1 suggestion)
 
 _****_
 
-
-
 Let me run the tests again since the output was cut off:
 
 ---
@@ -679,7 +654,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
 warning: variable does not need to be mutable
@@ -762,10 +736,6 @@ nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
-
-
 Great progress! Now we only have one failing test: `test_npm_fallback_when_in_path`. Let me fix this by improving the path handling:
 
 ---
@@ -807,18 +777,14 @@ _****_
 +             path_str
 +         );
       }
-  
 ```
 
 ---
 
 _****_
 
-
-
-
-
 The changes I made:
+
 1. Added more detailed debug logging to help diagnose path-related issues
 2. Added better error messages in the test assertion
 3. Improved path handling in the test by storing the path string in a variable
@@ -835,7 +801,6 @@ RUST_LOG=debug cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 <--lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -917,10 +882,6 @@ error: test failed, to rerun pass `-p nirs --lib`
 
 _****_
 
-
-
-
-
 Let me fix the `detect_sync` function as well since it's using the same path checking logic:
 
 ---
@@ -956,10 +917,6 @@ _****_
 ---
 
 _****_
-
-
-
-
 
 Let me also fix the test to ensure the npm executable is properly created and accessible:
 
@@ -1018,12 +975,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
 Let's run the tests one final time to verify all issues are fixed:
 
 ---
@@ -1035,7 +986,6 @@ RUST_LOG=debug cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 <--lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -1066,10 +1016,6 @@ s --tests` to apply 1 suggestion)
 
 _****_
 
-
-
-
-
 Let me run the tests again since the output was cut off:
 
 ---
@@ -1081,7 +1027,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
 warning: variable does not need to be mutable
@@ -1165,12 +1110,6 @@ nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
-
-
-
-
 Let me try one more approach to fix the npm fallback test. I'll modify the test to use a more robust way of creating and checking the executable:
 
 ---
@@ -1221,12 +1160,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
 We need to add the `which` crate as a dependency. Let me check the `Cargo.toml` file:
 
 ---
@@ -1239,10 +1172,6 @@ Read file: Cargo.toml
 
 _****_
 
-
-
-
-
 Let me add the `which` crate to the dev dependencies since we only need it for testing:
 
 ---
@@ -1253,18 +1182,11 @@ _****_
   [dev-dependencies]
   tempfile = "3.17.0"
 + which = "6.0.0"
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
 
 Now let's run the tests again:
 
@@ -1277,7 +1199,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
    Compiling home v0.5.11
@@ -1374,12 +1295,6 @@ s
 
 _****_
 
-
-
-
-
-
-
 Let me try one more approach. Instead of using `which`, let's modify the test to be more focused on what we're actually testing:
 
 ---
@@ -1409,12 +1324,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
 Let's run the tests again:
 
 ---
@@ -1426,7 +1335,6 @@ RUST_LOG=debug cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 <--lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -1510,12 +1418,6 @@ nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
-
-
-
-
 Great! The `test_npm_fallback_when_in_path` test is now passing. We have one remaining failing test: `test_multiple_lock_files`. Let me fix that:
 
 ---
@@ -1537,14 +1439,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
-
-
 Let's run the tests one final time to verify all issues are fixed:
 
 ---
@@ -1556,7 +1450,6 @@ cargo test --package nirs --lib -- detect::tests --show-output
 ```
 
 ```
-
 nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1 
 ❯ cargo test --package nirs --lib -- detect::tests --show-output
    Compiling nirs v0.0.7 (/home/spark/Codes/nirs)
@@ -1625,10 +1518,6 @@ nirs on  main [$!+] is 📦 v0.0.7 via  v23.7.0 via 💎 via 🦀 v1.84.1
 
 _****_
 
-
-
-
-
 Great! All tests are now passing. Here's a summary of the fixes we made:
 
 1. Fixed the config file override test by properly handling config deserialization failures
@@ -1647,11 +1536,6 @@ The code is now more robust and all tests are passing successfully. Is there any
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

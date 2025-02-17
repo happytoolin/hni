@@ -1,6 +1,6 @@
 use anyhow::Result;
 use log::{debug, info, warn};
-use nirs::{execute_command, logger, NirsCommand};
+use nirs::{execute_command, logger, update_checker, NirsCommand};
 use std::env;
 
 struct NuCommand;
@@ -41,9 +41,15 @@ impl NirsCommand for NuCommand {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Initialize logger with nice formatting
     logger::init();
+
+    // Check for updates
+    if let Err(e) = update_checker::check_for_update().await {
+        warn!("Update check failed: {}", e);
+    }
 
     let args: Vec<String> = env::args().skip(1).collect();
     let command = NuCommand;

@@ -225,6 +225,7 @@ This test suite covers:
 9. Sync detection error handling
 
 Key considerations:
+
 - Uses `tempfile` crate for isolated test environments
 - Tests both happy paths and edge cases
 - Verifies detection priority order
@@ -245,16 +246,16 @@ fix the tests
 _**Assistant**_
 
 <think>
-Okay, let's look at the test failures and figure out what's wrong. 
+Okay, let's look at the test failures and figure out what's wrong.
 
 First, the test_parse_package_manager_valid is failing because for pnpm@7.0.0, the test expects Pnpm but gets Pnpm6. That suggests the version parsing isn't working correctly. Let me check the parse_package_manager function. Oh, right, when parsing the version, it's using f32, so 7.0.0 becomes 7.0, which should be >=7.0, so it should return Pnpm. Wait, but in the test, it's expecting Pnpm but getting Pnpm6. Maybe the version parsing is incorrect. Let me see: the code splits on '@' and then parses the version part. For "pnpm@7.0.0", version is "7.0.0". Parsing that to f32 would take 7.0, which is correct. So why is it returning Pnpm6? Maybe there's a mistake in the code. Wait, looking at the code, the version is parsed as f32, but "7.0.0" can't be parsed as f32 because of the extra .0. Wait, no, f32's parse will stop at the first non-digit, so "7.0.0" parsed as f32 would be 7.0, which is correct. So why is the test failing? Maybe the test case is wrong. Wait, in the test case, ("pnpm@7.0.0", PackageManagerFactoryEnum::Pnpm), but the test is expecting Pnpm, but the code returns Pnpm6. That suggests that the version is being parsed as less than 7.0. Hmm. Wait, maybe the code is using a different parsing method. Let me check the code again.
 
-In parse_package_manager, for pnpm, it does version.parse::<f32>().unwrap_or(0.0). So for "7.0.0", it parses to 7.0, which is >=7.0, so returns Pnpm. But the test is failing, so maybe the code is not handling that correctly. Wait, maybe the test case is using "pnpm@7.0.0" but the code is expecting a different version format. Or perhaps the code is using a different comparison. Let me check the code again. Oh, the code says if version >=7.0, then Pnpm, else Pnpm6. So for 7.0.0, it should be Pnpm. But the test is expecting Pnpm but the actual result is Pnpm6. That suggests that the parsed version is less than 7.0. Wait, maybe the version is parsed incorrectly. For example, if the version string is "7.0.0", when parsed as f32, it becomes 7.0, which is correct. So why is the code returning Pnpm6? Maybe there's a typo in the code. Let me check the code again. Oh, wait, in the code, the version is parsed as f32, but maybe the code is using a different threshold. Let me check: the code says if version >=7.0, then Pnpm. So 7.0 should be correct. Hmm. Maybe the test is wrong. Wait, in the test case for pnpm@7.0.0, the expected is Pnpm. But the test is failing because it's getting Pnpm6. That suggests that the parsed version is less than 7.0. Wait, maybe the code is using a string comparison instead of numeric. No, the code parses to f32. So why is this happening? Maybe the version is being parsed as 6.9.0 instead of 7.0.0. Wait, no, the test case is "pnpm@7.0.0". Let me check the code again. Oh! Wait, in the code, the split is on '@', so for "pnpm@7.0.0", name is "pnpm", version is "7.0.0". Then version.parse::<f32>(). So "7.0.0" as f32 is 7.0, which is correct. So the code should return Pnpm. But the test is failing, so maybe there's a mistake in the code. Wait, maybe the code is using >=7.0, but the test case is expecting Pnpm, but the code is returning Pnpm6. That would mean that the parsed version is less than 7.0. How? Maybe the code is using a different version. Wait, maybe the code is using the package manager's version instead of the one in package.json? No, the test is for parse_package_manager, which is given the string from package.json. So the problem must be in the parse_package_manager function. Let me check again. Oh! Wait, in the code, when parsing the version, it's using unwrap_or(0.0). So if parsing fails, it defaults to 0.0. But in the test case, "7.0.0" should parse correctly. Wait, but "7.0.0" as a string can't be parsed into an f32 because of the two dots. Wait, no, the parse method for f32 will stop at the first invalid character. So "7.0.0" would parse as 7.0, right? Let me test that in Rust. Let's see: 
+In parse_package_manager, for pnpm, it does version.parse::<f32>().unwrap_or(0.0). So for "7.0.0", it parses to 7.0, which is >=7.0, so returns Pnpm. But the test is failing, so maybe the code is not handling that correctly. Wait, maybe the test case is using "pnpm@7.0.0" but the code is expecting a different version format. Or perhaps the code is using a different comparison. Let me check the code again. Oh, the code says if version >=7.0, then Pnpm, else Pnpm6. So for 7.0.0, it should be Pnpm. But the test is expecting Pnpm but the actual result is Pnpm6. That suggests that the parsed version is less than 7.0. Wait, maybe the version is parsed incorrectly. For example, if the version string is "7.0.0", when parsed as f32, it becomes 7.0, which is correct. So why is the code returning Pnpm6? Maybe there's a typo in the code. Let me check the code again. Oh, wait, in the code, the version is parsed as f32, but maybe the code is using a different threshold. Let me check: the code says if version >=7.0, then Pnpm. So 7.0 should be correct. Hmm. Maybe the test is wrong. Wait, in the test case for pnpm@7.0.0, the expected is Pnpm. But the test is failing because it's getting Pnpm6. That suggests that the parsed version is less than 7.0. Wait, maybe the code is using a string comparison instead of numeric. No, the code parses to f32. So why is this happening? Maybe the version is being parsed as 6.9.0 instead of 7.0.0. Wait, no, the test case is "pnpm@7.0.0". Let me check the code again. Oh! Wait, in the code, the split is on '@', so for "pnpm@7.0.0", name is "pnpm", version is "7.0.0". Then version.parse::<f32>(). So "7.0.0" as f32 is 7.0, which is correct. So the code should return Pnpm. But the test is failing, so maybe there's a mistake in the code. Wait, maybe the code is using >=7.0, but the test case is expecting Pnpm, but the code is returning Pnpm6. That would mean that the parsed version is less than 7.0. How? Maybe the code is using a different version. Wait, maybe the code is using the package manager's version instead of the one in package.json? No, the test is for parse_package_manager, which is given the string from package.json. So the problem must be in the parse_package_manager function. Let me check again. Oh! Wait, in the code, when parsing the version, it's using unwrap_or(0.0). So if parsing fails, it defaults to 0.0. But in the test case, "7.0.0" should parse correctly. Wait, but "7.0.0" as a string can't be parsed into an f32 because of the two dots. Wait, no, the parse method for f32 will stop at the first invalid character. So "7.0.0" would parse as 7.0, right? Let me test that in Rust. Let's see:
 
 fn main() {
-    let version = "7.0.0";
-    let v: f32 = version.parse().unwrap();
-    println!("{}", v); // prints 7
+let version = "7.0.0";
+let v: f32 = version.parse().unwrap();
+println!("{}", v); // prints 7
 }
 
 Wait, no, "7.0.0" can't be parsed as f32 because it's not a valid float. Oh! That's the problem! The version string "7.0.0" has two decimal points, so parsing to f32 will fail, causing unwrap_or(0.0) to default to 0.0. Therefore, the code thinks the version is 0.0, which is less than 7.0, so returns Pnpm6. That's why the test is failing. So the version parsing is incorrect. The code is trying to parse versions like "7.0.0" as f32, but that's not possible because of the multiple dots. So the code is defaulting to 0.0, leading to incorrect Pnpm6 instead of Pnpm.
@@ -264,18 +265,18 @@ So the fix is to correctly parse the version. Maybe we should use a semver parse
 Next, the test_detect_via_lockfiles_priority is failing because it expects Bun but gets None. Looking at the detect_via_lockfiles function, it checks for lockfiles in the order defined in LOCKFILES. The LOCKFILES list has bun.lockb first, so if that exists, it should detect Bun. But the test creates bun.lockb, pnpm-lock.yaml, and yarn.lock. The detect_via_lockfiles function collects all existing lockfiles and picks the first one in the LOCKFILES order. Wait, but in the code, LOCKFILES is ordered with bun.lockb first, then bun.lock, then pnpm-lock.yaml (twice?), then yarn.lock, etc. Wait, looking at the LOCKFILES definition:
 
 const LOCKFILES: &[(&str, PackageManagerFactoryEnum)] = &[
-    ("bun.lockb", PackageManagerFactoryEnum::Bun),
-    ("bun.lock", PackageManagerFactoryEnum::Bun),
-    ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm),
-    ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm6),
-    ("yarn.lock", PackageManagerFactoryEnum::Yarn),
-    ("package-lock.json", PackageManagerFactoryEnum::Npm),
-    ("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm),
+("bun.lockb", PackageManagerFactoryEnum::Bun),
+("bun.lock", PackageManagerFactoryEnum::Bun),
+("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm),
+("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm6),
+("yarn.lock", PackageManagerFactoryEnum::Yarn),
+("package-lock.json", PackageManagerFactoryEnum::Npm),
+("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm),
 ];
 
-Wait, the same pnpm-lock.yaml is listed twice with different enums (Pnpm and Pnpm6). That can't be right. Because when iterating through LOCKFILES, for each lockfile name, it checks if it exists. So if the lockfile is "pnpm-lock.yaml", it's associated with both Pnpm and Pnpm6. But when creating the detected list, it's adding (pm, lockfile) for each entry in LOCKFILES where the lockfile exists. So if pnpm-lock.yaml exists, it will add both Pnpm and Pnpm6 entries? That's incorrect. Because the same lockfile is associated with two different package managers. So when the code checks for pnpm-lock.yaml, it adds both entries, but in reality, the presence of pnpm-lock.yaml should determine whether it's Pnpm or Pnpm6 based on the version. But in the current code, the lockfile detection doesn't consider the version; it's just based on the filename. So the LOCKFILES array is incorrect because pnpm-lock.yaml is listed for both Pnpm and Pnpm6. That's a problem. The same lockfile can't correspond to two different package managers. So the code is flawed here. The correct approach is to have each lockfile map to one package manager. So for pnpm, the lockfile is pnpm-lock.yaml, and the version determines whether it's Pnpm or Pnpm6. But in the current setup, the lockfile detection can't distinguish between Pnpm and Pnpm6 because they share the same lockfile name. Therefore, the LOCKFILES array is incorrect. The Pnpm6 entry should not have pnpm-lock.yaml as its lockfile. Maybe Pnpm6 uses a different lockfile name, but in reality, pnpm versions 6 and 7 both use pnpm-lock.yaml. Therefore, the lockfile detection alone can't distinguish between them, and the packageManager field or version detection is needed. Therefore, the LOCKFILES array should only have pnpm-lock.yaml once, associated with either Pnpm or Pnpm6, but that's incorrect. This suggests that the lockfile detection for pnpm is not reliable and needs to be handled differently, perhaps by checking the version in package.json or the presence of a pnpm version file. However, in the current code, the LOCKFILES array is incorrect, leading to multiple entries for the same file, which causes the detect_via_lockfiles function to add both Pnpm and Pnpm6 when pnpm-lock.yaml exists. This would result in detected containing both, and when sorted by LOCKFILES order, the first entry would be Pnpm (since it's listed before Pnpm6 in LOCKFILES). Wait, no: in LOCKFILES, the order is bun.lockb, bun.lock, pnpm-lock.yaml (Pnpm), then pnpm-lock.yaml (Pnpm6). So when iterating, for each lockfile in LOCKFILES, if the file exists, add (pm, lockfile) to detected. So if pnpm-lock.yaml exists, both entries (Pnpm and Pnpm6) would be added. But detected is a list of tuples, and when sorted, the first entry in LOCKFILES order would be the first occurrence. Wait, no: the loop is iterating over LOCKFILES in order. For each (lockfile, pm) in LOCKFILES, if the lockfile exists, add (pm, lockfile) to detected. So if pnpm-lock.yaml exists, both entries (Pnpm and Pnpm6) would be added, but in the order they appear in LOCKFILES. So the first occurrence is Pnpm, then Pnpm6. So detected would have both, but when taking the first, it would pick Pnpm. But in the test_detect_via_lockfiles_priority, the test creates bun.lockb, pnpm-lock.yaml, and yarn.lock. So the detected list would have entries for Bun (bun.lockb), Pnpm (pnpm-lock.yaml), Pnpm6 (pnpm-lock.yaml), and Yarn (yarn.lock). The first entry is Bun, so the result should be Bun. But the test is failing because the result is None. Wait, why? Let me check the detect_via_lockfiles function. 
+Wait, the same pnpm-lock.yaml is listed twice with different enums (Pnpm and Pnpm6). That can't be right. Because when iterating through LOCKFILES, for each lockfile name, it checks if it exists. So if the lockfile is "pnpm-lock.yaml", it's associated with both Pnpm and Pnpm6. But when creating the detected list, it's adding (pm, lockfile) for each entry in LOCKFILES where the lockfile exists. So if pnpm-lock.yaml exists, it will add both Pnpm and Pnpm6 entries? That's incorrect. Because the same lockfile is associated with two different package managers. So when the code checks for pnpm-lock.yaml, it adds both entries, but in reality, the presence of pnpm-lock.yaml should determine whether it's Pnpm or Pnpm6 based on the version. But in the current code, the lockfile detection doesn't consider the version; it's just based on the filename. So the LOCKFILES array is incorrect because pnpm-lock.yaml is listed for both Pnpm and Pnpm6. That's a problem. The same lockfile can't correspond to two different package managers. So the code is flawed here. The correct approach is to have each lockfile map to one package manager. So for pnpm, the lockfile is pnpm-lock.yaml, and the version determines whether it's Pnpm or Pnpm6. But in the current setup, the lockfile detection can't distinguish between Pnpm and Pnpm6 because they share the same lockfile name. Therefore, the LOCKFILES array is incorrect. The Pnpm6 entry should not have pnpm-lock.yaml as its lockfile. Maybe Pnpm6 uses a different lockfile name, but in reality, pnpm versions 6 and 7 both use pnpm-lock.yaml. Therefore, the lockfile detection alone can't distinguish between them, and the packageManager field or version detection is needed. Therefore, the LOCKFILES array should only have pnpm-lock.yaml once, associated with either Pnpm or Pnpm6, but that's incorrect. This suggests that the lockfile detection for pnpm is not reliable and needs to be handled differently, perhaps by checking the version in package.json or the presence of a pnpm version file. However, in the current code, the LOCKFILES array is incorrect, leading to multiple entries for the same file, which causes the detect_via_lockfiles function to add both Pnpm and Pnpm6 when pnpm-lock.yaml exists. This would result in detected containing both, and when sorted by LOCKFILES order, the first entry would be Pnpm (since it's listed before Pnpm6 in LOCKFILES). Wait, no: in LOCKFILES, the order is bun.lockb, bun.lock, pnpm-lock.yaml (Pnpm), then pnpm-lock.yaml (Pnpm6). So when iterating, for each lockfile in LOCKFILES, if the file exists, add (pm, lockfile) to detected. So if pnpm-lock.yaml exists, both entries (Pnpm and Pnpm6) would be added. But detected is a list of tuples, and when sorted, the first entry in LOCKFILES order would be the first occurrence. Wait, no: the loop is iterating over LOCKFILES in order. For each (lockfile, pm) in LOCKFILES, if the lockfile exists, add (pm, lockfile) to detected. So if pnpm-lock.yaml exists, both entries (Pnpm and Pnpm6) would be added, but in the order they appear in LOCKFILES. So the first occurrence is Pnpm, then Pnpm6. So detected would have both, but when taking the first, it would pick Pnpm. But in the test_detect_via_lockfiles_priority, the test creates bun.lockb, pnpm-lock.yaml, and yarn.lock. So the detected list would have entries for Bun (bun.lockb), Pnpm (pnpm-lock.yaml), Pnpm6 (pnpm-lock.yaml), and Yarn (yarn.lock). The first entry is Bun, so the result should be Bun. But the test is failing because the result is None. Wait, why? Let me check the detect_via_lockfiles function.
 
-In detect_via_lockfiles, for each (lockfile, pm) in get_locks() (which returns LOCKFILES), it checks if the lockfile exists. If it does, it adds (pm, lockfile) to detected. Then, if detected has multiple entries, it logs a warning. Then, it takes the first entry and returns the pm. 
+In detect_via_lockfiles, for each (lockfile, pm) in get_locks() (which returns LOCKFILES), it checks if the lockfile exists. If it does, it adds (pm, lockfile) to detected. Then, if detected has multiple entries, it logs a warning. Then, it takes the first entry and returns the pm.
 
 But in the test, after creating bun.lockb, pnpm-lock.yaml, and yarn.lock, the detected list would have:
 
@@ -284,7 +285,7 @@ But in the test, after creating bun.lockb, pnpm-lock.yaml, and yarn.lock, the de
 - (Pnpm6, "pnpm-lock.yaml")
 - (Yarn, "yarn.lock")
 
-So detected.first() would be (Bun, "bun.lockb"), so the result should be Bun. But the test is getting None. That suggests that the detect_via_lockfiles function is not finding any lockfiles. Wait, but the test creates the files. Maybe the files are not being created correctly in the temp directory. Let me check the test code. 
+So detected.first() would be (Bun, "bun.lockb"), so the result should be Bun. But the test is getting None. That suggests that the detect_via_lockfiles function is not finding any lockfiles. Wait, but the test creates the files. Maybe the files are not being created correctly in the temp directory. Let me check the test code.
 
 In test_detect_via_lockfiles_priority, the code does:
 
@@ -295,15 +296,15 @@ File::create(dir.path().join("yarn.lock")).unwrap();
 But the detect_via_lockfiles function checks for the existence of these files. However, the code in detect_via_lockfiles also checks if the lockfile is non-empty. Because in the code:
 
 if path.exists() {
-    // Basic lockfile validation
-    if path.metadata()?.len() == 0 {
-        warn!("Empty lockfile detected: {}", lockfile);
-        continue;
-    }
-    detected.push((pm, lockfile));
+// Basic lockfile validation
+if path.metadata()?.len() == 0 {
+warn!("Empty lockfile detected: {}", lockfile);
+continue;
+}
+detected.push((pm, lockfile));
 }
 
-So if the created lockfiles are empty, they are skipped. In the test, when creating the files with File::create, they are empty. Therefore, the code skips them, leading to detected being empty, hence returning None. That's why the test is failing. The test needs to create non-empty lockfiles. 
+So if the created lockfiles are empty, they are skipped. In the test, when creating the files with File::create, they are empty. Therefore, the code skips them, leading to detected being empty, hence returning None. That's why the test is failing. The test needs to create non-empty lockfiles.
 
 So the fix for test_detect_via_lockfiles_priority is to write some content to the lockfiles when creating them. For example:
 
@@ -320,17 +321,17 @@ The test_parse_package_manager_invalid is failing because some cases are not act
 In parse_package_manager:
 
 let (name, version) = pm.split_once('@').ok_or_else(|| {
-    anyhow::anyhow!(
-        "Invalid packageManager format in {}, expected 'manager@version'",
-        path.display()
-    )
+anyhow::anyhow!(
+"Invalid packageManager format in {}, expected 'manager@version'",
+path.display()
+)
 })?;
 
 if version.is_empty() {
-    warn!(
-        "Missing version in packageManager field at {}",
-        path.display()
-    );
+warn!(
+"Missing version in packageManager field at {}",
+path.display()
+);
 }
 
 So even if the version is empty, it still proceeds. For example, "npm@" would split into name "npm" and version "". Then, for npm, it returns Npm. But in the test_parse_package_manager_invalid, the case "npm@" is expected to be an error, but according to the code, it's not. The code only errors if there's no '@' at all. So the test case "npm@" is considered valid (name is npm, version is empty), which is allowed with a warning. Therefore, the test_parse_package_manager_invalid is incorrect for the "npm@" case. The test expects it to be an error, but the code allows it. Therefore, the test is wrong. The "npm@" case should not be in the invalid list. Similarly, "invalid-format" (no '@') would error, but "unknown@1.0.0" would error because the name is unknown. So the test case "unknown@1.0.0" should error, which it does. The "invalid" case (no '@') would error. The "npm@" case would not error, but the test is expecting it to error, leading to a test failure. Therefore, the test_parse_package_manager_invalid is incorrect for the "npm@" and "invalid-format" cases. Wait, "invalid-format" has no '@', so split_once returns None, leading to an error. "npm@" has an '@', so split_once returns ("npm", ""), which is allowed with a warning. So the test case "npm@" should not be in the invalid list. Therefore, the test is incorrect. The test case "npm@" should be removed from the invalid list, and perhaps a new test should be added for that case where it's considered valid but with a warning.
@@ -361,6 +362,7 @@ Let's address each issue step by step.
 Here's the step-by-step fix for the failing tests:
 
 1. Fix pnpm version parsing to handle semantic versions correctly:
+
 ```rust:src/detect.rs
 fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryEnum> {
     let (name, version) = pm.split_once('@').ok_or_else(|| {
@@ -394,6 +396,7 @@ fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryE
 ```
 
 2. Fix lockfile detection order and entries:
+
 ```rust:src/detect.rs
 const LOCKFILES: &[(&str, PackageManagerFactoryEnum)] = &[
     ("bun.lockb", PackageManagerFactoryEnum::Bun),
@@ -406,6 +409,7 @@ const LOCKFILES: &[(&str, PackageManagerFactoryEnum)] = &[
 ```
 
 3. Update tests to create valid lockfile content:
+
 ```rust:src/detect.rs
 #[test]
 fn test_detect_via_lockfiles_priority() {
@@ -431,6 +435,7 @@ fn test_detect_lockfile_precedence() {
 ```
 
 4. Fix config file test:
+
 ```rust:src/detect.rs
 #[test]
 fn test_config_file_detection() {
@@ -445,6 +450,7 @@ fn test_config_file_detection() {
 ```
 
 5. Fix invalid package manager test cases:
+
 ```rust:src/detect.rs
 #[test]
 fn test_parse_package_manager_invalid() {
@@ -470,6 +476,7 @@ fn test_parse_package_manager_empty_version() {
 ```
 
 These changes address the main issues causing test failures:
+
 - Proper version parsing for pnpm
 - Valid lockfile content in tests
 - Correct config file handling
@@ -526,11 +533,12 @@ In summary:
 1. For test_multiple_lockfiles_warning: The test's expected result is wrong. It should expect Pnpm instead of Yarn because pnpm-lock.yaml comes before yarn.lock in LOCKFILES.
 
 2. For test_config_file_detection: The config file name or structure might be incorrect. The test should use the correct config file name that the config::load function expects.
-</think>
+   </think>
 
 Here's the fix for the remaining test failures:
 
 1. Fix multiple lockfiles test by creating valid lockfile content and adjusting detection order:
+
 ```rust:src/detect.rs
 #[test]
 fn test_multiple_lockfiles_warning() {
@@ -546,6 +554,7 @@ fn test_multiple_lockfiles_warning() {
 ```
 
 2. Fix config file detection by ensuring proper config file format and location:
+
 ```rust:src/detect.rs
 #[test]
 fn test_config_file_detection() {
@@ -563,11 +572,13 @@ fn test_config_file_detection() {
 ```
 
 These changes address:
+
 - Lockfile detection order in multiple lockfile scenario
 - Proper config file format and location based on your actual config structure
 - Valid lockfile content requirements
 
 The remaining issues were caused by:
+
 1. Incorrect lockfile priority expectations in multiple lockfile test
 2. Config file format/location mismatch with actual implementation
 
@@ -582,7 +593,7 @@ fix this please
 _**Assistant**_
 
 <think>
-Okay, let's see. The user is having trouble with the test_config_file_detection failing. The test is supposed to check if the config file is read correctly, but it's returning None instead of Some(Pnpm). 
+Okay, let's see. The user is having trouble with the test_config_file_detection failing. The test is supposed to check if the config file is read correctly, but it's returning None instead of Some(Pnpm).
 
 First, I need to look at how the config is being loaded in the code. The test writes a package.json file with {"nirs": {"default_package_manager": "pnpm"}}. But maybe the config module isn't looking in package.json or isn't parsing that structure correctly.
 
@@ -633,6 +644,7 @@ fn test_config_file_detection() {
 ```
 
 The issue was that the test was using `package.json` instead of the actual config file your implementation expects. This fix:
+
 1. Uses the correct config file name `nirs.config.json`
 2. Uses the direct `default_package_manager` field structure
 3. Matches the format expected by your `config::load` implementation
@@ -656,7 +668,4 @@ In the config.rs, the load function is looking for files named nirs.toml,
 
 ---
 
-
-
 ---
-
