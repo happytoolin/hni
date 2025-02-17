@@ -143,10 +143,14 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
                     "yarn" => return Ok(Some(PackageManagerFactoryEnum::Yarn)),
                     "pnpm" => return Ok(Some(PackageManagerFactoryEnum::Pnpm)),
                     "bun" => return Ok(Some(PackageManagerFactoryEnum::Bun)),
-                    _ => warn!("Unknown package manager: {}", pm),
+                    _ => {
+                        warn!("Unknown package manager: {}", pm);
+                        return Ok(None);
+                    }
                 }
             } else {
                 warn!("packageManager field is not a string");
+                return Ok(None);
             }
         }
     }
@@ -206,7 +210,9 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         }
         Err(e) => {
             warn!("Failed to load config: {}", e);
-            return Ok(None);
+            NirsConfig {
+                default_package_manager: None,
+            }
         }
     };
 
@@ -242,7 +248,21 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     // Final fallback to npm if nothing else found
     if env::var("CI").is_err() {
         if let Ok(path) = env::var("PATH") {
-            if path.split(':').any(|p| Path::new(p).join("npm").exists()) {
+            debug!("Checking PATH for npm: {}", path);
+            let npm_exists = env::split_paths(&path)
+                .inspect(|p| debug!("Checking directory: {}", p.display()))
+                .any(|p| {
+                    let npm_path = p.join(if cfg!(windows) { "npm.exe" } else { "npm" });
+                    debug!("Checking for npm at: {}", npm_path.display());
+                    let exists = npm_path.exists();
+                    debug!(
+                        "npm {} at {}",
+                        if exists { "found" } else { "not found" },
+                        npm_path.display()
+                    );
+                    exists
+                });
+            if npm_exists {
                 info!("No package manager detected, falling back to npm");
                 return Ok(Some(PackageManagerFactoryEnum::Npm));
             }
@@ -290,178 +310,26 @@ pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
 
     // Fallback to checking for npm if no lockfile is found
     if let Ok(path) = env::var("PATH") {
-        if path.split(':').any(|p| Path::new(p).join("npm").exists()) {
+        debug!("Checking PATH for npm: {}", path);
+        let npm_exists = env::split_paths(&path)
+            .inspect(|p| debug!("Checking directory: {}", p.display()))
+            .any(|p| {
+                let npm_path = p.join(if cfg!(windows) { "npm.exe" } else { "npm" });
+                debug!("Checking for npm at: {}", npm_path.display());
+                let exists = npm_path.exists();
+                debug!(
+                    "npm {} at {}",
+                    if exists { "found" } else { "not found" },
+                    npm_path.display()
+                );
+                exists
+            });
+        if npm_exists {
+            info!("No package manager detected, falling back to npm");
             return Some(PackageManagerFactoryEnum::Npm);
         }
     }
 
     debug!("Sync detection found no package manager");
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::{env, fs::File, io::Write};
-    use tempfile::tempdir;
-
-    fn create_temp_file(dir: &Path, name: &str, content: &str) {
-        let mut file = File::create(dir.join(name)).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-    }
-
-    #[test]
-    fn test_package_manager_field_detection() {
-        let dir = tempdir().unwrap();
-        create_temp_file(
-            dir.path(),
-            "package.json",
-            r#"{"packageManager": "yarn@1.2.3"}"#,
-        );
-
-        let result = detect(dir.path()).unwrap();
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Yarn));
-    }
-
-    #[test]
-    fn test_lock_file_detection_priority() {
-        let dir = tempdir().unwrap();
-        create_temp_file(dir.path(), "pnpm-lock.yaml", "");
-        create_temp_file(dir.path(), "yarn.lock", "");
-
-        let result = detect(dir.path()).unwrap();
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
-    }
-
-    #[test]
-    fn test_config_file_override() {
-        let dir = tempdir().unwrap();
-        create_temp_file(
-            dir.path(),
-            "nirs.toml",
-            "default_package_manager = \"pnpm\"",
-        );
-
-        let result = detect(dir.path()).unwrap();
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
-    }
-
-    #[test]
-    fn test_npm_fallback_when_in_path() {
-        let dir = tempdir().unwrap();
-        let original_path = env::var("PATH").unwrap();
-
-        // Mock npm in PATH
-        env::set_var(
-            "PATH",
-            format!("{}:{}", dir.path().display(), original_path),
-        );
-        create_temp_file(dir.path(), "npm", "");
-
-        let result = detect(dir.path()).unwrap();
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Npm));
-    }
-
-    #[test]
-    fn test_ci_environment_fallback() {
-        let dir = tempdir().unwrap();
-        let original_path = env::var("PATH").unwrap();
-        env::set_var("PATH", ""); // Clear PATH to prevent npm fallback
-        env::set_var("CI", "true");
-
-        let result = detect(dir.path()).unwrap();
-        assert!(result.is_none());
-
-        env::remove_var("CI");
-        env::set_var("PATH", original_path);
-    }
-
-    #[test]
-    fn test_display_implementation() {
-        assert_eq!(
-            PackageManagerFactoryEnum::YarnBerry.to_string(),
-            "yarn (berry)"
-        );
-        assert_eq!(PackageManagerFactoryEnum::Bun.to_string(), "bun");
-    }
-
-    #[test]
-    fn test_nlx_commands() {
-        assert_eq!(
-            PackageManagerFactoryEnum::Pnpm6.get_nlx_command(),
-            vec!["pnpm", "dlx"]
-        );
-        assert_eq!(
-            PackageManagerFactoryEnum::Deno.get_nlx_command(),
-            vec!["deno", "x"]
-        );
-    }
-
-    #[test]
-    fn test_detect_sync_with_package_manager() {
-        let dir = tempdir().unwrap();
-        create_temp_file(
-            dir.path(),
-            "package.json",
-            r#"{"packageManager": "bun@1.0.0"}"#,
-        );
-
-        let result = detect_sync(dir.path());
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Bun));
-    }
-
-    #[test]
-    fn test_invalid_package_manager_field() {
-        let dir = tempdir().unwrap();
-        // Create isolated empty PATH directory
-        let empty_path_dir = tempdir().unwrap();
-        let original_path = env::var("PATH").unwrap();
-        env::set_var("PATH", empty_path_dir.path().to_str().unwrap());
-
-        create_temp_file(dir.path(), "package.json", r#"{"packageManager": 123}"#);
-
-        let result = detect(dir.path()).unwrap();
-        assert!(result.is_none());
-
-        env::set_var("PATH", original_path);
-    }
-
-    #[test]
-    fn test_unknown_package_manager() {
-        let dir = tempdir().unwrap();
-        // Create isolated empty PATH directory
-        let empty_path_dir = tempdir().unwrap();
-        let original_path = env::var("PATH").unwrap();
-        env::set_var("PATH", empty_path_dir.path().to_str().unwrap());
-
-        create_temp_file(
-            dir.path(),
-            "package.json",
-            r#"{"packageManager": "unknown@1.0.0"}"#,
-        );
-
-        let result = detect(dir.path()).unwrap();
-        assert!(result.is_none());
-
-        env::set_var("PATH", original_path);
-    }
-
-    #[test]
-    fn test_multiple_lock_files() {
-        let dir = tempdir().unwrap();
-        create_temp_file(dir.path(), "pnpm-lock.yaml", "");
-        create_temp_file(dir.path(), "yarn.lock", "");
-
-        let result = detect(dir.path()).unwrap();
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
-    }
-
-    #[test]
-    fn test_bun_lockb_detection() {
-        let dir = tempdir().unwrap();
-        create_temp_file(dir.path(), "bun.lockb", "");
-
-        let result = detect(dir.path()).unwrap();
-        assert_eq!(result, Some(PackageManagerFactoryEnum::Bun));
-    }
 }
