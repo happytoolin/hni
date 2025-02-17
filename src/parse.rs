@@ -167,11 +167,8 @@ mod tests {
         for (agent, expected) in agents {
             let args = vec!["vitest".to_string()];
             let command = parse_nlx(agent, &args);
-            let expected_args: Vec<&str> = expected
-                .iter()
-                .chain(vec!["vitest"].iter())
-                .map(|s| *s)
-                .collect();
+            let expected_args: Vec<&str> =
+                expected.iter().chain(["vitest"].iter()).copied().collect();
             assert_eq!(command.unwrap().args, expected_args);
         }
     }
