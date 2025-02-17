@@ -3,7 +3,7 @@ use config::{Config, Environment, File};
 use log::{debug, info, trace, warn};
 use serde::Deserialize;
 use serde_json::Value;
-use std::{collections::HashMap, env, fs, path::Path};
+use std::{env, fs, path::Path};
 
 use crate::{
     package_managers::{
