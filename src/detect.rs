@@ -19,7 +19,6 @@ pub enum PackageManagerFactoryEnum {
     Bun,
     Deno,
     YarnBerry,
-    Pnpm6,
 }
 
 impl PackageManagerFactoryEnum {
@@ -27,11 +26,10 @@ impl PackageManagerFactoryEnum {
         match self {
             PackageManagerFactoryEnum::Npm => &["npx"],
             PackageManagerFactoryEnum::Yarn => &["yarn", "dlx"],
-            PackageManagerFactoryEnum::Pnpm => &["pnpm"],
+            PackageManagerFactoryEnum::Pnpm => &["pnpm", "dlx"],
             PackageManagerFactoryEnum::Bun => &["bun"],
             PackageManagerFactoryEnum::Deno => &["deno", "x"],
             PackageManagerFactoryEnum::YarnBerry => &["yarn", "dlx"],
-            PackageManagerFactoryEnum::Pnpm6 => &["pnpm", "dlx"],
         }
     }
 
@@ -56,7 +54,6 @@ impl std::fmt::Display for PackageManagerFactoryEnum {
             PackageManagerFactoryEnum::Bun => write!(f, "bun"),
             PackageManagerFactoryEnum::Deno => write!(f, "deno"),
             PackageManagerFactoryEnum::YarnBerry => write!(f, "yarn (berry)"),
-            PackageManagerFactoryEnum::Pnpm6 => write!(f, "pnpm6"),
         }
     }
 }
@@ -67,11 +64,10 @@ impl PackageManagerFactoryEnum {
         match self {
             PackageManagerFactoryEnum::Npm => Box::new(NpmFactory {}),
             PackageManagerFactoryEnum::Yarn => Box::new(YarnFactory::new(false)),
-            PackageManagerFactoryEnum::Pnpm => Box::new(PnpmFactory::new(false)),
+            PackageManagerFactoryEnum::Pnpm => Box::new(PnpmFactory::new()),
             PackageManagerFactoryEnum::Bun => Box::new(BunFactory {}),
             PackageManagerFactoryEnum::Deno => Box::new(DenoFactory {}),
             PackageManagerFactoryEnum::YarnBerry => Box::new(YarnFactory::new(true)),
-            PackageManagerFactoryEnum::Pnpm6 => Box::new(PnpmFactory::new(true)),
         }
     }
 }
@@ -81,10 +77,10 @@ const LOCKFILES: &[(&str, PackageManagerFactoryEnum)] = &[
     ("bun.lockb", PackageManagerFactoryEnum::Bun),
     ("bun.lock", PackageManagerFactoryEnum::Bun),
     ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm),
-    ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm6),
     ("yarn.lock", PackageManagerFactoryEnum::Yarn),
     ("package-lock.json", PackageManagerFactoryEnum::Npm),
     ("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm),
+    ("deno.lock", PackageManagerFactoryEnum::Deno),
 ];
 
 pub fn get_locks() -> &'static [(&'static str, PackageManagerFactoryEnum)] {
@@ -92,7 +88,6 @@ pub fn get_locks() -> &'static [(&'static str, PackageManagerFactoryEnum)] {
     LOCKFILES
 }
 
-// Improved error handling with context
 pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     info!("Detecting package manager in {}", cwd.display());
 
@@ -127,7 +122,6 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     Ok(None)
 }
 
-// Extract package.json parsing to separate function
 fn read_package_manager_field(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     let path = cwd.join("package.json");
     if !path.exists() {
@@ -153,33 +147,18 @@ fn read_package_manager_field(cwd: &Path) -> Result<Option<PackageManagerFactory
         .transpose()
 }
 
-// Improved parsing with split_once
 fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryEnum> {
-    let (name, version) = pm.split_once('@').ok_or_else(|| {
+    let (name, _version) = pm.split_once('@').ok_or_else(|| {
         anyhow::anyhow!(
             "Invalid packageManager format in {}, expected 'manager@version'",
             path.display()
         )
     })?;
 
-    if version.is_empty() {
-        warn!(
-            "Missing version in packageManager field at {}",
-            path.display()
-        );
-    }
-
     match name {
         "npm" => Ok(PackageManagerFactoryEnum::Npm),
         "yarn" => Ok(PackageManagerFactoryEnum::Yarn),
-        "pnpm" => {
-            let version = version.parse::<f32>().unwrap_or(0.0);
-            Ok(if version >= 7.0 {
-                PackageManagerFactoryEnum::Pnpm
-            } else {
-                PackageManagerFactoryEnum::Pnpm6
-            })
-        }
+        "pnpm" => Ok(PackageManagerFactoryEnum::Pnpm),
         "bun" => Ok(PackageManagerFactoryEnum::Bun),
         other => Err(anyhow::anyhow!(
             "Unsupported package manager '{}' in {}",
@@ -189,7 +168,6 @@ fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryE
     }
 }
 
-// Separate lockfile detection logic
 fn detect_via_lockfiles(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     let mut detected = Vec::new();
 
@@ -219,7 +197,6 @@ fn detect_via_lockfiles(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>>
         .transpose()
 }
 
-// Update the read_config function
 fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     let config = config::load(cwd)?;
 
@@ -239,7 +216,6 @@ fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         .transpose()
 }
 
-// Extract npm fallback logic
 fn should_fallback_to_npm() -> Result<bool> {
     if env::var("CI").is_ok() {
         return Ok(false);
@@ -260,10 +236,173 @@ fn should_fallback_to_npm() -> Result<bool> {
     Ok(npm_exists)
 }
 
-// Unified sync detection using same logic
 pub fn detect_sync(cwd: &Path) -> Option<PackageManagerFactoryEnum> {
     detect(cwd).unwrap_or_else(|e| {
         warn!("Detection error: {}", e);
         None
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_parse_package_manager_valid() {
+        let cases = vec![
+            ("npm@9.0.0", PackageManagerFactoryEnum::Npm),
+            ("yarn@3.0.0", PackageManagerFactoryEnum::Yarn),
+            ("pnpm@7.0.0", PackageManagerFactoryEnum::Pnpm),
+            ("pnpm@6.0.0", PackageManagerFactoryEnum::Pnpm),
+            ("bun@1.0.0", PackageManagerFactoryEnum::Bun),
+        ];
+
+        for (input, expected) in cases {
+            let result = parse_package_manager(input, Path::new("")).unwrap();
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_package_manager_invalid() {
+        let cases = vec![
+            "invalid",        // No version
+            "unknown@1.0.0",  // Unsupported manager
+            "invalid-format", // No @
+        ];
+
+        for input in cases {
+            let result = parse_package_manager(input, Path::new("package.json"));
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_parse_package_manager_empty_version() {
+        let result = parse_package_manager("npm@", Path::new("package.json"));
+        assert!(result.is_ok()); // Should parse with warning
+        assert_eq!(result.unwrap(), PackageManagerFactoryEnum::Npm);
+    }
+
+    #[test]
+    fn test_detect_via_lockfiles_priority() {
+        let dir = tempdir().unwrap();
+
+        // Create valid lockfiles with content
+        fs::write(dir.path().join("bun.lockb"), "lockfile content").unwrap();
+        fs::write(dir.path().join("pnpm-lock.yaml"), "lockfile_version: 7.0.0").unwrap();
+        fs::write(dir.path().join("yarn.lock"), "# yarn lockfile v1").unwrap();
+
+        let result = detect_via_lockfiles(dir.path()).unwrap();
+        assert_eq!(result, Some(PackageManagerFactoryEnum::Bun));
+    }
+
+    #[test]
+    fn test_read_package_manager_field_priority() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{ "packageManager": "pnpm@7.0.0" }}"#).unwrap();
+
+        let result = detect(dir.path()).unwrap();
+        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
+    }
+
+    #[test]
+    fn test_detect_lockfile_precedence() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("pnpm-lock.yaml"), "lockfile_version: 7.0.0").unwrap();
+
+        let result = detect(dir.path()).unwrap();
+        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
+    }
+
+    #[test]
+    fn test_detect_fallback_to_npm() {
+        let dir = tempdir().unwrap();
+        let result = detect(dir.path()).unwrap();
+
+        // This test depends on whether npm exists in the test environment
+        // Might need to mock should_fallback_to_npm in actual practice
+        if should_fallback_to_npm().unwrap() {
+            assert_eq!(result, Some(PackageManagerFactoryEnum::Npm));
+        } else {
+            assert_eq!(result, None);
+        }
+    }
+
+    #[test]
+    fn test_detect_invalid_directory() {
+        let result = detect(Path::new("/non/existent/path"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_package_json() {
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("package.json")).unwrap();
+
+        let result = read_package_manager_field(dir.path()).unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_multiple_lockfiles_warning() {
+        let dir = tempdir().unwrap();
+        // Create valid lockfiles with different content
+        fs::write(dir.path().join("yarn.lock"), "# yarn lockfile v1").unwrap();
+        fs::write(dir.path().join("pnpm-lock.yaml"), "lockfile_version: 6.0.0").unwrap();
+
+        let result = detect_via_lockfiles(dir.path()).unwrap();
+        // Should detect pnpm since it comes before yarn in LOCKFILES array
+        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
+    }
+
+    #[test]
+    fn test_pnpm_version_parsing() {
+        let cases = vec![
+            ("pnpm@6.9.0", PackageManagerFactoryEnum::Pnpm),
+            ("pnpm@7.1.0", PackageManagerFactoryEnum::Pnpm),
+            ("pnpm@6.0.0-rc.0", PackageManagerFactoryEnum::Pnpm),
+            ("pnpm@latest", PackageManagerFactoryEnum::Pnpm), // Defaults to 6.x if parsing fails
+        ];
+
+        for (input, expected) in cases {
+            let result = parse_package_manager(input, Path::new("")).unwrap();
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn test_config_file_detection() {
+        let dir = tempdir().unwrap();
+        // Create config file matching expected name pattern
+        let config_path = dir.path().join("nirs.json");
+        fs::write(&config_path, r#"{"default_package_manager": "pnpm"}"#).unwrap();
+
+        let result = read_config(dir.path()).unwrap();
+        assert_eq!(result, Some(PackageManagerFactoryEnum::Pnpm));
+    }
+
+    #[test]
+    fn test_empty_lockfile_handling() {
+        let dir = tempdir().unwrap();
+        let lockfile = dir.path().join("yarn.lock");
+        File::create(&lockfile).unwrap();
+
+        // Write empty content
+        let mut file = File::create(&lockfile).unwrap();
+        file.write_all(b"").unwrap();
+
+        let result = detect_via_lockfiles(dir.path()).unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_detect_sync_error_handling() {
+        let result = detect_sync(Path::new("/invalid/path"));
+        assert_eq!(result, None);
+    }
 }

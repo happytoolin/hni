@@ -1,5 +1,3 @@
-// src/deno.rs
-
 use crate::{CommandExecutor, PackageManagerFactory, ResolvedCommand};
 
 pub fn deno_execute(args: Vec<&str>) -> Option<ResolvedCommand> {

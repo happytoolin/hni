@@ -1,5 +1,3 @@
-// src/npm.rs
-
 use crate::{CommandExecutor, PackageManagerFactory, ResolvedCommand};
 
 pub struct NpmExecutor {}

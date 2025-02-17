@@ -1,8 +1,5 @@
-// src/pnpm.rs
-
 use crate::{CommandExecutor, PackageManagerFactory, ResolvedCommand};
 
-// Modern pnpm (v7+)
 pub struct PnpmModernExecutor {}
 
 impl CommandExecutor for PnpmModernExecutor {
@@ -80,123 +77,37 @@ impl CommandExecutor for PnpmModernExecutor {
     }
 }
 
-// Legacy pnpm (v6)
-pub struct PnpmLegacyExecutor {}
-
-impl CommandExecutor for PnpmLegacyExecutor {
-    fn run(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["run".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: command_args,
-        })
-    }
-
-    fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["install".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: command_args,
-        })
-    }
-
-    fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["add".to_string()];
-        command_args.extend(args.iter().map(|s| {
-            match *s {
-                "-D" => "--save-dev",
-                s => s,
-            }
-            .to_string()
-        }));
-
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: command_args,
-        })
-    }
-
-    fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["exec".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: command_args,
-        })
-    }
-
-    fn upgrade(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["update".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: command_args,
-        })
-    }
-
-    fn uninstall(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
-        let mut command_args = vec!["remove".to_string()];
-        command_args.extend(args.iter().map(|s| s.to_string()));
-
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: command_args,
-        })
-    }
-
-    fn clean_install(&self, _args: Vec<&str>) -> Option<ResolvedCommand> {
-        Some(ResolvedCommand {
-            bin: "pnpm".to_string(),
-            args: vec!["install".to_string(), "--frozen-lockfile".to_string()],
-        })
-    }
-}
-
-// Replace the separate factories with a unified version-aware factory
+// Simplify the factory to only support modern pnpm
 #[derive(Clone)]
-pub struct PnpmFactory {
-    pub is_legacy: bool,
-}
+pub struct PnpmFactory;
 
 impl PnpmFactory {
-    pub fn new(is_legacy: bool) -> Self {
-        Self { is_legacy }
+    pub fn new() -> Self {
+        Self
     }
 }
 
 impl PackageManagerFactory for PnpmFactory {
     fn create_commands(&self) -> Box<dyn CommandExecutor> {
-        if self.is_legacy {
-            Box::new(PnpmLegacyExecutor {})
-        } else {
-            Box::new(PnpmModernExecutor {})
-        }
+        Box::new(PnpmModernExecutor {})
     }
 }
 
+// Update tests
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::package_managers::test_utils;
 
-    // Test both versions
-    fn test_pnpm_version(version: &str, execute_cmd: &str) {
-        let factory = PnpmFactory {
-            is_legacy: version == "legacy",
-        };
+    fn test_pnpm_version() {
+        let factory = PnpmFactory::new();
 
         let command_map = vec![
             ("run", "run"),
             ("install", "install"),
             ("add", "add"),
             ("add_dev_flag", "--save-dev"),
-            ("execute", execute_cmd),
+            ("execute", "dlx"),
             ("clean_install_args", "--frozen-lockfile"),
             ("upgrade", "update"),
             ("uninstall", "remove"),
@@ -208,11 +119,6 @@ mod tests {
 
     #[test]
     fn test_pnpm_modern() {
-        test_pnpm_version("modern", "dlx");
-    }
-
-    #[test]
-    fn test_pnpm_legacy() {
-        test_pnpm_version("legacy", "exec");
+        test_pnpm_version();
     }
 }

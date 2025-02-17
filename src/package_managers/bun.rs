@@ -1,5 +1,3 @@
-// src/bun.rs
-
 use crate::{CommandExecutor, PackageManagerFactory, ResolvedCommand};
 
 pub struct BunExecutor {}

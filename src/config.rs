@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use config::{Config, File};
 use serde::Deserialize;
-use std::{fs, path::Path};
+use std::path::Path;
 
 #[derive(Debug, Deserialize)]
 pub struct NirsConfig {
@@ -12,18 +12,19 @@ pub struct NirsConfig {
 pub fn load(cwd: &Path) -> Result<NirsConfig> {
     let config = Config::builder()
         .add_source(
-            ["nirs.toml", "nirs.json", "nirs.yaml"]
-                .iter()
-                .filter_map(|f| {
-                    let path = cwd.join(f);
-                    match fs::metadata(&path) {
-                        Ok(meta) if meta.is_file() && meta.len() > 0 => {
-                            Some(File::from(path).required(false))
-                        }
-                        _ => None,
-                    }
-                })
-                .collect::<Vec<_>>(),
+            File::with_name(&cwd.join("nirs").display().to_string())
+                .required(false)
+                .format(config::FileFormat::Json),
+        )
+        .add_source(
+            File::with_name(&cwd.join("nirs").display().to_string())
+                .required(false)
+                .format(config::FileFormat::Toml),
+        )
+        .add_source(
+            File::with_name(&cwd.join("nirs").display().to_string())
+                .required(false)
+                .format(config::FileFormat::Yaml),
         )
         .build()
         .context("Failed to build config")?;
