@@ -7,7 +7,6 @@ use crate::{
     config,
     package_managers::{
         bun::BunFactory, deno::DenoFactory, npm::NpmFactory, pnpm::PnpmFactory, yarn::YarnFactory,
-        yarn_berry::YarnBerryFactory,
     },
     PackageManagerFactory,
 };
@@ -67,11 +66,11 @@ impl PackageManagerFactoryEnum {
         debug!("Creating factory for package manager: {}", self);
         match self {
             PackageManagerFactoryEnum::Npm => Box::new(NpmFactory {}),
-            PackageManagerFactoryEnum::Yarn => Box::new(YarnFactory {}),
+            PackageManagerFactoryEnum::Yarn => Box::new(YarnFactory::new(false)),
             PackageManagerFactoryEnum::Pnpm => Box::new(PnpmFactory::new(false)),
             PackageManagerFactoryEnum::Bun => Box::new(BunFactory {}),
             PackageManagerFactoryEnum::Deno => Box::new(DenoFactory {}),
-            PackageManagerFactoryEnum::YarnBerry => Box::new(YarnBerryFactory {}),
+            PackageManagerFactoryEnum::YarnBerry => Box::new(YarnFactory::new(true)),
             PackageManagerFactoryEnum::Pnpm6 => Box::new(PnpmFactory::new(true)),
         }
     }

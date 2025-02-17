@@ -26,7 +26,6 @@ pub mod package_managers {
     pub mod npm;
     pub mod pnpm;
     pub mod yarn;
-    pub mod yarn_berry;
 
     #[cfg(test)]
     pub(crate) mod test_utils;
