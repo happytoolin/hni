@@ -1,15 +1,7 @@
-use std::fs::File;
-use std::io::Error;
-
 use nirs::CommandExecutor;
 
-pub fn create_empty_file(path: &str) -> Result<(), Error> {
-    File::create(path)?;
-    Ok(())
-}
-
 pub fn assert_command(
-    executor: &Box<dyn CommandExecutor>,
+    executor: &dyn CommandExecutor,
     action: &str,
     args: Vec<&str>,
     expected_bin: &str,
@@ -36,3 +28,22 @@ pub fn assert_command(
             .collect::<Vec<_>>()
     );
 }
+
+#[cfg(test)]
+mod bun_tests;
+#[cfg(test)]
+mod deno_tests;
+#[cfg(test)]
+mod np_tests;
+#[cfg(test)]
+mod npm_tests;
+#[cfg(test)]
+mod ns_tests;
+#[cfg(test)]
+mod pnpm6_tests;
+#[cfg(test)]
+mod pnpm_tests;
+#[cfg(test)]
+mod yarn_berry_tests;
+#[cfg(test)]
+mod yarn_tests;

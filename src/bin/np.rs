@@ -15,6 +15,9 @@ enum CommandResult {
     Interrupted,
 }
 
+// Type alias to simplify channel types
+type CommandResultPair = (String, CommandResult);
+
 struct NpCommand;
 
 impl NirsCommand for NpCommand {
@@ -39,10 +42,7 @@ impl NirsCommand for NpCommand {
         })
         .expect("Error setting Ctrl-C handler");
 
-        let (result_sender, result_receiver): (
-            Sender<(String, CommandResult)>,
-            Receiver<(String, CommandResult)>,
-        ) = unbounded();
+        let (result_sender, result_receiver) = unbounded::<CommandResultPair>();
 
         thread::scope(|s| {
             for command_string in args {

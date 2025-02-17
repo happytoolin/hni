@@ -70,14 +70,14 @@ impl PackageManagerFactoryEnum {
 // Change lock file storage to a Vec to maintain priority order
 pub fn get_locks() -> Vec<(&'static str, PackageManagerFactoryEnum)> {
     trace!("Initializing package manager lockfile mapping");
-    let mut locks = Vec::new();
-    // Order determines priority - first match wins
-    locks.push(("bun.lockb", PackageManagerFactoryEnum::Bun));
-    locks.push(("bun.lock", PackageManagerFactoryEnum::Bun));
-    locks.push(("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm));
-    locks.push(("yarn.lock", PackageManagerFactoryEnum::Yarn));
-    locks.push(("package-lock.json", PackageManagerFactoryEnum::Npm));
-    locks.push(("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm));
+    let locks = vec![
+        ("bun.lockb", PackageManagerFactoryEnum::Bun),
+        ("bun.lock", PackageManagerFactoryEnum::Bun),
+        ("pnpm-lock.yaml", PackageManagerFactoryEnum::Pnpm),
+        ("yarn.lock", PackageManagerFactoryEnum::Yarn),
+        ("package-lock.json", PackageManagerFactoryEnum::Npm),
+        ("npm-shrinkwrap.json", PackageManagerFactoryEnum::Npm),
+    ];
     trace!("Registered {} lockfile patterns", locks.len());
     locks
 }
