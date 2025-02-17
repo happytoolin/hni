@@ -79,10 +79,35 @@ impl CommandExecutor for PnpmExecutor {
     }
 }
 
+#[derive(Clone)]
 pub struct PnpmFactory {}
 
 impl PackageManagerFactory for PnpmFactory {
     fn create_commands(&self) -> Box<dyn CommandExecutor> {
         Box::new(PnpmExecutor {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::package_managers::test_utils;
+
+    #[test]
+    fn test_pnpm_commands() {
+        let factory = PnpmFactory {};
+        let command_map = vec![
+            ("run", "run"),
+            ("install", "install"),
+            ("add", "add"),
+            ("add_dev_flag", "--save-dev"),
+            ("execute", "dlx"),
+            ("clean_install_args", "--frozen-lockfile"),
+            ("upgrade", "update"),
+            ("uninstall", "remove"),
+        ];
+
+        test_utils::test_basic_commands(Box::new(factory.clone()), "pnpm", &command_map);
+        test_utils::test_edge_cases(Box::new(factory), "pnpm", &command_map);
     }
 }

@@ -33,7 +33,8 @@ Overall, each package manager's code aligns with the commands.md. The only thing
 Based on the commands.md documentation, I'll verify and adjust the package manager implementations. Here are the necessary corrections:
 
 1. For Bun's clean install command:
-````rust:src/package_managers/bun.rs
+
+```rust:src/package_managers/bun.rs
 impl CommandExecutor for BunExecutor {
     // ... existing code ...
 
@@ -44,10 +45,11 @@ impl CommandExecutor for BunExecutor {
         })
     }
 }
-````
+```
 
 2. Deno's package installation and cache handling:
-````rust:src/package_managers/deno.rs
+
+```rust:src/package_managers/deno.rs
 impl CommandExecutor for DenoExecutor {
     fn install(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["install".to_string()];
@@ -70,10 +72,11 @@ impl CommandExecutor for DenoExecutor {
         })
     }
 }
-````
+```
 
 3. npm's dev dependency handling:
-````rust:src/package_managers/npm.rs
+
+```rust:src/package_managers/npm.rs
 impl CommandExecutor for NpmExecutor {
     fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["install".to_string()];
@@ -91,10 +94,11 @@ impl CommandExecutor for NpmExecutor {
         })
     }
 }
-````
+```
 
 4. pnpm's command alignment:
-````rust:src/package_managers/pnpm.rs
+
+```rust:src/package_managers/pnpm.rs
 impl CommandExecutor for PnpmExecutor {
     fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
         let mut command_args = vec!["add".to_string()];
@@ -112,10 +116,11 @@ impl CommandExecutor for PnpmExecutor {
         })
     }
 }
-````
+```
 
 5. Yarn Berry's clean install:
-````rust:src/package_managers/yarn_berry.rs
+
+```rust:src/package_managers/yarn_berry.rs
 impl CommandExecutor for YarnBerryExecutor {
     fn clean_install(&self, _args: Vec<&str>) -> Option<ResolvedCommand> {
         Some(ResolvedCommand {
@@ -124,9 +129,10 @@ impl CommandExecutor for YarnBerryExecutor {
         })
     }
 }
-````
+```
 
 These changes align the implementations with the commands.md documentation by:
+
 1. Using correct flags for frozen lockfiles (`--frozen-lockfile` for bun/pnpm, `--immutable` for Yarn Berry)
 2. Properly handling Deno's global install arguments
 3. Maintaining consistent dev dependency flags across package managers
@@ -137,7 +143,4 @@ The implementations now match the command patterns shown in the documentation fo
 
 ---
 
-
-
 ---
-

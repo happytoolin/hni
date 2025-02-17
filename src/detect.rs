@@ -36,6 +36,17 @@ impl PackageManagerFactoryEnum {
             PackageManagerFactoryEnum::Pnpm6 => vec!["pnpm", "dlx"],
         }
     }
+
+    pub fn get_bin_name(&self) -> &'static str {
+        match self {
+            PackageManagerFactoryEnum::Npm => "npm",
+            PackageManagerFactoryEnum::Yarn => "yarn",
+            PackageManagerFactoryEnum::Pnpm => "pnpm",
+            PackageManagerFactoryEnum::Bun => "bun",
+            PackageManagerFactoryEnum::Deno => "deno",
+            _ => "",
+        }
+    }
 }
 
 impl std::fmt::Display for PackageManagerFactoryEnum {

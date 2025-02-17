@@ -104,6 +104,7 @@ Certainly! Here's a comparison of common package management commands across npm,
   deno install -n <name> <url>
   <name> # to run the installed script
   ```
+
 **Clean Cache**
 
 - **npm**: `npm cache clean --force`
@@ -117,8 +118,8 @@ Certainly! Here's a comparison of common package management commands across npm,
 
 **Note**: Deno's approach differs significantly from traditional Node.js package managers. It emphasizes secure by default, URL-based module imports, and does not use a centralized package registry or `node_modules` directory. For more details, refer to the [Deno Manual](https://deno.land/manual).
 
-*References*:
+_References_:
 
 - [npm vs yarn vs pnpm vs bun commands cheatsheet](https://dev.to/equiman/npm-vs-yarn-vs-pnpm-commands-cheatsheet-3el8)
 - [Bun — A fast all-in-one JavaScript runtime](https://bun.sh/)
-- [Deno Manual](https://deno.land/manual) 
+- [Deno Manual](https://deno.land/manual)

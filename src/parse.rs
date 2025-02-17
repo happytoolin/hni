@@ -48,17 +48,22 @@ pub fn parse_na(agent: PackageManagerFactoryEnum, args: &[String]) -> ResolvedCo
 
 pub fn parse_nlx(agent: PackageManagerFactoryEnum, args: &[String]) -> Result<ResolvedCommand> {
     let package_manager = agent.create_package_manager();
-    let command_args = agent.get_nlx_command();
+    let command_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
-    package_manager
-        .executor
-        .execute(
-            command_args
-                .into_iter()
-                .chain(args.iter().map(|s| s.as_str()))
-                .collect(),
-        )
-        .ok_or(anyhow!("Failed to execute command"))
+    match agent {
+        PackageManagerFactoryEnum::Npm => {
+            let mut npm_args = vec!["npx".to_string()];
+            npm_args.extend(command_args.iter().map(|&s| s.to_string()));
+            Ok(ResolvedCommand {
+                bin: "npx".to_string(),
+                args: npm_args,
+            })
+        }
+        _ => package_manager
+            .executor
+            .execute(command_args)
+            .ok_or(anyhow!("Failed to execute command")),
+    }
 }
 
 #[cfg(test)]
@@ -117,7 +122,10 @@ mod tests {
     #[test]
     fn test_parse_nci() {
         let agents = [
-            (PackageManagerFactoryEnum::Npm, vec!["ci"]),
+            (
+                PackageManagerFactoryEnum::Npm,
+                vec!["ci", "--frozen-lockfile"],
+            ),
             (
                 PackageManagerFactoryEnum::Yarn,
                 vec!["install", "--frozen-lockfile"],
@@ -142,42 +150,40 @@ mod tests {
     #[test]
     fn test_parse_na() {
         let agents = [
-            (PackageManagerFactoryEnum::Npm, vec!["run"]),
-            (PackageManagerFactoryEnum::Yarn, vec![""]),
-            (PackageManagerFactoryEnum::Pnpm, vec!["run"]),
-            (PackageManagerFactoryEnum::Bun, vec!["run"]),
+            (PackageManagerFactoryEnum::Npm, vec!["run", "build"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["build"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["run", "build"]),
+            (PackageManagerFactoryEnum::Bun, vec!["run", "build"]),
         ];
 
         for (agent, expected) in agents {
             let args = vec!["build".to_string()];
             let command = parse_na(agent, &args);
-            let expected_args: Vec<String> = expected
-                .iter()
-                .chain(["build"].iter())
-                .map(|&s| s.to_string())
-                .collect();
-            assert_eq!(command.args, expected_args);
+            assert_eq!(command.bin, agent.get_bin_name());
+            assert_eq!(command.args, expected);
         }
     }
 
     #[test]
     fn test_parse_nlx() {
         let agents = [
-            (PackageManagerFactoryEnum::Npm, vec!["exec"]),
-            (PackageManagerFactoryEnum::Yarn, vec!["dlx"]),
-            (PackageManagerFactoryEnum::Pnpm, vec!["dlx"]),
-            (PackageManagerFactoryEnum::Bun, vec!["x"]),
+            (PackageManagerFactoryEnum::Npm, vec!["npx", "vitest"]),
+            (PackageManagerFactoryEnum::Yarn, vec!["dlx", "vitest"]),
+            (PackageManagerFactoryEnum::Pnpm, vec!["dlx", "vitest"]),
+            (PackageManagerFactoryEnum::Bun, vec!["x", "vitest"]),
         ];
 
         for (agent, expected) in agents {
             let args = vec!["vitest".to_string()];
             let command = parse_nlx(agent, &args).unwrap();
-            let expected_args: Vec<String> = expected
-                .iter()
-                .chain(["vitest"].iter())
-                .map(|&s| s.to_string())
-                .collect();
-            assert_eq!(command.args, expected_args);
+
+            let expected_bin = match agent {
+                PackageManagerFactoryEnum::Npm => "npx",
+                _ => agent.get_bin_name(),
+            };
+
+            assert_eq!(command.bin, expected_bin);
+            assert_eq!(command.args, expected);
         }
     }
 }

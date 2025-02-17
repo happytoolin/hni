@@ -4,7 +4,7 @@
 
 _**User**_
 
-simplify these test cases and place them in their own package manager files @tests @package_managers 
+simplify these test cases and place them in their own package manager files @tests @package_managers
 
 ---
 
@@ -24,8 +24,6 @@ Read file: tests/mod.rs
 
 _****_
 
-
-
 Let me check one of the test files to understand the test structure:
 
 ---
@@ -38,8 +36,6 @@ Read file: tests/npm_tests.rs
 
 _****_
 
-
-
 Let me also check one of the package manager implementation files:
 
 ---
@@ -51,8 +47,6 @@ Read file: src/package_managers/npm.rs
 ---
 
 _****_
-
-
 
 I see the structure now. Let me propose a plan to simplify and reorganize the tests:
 
@@ -153,14 +147,12 @@ _****_
 +             .collect::<Vec<_>>()
 +     );
 + }
-+ 
++
 ```
 
 ---
 
 _****_
-
-
 
 Now, let me update the npm.rs file to include its tests using the new test utilities:
 
@@ -205,14 +197,11 @@ _****_
 +         assert_eq!(command.args, vec!["update"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I need to update the module structure to include the test_utils module. Let me create a mod.rs file in the package_managers directory:
 
@@ -232,14 +221,12 @@ _****_
 + 
 + #[cfg(test)]
 + pub(crate) mod test_utils;
-+ 
++
 ```
 
 ---
 
 _****_
-
-
 
 Now I'll update the yarn.rs file with its tests:
 
@@ -284,14 +271,11 @@ _****_
 +         assert_eq!(command.args, vec!["upgrade"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I'll continue with updating the other package manager files with their tests in a similar way. Let me update pnpm.rs:
 
@@ -336,16 +320,11 @@ _****_
 +         assert_eq!(command.args, vec!["update"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
-
-
 
 Let me update the deno.rs file:
 
@@ -390,16 +369,11 @@ _****_
 +         assert_eq!(command.args, vec!["upgrade"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
-
-
 
 Let me update the bun.rs file:
 
@@ -444,14 +418,11 @@ _****_
 +         assert_eq!(command.args, vec!["upgrade"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
 
 I notice that we have linter errors about the test_utils module not being found. This is because we need to make sure the test_utils module is properly exposed in the package_managers module. Let me fix that:
 
@@ -467,14 +438,11 @@ _****_
 + 
 + #[cfg(test)]
 + pub(crate) use package_managers::test_utils;
-  
 ```
 
 ---
 
 _****_
-
-
 
 I see that we have a conflict with the package_managers module being defined multiple times. Let me check the lib.rs file to understand the structure better:
 
@@ -487,10 +455,6 @@ Read file: src/lib.rs
 ---
 
 _****_
-
-
-
-
 
 I see the issue now. The package_managers module is defined twice in lib.rs. Let me fix that and properly organize the modules:
 
@@ -524,16 +488,11 @@ _****_
 - 
 - #[cfg(test)]
 - pub(crate) use package_managers::test_utils;
-  
 ```
 
 ---
 
 _****_
-
-
-
-
 
 Now that we have fixed the module structure, let me update the test imports in the package manager files to use the correct path. I'll update npm.rs first:
 
@@ -541,15 +500,9 @@ Now that we have fixed the module structure, let me update the test imports in t
 
 _****_
 
-
-
 ---
 
 _****_
-
-
-
-
 
 Let me check if we need to update the test_utils module path. Let me check the current test_utils.rs location:
 
@@ -559,28 +512,24 @@ _****_
 
 <details>
             <summary>Listed directory src/package_managers • **9** results</summary>
-        
-| Name |
-|-------|
-| 📄 `npm.rs` |
-| 📄 `bun.rs` |
-| 📄 `deno.rs` |
-| 📄 `pnpm.rs` |
-| 📄 `yarn.rs` |
-| 📄 `mod.rs` |
+
+| Name               |
+| ------------------ |
+| 📄 `npm.rs`        |
+| 📄 `bun.rs`        |
+| 📄 `deno.rs`       |
+| 📄 `pnpm.rs`       |
+| 📄 `yarn.rs`       |
+| 📄 `mod.rs`        |
 | 📄 `test_utils.rs` |
 | 📄 `yarn_berry.rs` |
-| 📄 `pnpm6.rs` |
+| 📄 `pnpm6.rs`      |
 
 </details>
 
 ---
 
 _****_
-
-
-
-
 
 I see that test_utils.rs exists in the package_managers directory. Let me check its contents to make sure it has the correct exports:
 
@@ -593,10 +542,6 @@ Read file: src/package_managers/test_utils.rs
 ---
 
 _****_
-
-
-
-
 
 The test_utils.rs file looks good. Now let me update the remaining package manager files with their tests. I'll update yarn_berry.rs:
 
@@ -641,18 +586,11 @@ _****_
 +         assert_eq!(command.args, vec!["up"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
 
 Let me update pnpm6.rs:
 
@@ -697,16 +635,11 @@ _****_
 +         assert_eq!(command.args, vec!["update"]);
 +     }
 + }
-  
 ```
 
 ---
 
 _****_
-
-
-
-
 
 Now that we have updated all the package manager files with their tests, we can clean up the old test files in the tests directory. Let me remove them:
 
@@ -714,57 +647,37 @@ Now that we have updated all the package manager files with their tests, we can 
 
 _****_
 
+---
 
+_****_
 
 ---
 
 _****_
 
+---
 
+_****_
 
 ---
 
 _****_
 
+---
 
+_****_
 
 ---
 
 _****_
 
-
-
 ---
 
 _****_
 
-
-
 ---
 
 _****_
-
-
-
----
-
-_****_
-
-
-
----
-
-_****_
-
-
-
----
-
-_****_
-
-
-
-
 
 ---
 
@@ -937,14 +850,11 @@ _****_
 +     expected.extend(expected_args.iter().map(|s| s.to_string()));
 +     assert_eq!(command.args, expected);
   }
-  
 ```
 
 ---
 
 _****_
-
-
 
 Now let me update the npm.rs tests to use the new test utilities:
 
@@ -992,10 +902,6 @@ _****_
 ---
 
 _****_
-
-
-
-
 
 Now let me update the yarn.rs tests:
 
@@ -1046,12 +952,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
 Now let me update the pnpm.rs tests:
 
 ---
@@ -1084,20 +984,11 @@ _****_
 -         test_edge_cases(factory);
 +         test_edge_cases(factory, "pnpm", PNPM_COMMANDS);
       }
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
-
-
 
 Now let me update the pnpm6.rs tests:
 
@@ -1131,22 +1022,11 @@ _****_
 -         test_edge_cases(factory);
 +         test_edge_cases(factory, "pnpm", PNPM6_COMMANDS);
       }
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
-
-
-
-
 
 Now let me update the deno.rs tests:
 
@@ -1201,16 +1081,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
-
-
-
-
 Now let me update the bun.rs tests:
 
 ---
@@ -1259,18 +1129,6 @@ _****_
 ---
 
 _****_
-
-
-
-
-
-
-
-
-
-
-
-
 
 Finally, let me update the yarn_berry.rs tests:
 
@@ -1321,8 +1179,6 @@ _****_
 
 _****_
 
-
-
 I've now updated all the package manager test files to use the new test utilities with their specific command mappings. The changes include:
 
 1. Created a more flexible test utilities module that handles package manager-specific command variations
@@ -1363,8 +1219,6 @@ _****_
 
 _****_
 
-
-
 Let me try again with the correct fix:
 
 ---
@@ -1377,23 +1231,15 @@ Read file: tests/mod.rs
 
 _****_
 
-
-
-
-
 Now I can properly fix the file by removing all the old test module declarations:
 
 ---
 
 _****_
 
-
-
 ---
 
 _****_
-
-
 
 I see that the model didn't properly apply the changes. Let me try a more explicit edit:
 
@@ -1402,7 +1248,6 @@ I see that the model didn't properly apply the changes. Let me try a more explic
 _****_
 
 ```diff
-  
   // Integration tests for edge cases and cross-package-manager functionality can go here
 - 
   #[cfg(test)]
@@ -1426,14 +1271,11 @@ _****_
 + mod integration_tests {
 +     // Add integration tests here if needed
 + }
-  
 ```
 
 ---
 
 _****_
-
-
 
 Also, I notice we have an unused `CommandAssertion` struct in test_utils.rs. Let me remove that since we're not using it:
 
@@ -1456,8 +1298,6 @@ _****_
 ---
 
 _****_
-
-
 
 Now all the test files should be properly organized:
 
@@ -1519,8 +1359,6 @@ _****_
 ---
 
 _****_
-
-
 
 Now let me update yarn.rs to match Yarn's command patterns:
 
@@ -1595,10 +1433,6 @@ _****_
 
 _****_
 
-
-
-
-
 Now let me update pnpm.rs to match PNPM's command patterns:
 
 ---
@@ -1640,12 +1474,6 @@ _****_
 ---
 
 _****_
-
-
-
-
-
-
 
 Now let me update bun.rs to match Bun's command patterns:
 
@@ -1689,14 +1517,6 @@ _****_
 
 _****_
 
-
-
-
-
-
-
-
-
 Finally, let me update deno.rs to match Deno's command patterns:
 
 ---
@@ -1704,7 +1524,6 @@ Finally, let me update deno.rs to match Deno's command patterns:
 _****_
 
 ```diff
-  
       fn add(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
 -         let mut command_args = vec!["add".to_string()];
 +         // Deno doesn't have a direct add command, it uses imports in code
@@ -1806,10 +1625,6 @@ _****_
 
 _****_
 
-
-
-
-
 Let me fix the linter errors in deno.rs:
 
 ---
@@ -1817,7 +1632,6 @@ Let me fix the linter errors in deno.rs:
 _****_
 
 ```diff
-  
           // Test dev dependency handling (should return None as it's managed in code)
 -         let command = executor.add(vec!["typescript", "-D"]);
 -         assert_eq!(command, None);
@@ -1834,10 +1648,6 @@ _****_
 ---
 
 _****_
-
-
-
-
 
 I've now updated all package manager implementations to match their official command patterns according to commands.md. Here's a summary of the changes:
 
@@ -1974,10 +1784,6 @@ _****_
 
 _****_
 
-
-
-
-
 Now let me update the yarn.rs tests to use the correct global package installation pattern:
 
 ---
@@ -1990,18 +1796,11 @@ _****_
 +         ("add_dev_flag", "--dev"),
 +         ("global_install", "global add"),
       ];
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
 
 Now let me update the npm.rs tests with the correct command mappings:
 
@@ -2015,20 +1814,11 @@ _****_
 +         ("add_dev_flag", "--save-dev"),
 +         ("global_install", "install"), // npm uses install -g
       ];
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
-
-
 
 Now let me update the pnpm.rs tests with the correct command mappings:
 
@@ -2042,22 +1832,11 @@ _****_
 +         ("add_dev_flag", "--save-dev"),
 +         ("global_install", "add"), // pnpm uses add -g
       ];
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
-
-
-
-
 
 Now let me update the bun.rs tests with the correct command mappings:
 
@@ -2071,24 +1850,11 @@ _****_
 +         ("add_dev_flag", "--dev"),
 +         ("global_install", "add"), // bun uses add -g
       ];
-  
 ```
 
 ---
 
 _****_
-
-
-
-
-
-
-
-
-
-
-
-
 
 Finally, let me update the deno.rs tests with the correct command mappings:
 
@@ -2117,10 +1883,6 @@ _****_
 ---
 
 _****_
-
-
-
-
 
 I've now updated all the test files to properly handle package manager-specific command patterns. Here's a summary of the changes:
 
@@ -2159,7 +1921,7 @@ I'll help fix the failing tests. Let's analyze the failures and fix them one by 
 
 1. First, let's fix the test utilities to handle global installations correctly:
 
-```rust
+````rust
 I'll edit the test_utils.rs file to properly handle global installations and dev dependencies:
 
 ---
@@ -2209,14 +1971,11 @@ _****_
 +         }
 +     }
   }
-  
-```
+````
 
 ---
 
 _****_
-
-
 
 Now let's fix the npm implementation to handle clean install correctly:
 
@@ -2236,8 +1995,6 @@ _****_
 ---
 
 _****_
-
-
 
 Now let's fix the Deno implementation to handle the edge cases correctly:
 
@@ -2265,8 +2022,6 @@ _****_
 
 _****_
 
-
-
 Now let's fix the PNPM6 implementation to handle the execute command correctly:
 
 ---
@@ -2274,19 +2029,15 @@ Now let's fix the PNPM6 implementation to handle the execute command correctly:
 _****_
 
 ```diff
-  
       fn execute(&self, args: Vec<&str>) -> Option<ResolvedCommand> {
 -         let mut command_args = vec!["dlx".to_string()];
 +         let mut command_args = vec!["exec".to_string()];
           command_args.extend(args.iter().map(|s| s.to_string()));
-  
 ```
 
 ---
 
 _****_
-
-
 
 Finally, let's fix the parse tests:
 
@@ -2341,8 +2092,6 @@ _****_
 
 _****_
 
-
-
 Let me fix the linter errors in the parse tests:
 
 ---
@@ -2376,8 +2125,6 @@ _****_
 
 _****_
 
-
-
 I've made several fixes to address the failing tests:
 
 1. Updated test_utils.rs to properly handle global installations for different package managers:
@@ -2396,6 +2143,7 @@ I've made several fixes to address the failing tests:
    - Updated test_parse_nlx to expect "exec yarn dlx vitest" for npm
 
 These changes should resolve all the failing tests. The main issues were:
+
 1. Inconsistent handling of global installations across package managers
 2. Missing flags in clean install commands
 3. Incorrect command mappings for execute/dlx commands
@@ -2442,14 +2190,11 @@ _****_
 +         ("add_dev_flag", "--save-dev"),
 +         ("global_install", "add"), // pnpm uses add -g
       ];
-  
 ```
 
 ---
 
 _****_
-
-
 
 2. Let's fix the Yarn Berry implementation to handle dev dependencies:
 
@@ -2457,13 +2202,9 @@ _****_
 
 _****_
 
-
-
 ---
 
 _****_
-
-
 
 Let me try again with a more specific edit:
 
@@ -2477,14 +2218,11 @@ _****_
 +         ("add_dev_flag", "--dev"),
 +         ("global_install", "global add"),
       ];
-  
 ```
 
 ---
 
 _****_
-
-
 
 3. Let's fix the NPM implementation to handle clean install correctly:
 
@@ -2504,10 +2242,6 @@ _****_
 ---
 
 _****_
-
-
-
-
 
 4. Let's fix the Deno implementation to handle the edge cases:
 
@@ -2548,11 +2282,6 @@ _****_
 
 _****_
 
-
-
 ---
 
-
-
 ---
-

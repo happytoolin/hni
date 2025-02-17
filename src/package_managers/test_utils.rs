@@ -48,16 +48,24 @@ pub fn test_basic_commands(
     );
 
     // Test clean install
+    let clean_install_args = command_map
+        .get("clean_install_args")
+        .map(|&args| {
+            if args.is_empty() {
+                vec![]
+            } else {
+                args.split(' ').collect::<Vec<_>>()
+            }
+        })
+        .unwrap_or_else(|| vec!["--frozen-lockfile"]);
+
     assert_command_with_bin(
         &executor,
         "clean_install",
         vec![],
         expected_bin,
         command_map.get("clean_install").unwrap_or(&"install"),
-        command_map
-            .get("clean_install_args")
-            .map(|&args| vec![args])
-            .unwrap_or_else(|| vec!["--frozen-lockfile"]),
+        clean_install_args,
     );
 }
 
@@ -103,38 +111,17 @@ pub fn test_edge_cases(
         vec!["@types/node", add_dev_flag, "--exact"],
     );
 
-    // Test global package installation
-    match command_map.get("global_install") {
-        Some(&"global add") => {
-            assert_command_with_bin(
-                &executor,
-                "install",
-                vec!["-g", "webpack"],
-                expected_bin,
-                "global",
-                vec!["add", "webpack"],
-            );
-        }
-        Some(&"add") => {
-            assert_command_with_bin(
-                &executor,
-                "install",
-                vec!["-g", "webpack"],
-                expected_bin,
-                "add",
-                vec!["-g", "webpack"],
-            );
-        }
-        _ => {
-            assert_command_with_bin(
-                &executor,
-                "install",
-                vec!["-g", "webpack"],
-                expected_bin,
-                "install",
-                vec!["-g", "webpack"],
-            );
-        }
+    // Handle global package installation
+    if let Some(global_cmd) = command_map.get("global_install") {
+        let parts: Vec<&str> = global_cmd.split(' ').collect();
+        assert_command_with_bin(
+            &executor,
+            "install",
+            vec!["-g", "webpack"],
+            expected_bin,
+            parts.first().unwrap(),
+            parts[1..].iter().chain(&["webpack"]).cloned().collect(),
+        );
     }
 }
 

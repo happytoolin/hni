@@ -83,10 +83,35 @@ impl CommandExecutor for BunExecutor {
     }
 }
 
+#[derive(Clone)]
 pub struct BunFactory {}
 
 impl PackageManagerFactory for BunFactory {
     fn create_commands(&self) -> Box<dyn CommandExecutor> {
         Box::new(BunExecutor {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::package_managers::test_utils;
+
+    #[test]
+    fn test_bun_commands() {
+        let factory = BunFactory {};
+        let command_map = vec![
+            ("run", "run"),
+            ("install", "install"),
+            ("add", "add"),
+            ("add_dev_flag", "--dev"),
+            ("execute", "x"),
+            ("clean_install_args", "--frozen-lockfile"),
+            ("upgrade", "update"),
+            ("uninstall", "remove"),
+        ];
+
+        test_utils::test_basic_commands(Box::new(factory.clone()), "bun", &command_map);
+        test_utils::test_edge_cases(Box::new(factory), "bun", &command_map);
     }
 }
