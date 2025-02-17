@@ -106,6 +106,9 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     if !cwd.exists() {
         anyhow::bail!("Directory does not exist: {}", cwd.display());
     }
+    if !cwd.is_dir() {
+        anyhow::bail!("Path is not a directory: {}", cwd.display());
+    }
 
     // Check packageManager field first
     if let Some(pm) = read_package_manager_field(cwd)? {
@@ -135,11 +138,18 @@ pub fn detect(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
 fn read_package_manager_field(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
     let path = cwd.join("package.json");
     if !path.exists() {
+        trace!("No package.json found");
         return Ok(None);
     }
 
     let contents = fs::read_to_string(&path)
         .with_context(|| format!("Failed to read package.json at {}", path.display()))?;
+
+    // Validate JSON structure before parsing
+    if contents.trim().is_empty() {
+        warn!("Empty package.json file at {}", path.display());
+        return Ok(None);
+    }
 
     let json: Value = serde_json::from_str(&contents)
         .with_context(|| format!("Failed to parse package.json at {}", path.display()))?;
@@ -152,14 +162,27 @@ fn read_package_manager_field(cwd: &Path) -> Result<Option<PackageManagerFactory
 
 // Improved parsing with split_once
 fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryEnum> {
-    let (name, _) = pm.split_once('@').unwrap_or((pm, ""));
+    let (name, version) = pm.split_once('@').ok_or_else(|| {
+        anyhow::anyhow!(
+            "Invalid packageManager format in {}, expected 'manager@version'",
+            path.display()
+        )
+    })?;
+
+    if version.is_empty() {
+        warn!(
+            "Missing version in packageManager field at {}",
+            path.display()
+        );
+    }
+
     match name {
         "npm" => Ok(PackageManagerFactoryEnum::Npm),
         "yarn" => Ok(PackageManagerFactoryEnum::Yarn),
         "pnpm" => Ok(PackageManagerFactoryEnum::Pnpm),
         "bun" => Ok(PackageManagerFactoryEnum::Bun),
         other => Err(anyhow::anyhow!(
-            "Unknown package manager '{}' in {}",
+            "Unsupported package manager '{}' in {}",
             other,
             path.display()
         )),
@@ -168,14 +191,32 @@ fn parse_package_manager(pm: &str, path: &Path) -> Result<PackageManagerFactoryE
 
 // Separate lockfile detection logic
 fn detect_via_lockfiles(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
+    let mut detected = Vec::new();
+
     for (lockfile, pm) in get_locks() {
         let path = cwd.join(lockfile);
         if path.exists() {
-            info!("Detected {} via lockfile {}", pm, lockfile);
-            return Ok(Some(*pm));
+            // Basic lockfile validation
+            if path.metadata()?.len() == 0 {
+                warn!("Empty lockfile detected: {}", lockfile);
+                continue;
+            }
+
+            detected.push((pm, lockfile));
         }
     }
-    Ok(None)
+
+    if detected.len() > 1 {
+        warn!("Multiple lockfiles detected: {:?}", detected);
+    }
+
+    detected
+        .first()
+        .map(|(pm, lockfile)| {
+            info!("Selected {} via lockfile {}", pm, lockfile);
+            Ok(**pm)
+        })
+        .transpose()
 }
 
 // Improved config loading with pattern matching
@@ -187,8 +228,25 @@ fn read_config(cwd: &Path) -> Result<Option<PackageManagerFactoryEnum>> {
         .add_source(
             ["nirs.toml", "nirs.json", "nirs.yaml"]
                 .iter()
-                .map(|f| File::from(cwd.join(f)).required(false))
-                .collect::<Vec<_>>(),
+                .filter_map(|f| {
+                    let path = cwd.join(f);
+                    if path.exists() {
+                        match path.metadata() {
+                            Ok(meta) if meta.len() > 0 => {
+                                Some(Ok(File::from(path).required(false)))
+                            }
+                            Ok(_) => {
+                                trace!("Empty config file: {}", f);
+                                None
+                            }
+                            Err(e) => Some(Err(e.into())),
+                        }
+                    } else {
+                        trace!("Config file {} not found", f);
+                        None
+                    }
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>()?,
         )
         .add_source(
             ["nirs.toml", "nirs.json", "nirs.yaml"]
@@ -224,12 +282,15 @@ fn should_fallback_to_npm() -> Result<bool> {
         return Ok(false);
     }
 
+    let exe_names: &[&str] = if cfg!(windows) {
+        &["npm.exe", "npm.cmd"]
+    } else {
+        &["npm"]
+    };
+
     let npm_exists = env::var_os("PATH")
         .map(|path| {
-            env::split_paths(&path).any(|p| {
-                let exe = if cfg!(windows) { "npm.exe" } else { "npm" };
-                p.join(exe).exists()
-            })
+            env::split_paths(&path).any(|p| exe_names.iter().any(|exe| p.join(exe).exists()))
         })
         .unwrap_or(false);
 
