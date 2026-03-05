@@ -3,8 +3,10 @@ use std::{env, ffi::OsStr, path::PathBuf, process::ExitCode};
 use anyhow::{anyhow, Result};
 
 use crate::{
+    app::{completion::print_completion, doctor::print_doctor},
     core::{
         config::HniConfig,
+        detect::detect,
         resolve::ResolveContext,
         runner,
         types::{InvocationKind, ResolvedExecution},
@@ -20,7 +22,7 @@ pub fn run_from_env() -> Result<ExitCode> {
         .first()
         .cloned()
         .ok_or_else(|| anyhow!("missing argv[0]"))?;
-    let invocation = invocation_from_argv0(&argv0);
+    let mut invocation = invocation_from_argv0(&argv0);
 
     argv.remove(0);
 
@@ -47,12 +49,39 @@ pub fn run_from_env() -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
+    let mut command_args = parsed.args;
+
     if invocation == InvocationKind::Hni {
-        print_help(invocation);
+        if command_args.is_empty() {
+            print_help(invocation);
+            return Ok(ExitCode::SUCCESS);
+        }
+
+        if handle_hni_meta_subcommand(&command_args, &resolve_ctx, &argv0)? {
+            return Ok(ExitCode::SUCCESS);
+        }
+
+        if let Some(mapped) = invocation_from_hni_subcommand(&command_args[0]) {
+            invocation = mapped;
+            command_args = command_args.into_iter().skip(1).collect();
+        } else {
+            return Err(anyhow!(
+                "unknown hni command '{}'. Try: hni -h",
+                command_args[0]
+            ));
+        }
+    }
+
+    if parsed.explain {
+        let resolved = dispatch_invocation(invocation, command_args, &resolve_ctx)?;
+        let Some(resolved) = resolved else {
+            return Ok(ExitCode::SUCCESS);
+        };
+        print_explain(invocation, &resolved, &resolve_ctx, &config)?;
         return Ok(ExitCode::SUCCESS);
     }
 
-    let resolved = dispatch_invocation(invocation, parsed.args, &resolve_ctx)?;
+    let resolved = dispatch_invocation(invocation, command_args, &resolve_ctx)?;
     let Some(resolved) = resolved else {
         return Ok(ExitCode::SUCCESS);
     };
@@ -63,6 +92,90 @@ pub fn run_from_env() -> Result<ExitCode> {
     }
 
     runner::run(&resolved, config.use_sfw)
+}
+
+fn handle_hni_meta_subcommand(args: &[String], ctx: &ResolveContext, argv0: &str) -> Result<bool> {
+    let Some((first, rest)) = args.split_first() else {
+        return Ok(false);
+    };
+
+    match first.as_str() {
+        "doctor" => {
+            print_doctor(&ctx.cwd, &ctx.config);
+            Ok(true)
+        }
+        "help" => {
+            print_help(InvocationKind::Hni);
+            Ok(true)
+        }
+        "completion" => {
+            let shell = rest.first().map(String::as_str);
+            let program = normalized_program_name(argv0);
+            print_completion(shell, &program)?;
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn invocation_from_hni_subcommand(value: &str) -> Option<InvocationKind> {
+    match value {
+        "ni" => Some(InvocationKind::Ni),
+        "nr" => Some(InvocationKind::Nr),
+        "nlx" => Some(InvocationKind::Nlx),
+        "nu" => Some(InvocationKind::Nu),
+        "nun" => Some(InvocationKind::Nun),
+        "nci" => Some(InvocationKind::Nci),
+        "na" => Some(InvocationKind::Na),
+        "np" => Some(InvocationKind::Np),
+        "ns" => Some(InvocationKind::Ns),
+        "node" => Some(InvocationKind::NodeShim),
+        _ => None,
+    }
+}
+
+fn print_explain(
+    invocation: InvocationKind,
+    resolved: &ResolvedExecution,
+    ctx: &ResolveContext,
+    config: &HniConfig,
+) -> Result<()> {
+    println!("hni explain");
+    println!("invocation: {}", invocation_name(invocation));
+    println!("cwd: {}", ctx.cwd.display());
+    println!(
+        "resolved: {}",
+        runner::format_debug(resolved, config.use_sfw)?
+    );
+
+    if let Ok(detection) = detect(&ctx.cwd, &ctx.config) {
+        println!(
+            "detected_agent: {}",
+            detection
+                .agent
+                .map_or_else(|| "none".to_string(), |pm| pm.display_name().to_string())
+        );
+        println!("detection_source: {:?}", detection.source);
+        println!("has_lockfile: {}", detection.has_lock);
+    }
+
+    Ok(())
+}
+
+fn invocation_name(invocation: InvocationKind) -> &'static str {
+    match invocation {
+        InvocationKind::Hni => "hni",
+        InvocationKind::Ni => "ni",
+        InvocationKind::Nr => "nr",
+        InvocationKind::Nlx => "nlx",
+        InvocationKind::Nu => "nu",
+        InvocationKind::Nun => "nun",
+        InvocationKind::Nci => "nci",
+        InvocationKind::Na => "na",
+        InvocationKind::Np => "np",
+        InvocationKind::Ns => "ns",
+        InvocationKind::NodeShim => "node",
+    }
 }
 
 fn dispatch_invocation(
@@ -86,14 +199,7 @@ fn dispatch_invocation(
 }
 
 fn invocation_from_argv0(argv0: &str) -> InvocationKind {
-    let name = PathBuf::from(argv0)
-        .file_name()
-        .and_then(OsStr::to_str)
-        .unwrap_or(argv0)
-        .to_ascii_lowercase();
-    let normalized = name.strip_suffix(".exe").unwrap_or(&name);
-
-    match normalized {
+    match normalized_program_name(argv0).as_str() {
         "ni" => InvocationKind::Ni,
         "nr" => InvocationKind::Nr,
         "nlx" => InvocationKind::Nlx,
@@ -106,6 +212,15 @@ fn invocation_from_argv0(argv0: &str) -> InvocationKind {
         "node" => InvocationKind::NodeShim,
         _ => InvocationKind::Hni,
     }
+}
+
+fn normalized_program_name(argv0: &str) -> String {
+    let name = PathBuf::from(argv0)
+        .file_name()
+        .and_then(OsStr::to_str)
+        .unwrap_or(argv0)
+        .to_ascii_lowercase();
+    name.strip_suffix(".exe").unwrap_or(&name).to_string()
 }
 
 #[cfg(test)]

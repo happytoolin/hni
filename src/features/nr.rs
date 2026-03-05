@@ -30,7 +30,9 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<Reso
         }
     }
 
-    let needs_last = args.first().is_some_and(|a| a == "-");
+    let needs_last = args
+        .first()
+        .is_some_and(|a| matches!(a.as_str(), "-" | "--repeat-last"));
 
     if args.is_empty() {
         args.push(choose_script_interactive(&ctx.cwd)?);

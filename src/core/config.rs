@@ -118,9 +118,6 @@ fn parse_hnirc_file(path: &Path, config: &mut HniConfig) -> Result<()> {
     if let Some(v) = ini.get("default", "usesfw") {
         config.use_sfw = parse_bool(v.trim())?;
     }
-    if let Some(v) = ini.get("default", "autoinstall") {
-        config.auto_install = parse_bool(v.trim())?;
-    }
 
     Ok(())
 }
@@ -165,7 +162,7 @@ mod tests {
         let path = dir.path().join(".hnirc");
         fs::write(
             &path,
-            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\nautoInstall=true\n",
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\n",
         )
         .unwrap();
 
@@ -176,7 +173,7 @@ mod tests {
         assert_eq!(cfg.global_agent, PackageManager::Yarn);
         assert_eq!(cfg.run_agent, RunAgent::Node);
         assert!(cfg.use_sfw);
-        assert!(cfg.auto_install);
+        assert!(!cfg.auto_install);
     }
 
     #[test]

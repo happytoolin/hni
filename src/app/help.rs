@@ -20,6 +20,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              ni                   Install dependencies\n\
              ni vite              Add dependency\n\
              ni -D vitest         Add dev dependency\n\
+             ni --interactive     Search and choose a package interactively\n\
              ni --frozen          Use lockfile-only install (nci behavior)\n\
              ni -g npm-check-updates",
         ),
@@ -33,7 +34,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              nr dev               Run dev script\n\
              nr test -- --watch   Pass extra args to script\n\
              nr --if-present lint Skip failure if script is missing\n\
-             nr -                 Re-run last script",
+             nr --repeat-last      Re-run last script",
         ),
         InvocationKind::Nlx => command_help(
             "nlx",
@@ -53,7 +54,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              \n\
              nu\n\
              nu react react-dom\n\
-             nu -i                Interactive mode when supported",
+             nu --interactive      Interactive mode when supported",
         ),
         InvocationKind::Nun => command_help(
             "nun",
@@ -63,7 +64,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              \n\
              nun lodash\n\
              nun react react-dom\n\
-             nun -m               Interactive multi-select\n\
+             nun --multi-select    Interactive multi-select\n\
              nun -g typescript",
         ),
         InvocationKind::Nci => command_help(
@@ -148,16 +149,21 @@ fn top_level_help() -> Command {
             .subcommand(Command::new("np").about("run shell commands in parallel"))
             .subcommand(Command::new("ns").about("run shell commands sequentially"))
             .subcommand(Command::new("node").about("package-manager-aware node shim"))
+            .subcommand(Command::new("doctor").about("print environment and detection diagnostics"))
+            .subcommand(Command::new("completion").about("print shell completion script"))
             .after_help(
                 "Quick examples:\n\
                  \n\
                  ni vite\n\
+                 ni --explain react -D\n\
                  nr dev -- --port=3000\n\
                  nlx create-vite@latest\n\
-                 nu -i\n\
-                 nun -m\n\
+                 nu --interactive\n\
+                 nun --multi-select\n\
                  np \"echo one\" \"echo two\"\n\
                  ns \"npm run build\" \"npm run test\"\n\
+                 hni doctor\n\
+                 hni completion zsh\n\
                  node install react",
             ),
     )
@@ -185,7 +191,13 @@ fn with_global_flags(cmd: Command) -> Command {
             Arg::new("debug")
                 .short('?')
                 .long("debug-resolved")
-                .help("print resolved command and exit")
+                .help("print resolved command and exit (aliases: --dry-run, --print-command)")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("explain")
+                .long("explain")
+                .help("print detection + resolution details and exit")
                 .action(ArgAction::SetTrue),
         )
         .arg(

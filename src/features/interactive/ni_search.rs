@@ -23,15 +23,21 @@ struct NpmPackage {
 }
 
 pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> Result<Vec<String>> {
-    let mut args = args;
-    let is_interactive = args.first().is_some_and(|a| a == "-i");
+    let is_interactive = args
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "-i" | "--interactive"));
     if !is_interactive {
         return Ok(args);
     }
 
+    let mut args = args
+        .into_iter()
+        .filter(|arg| !matches!(arg.as_str(), "-i" | "--interactive"))
+        .collect::<Vec<_>>();
+
     let pattern = args
-        .get(1)
-        .filter(|v| !v.starts_with('-'))
+        .iter()
+        .find(|v| !v.starts_with('-'))
         .cloned()
         .map_or_else(prompt_pattern, Ok)?;
 
@@ -79,7 +85,14 @@ pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> R
         .default(0)
         .interact()?;
 
-    args.retain(|arg| !matches!(arg.as_str(), "-i" | "-d" | "-p"));
+    let mut removed_search_query = false;
+    args.retain(|arg| {
+        if !removed_search_query && !arg.starts_with('-') {
+            removed_search_query = true;
+            return false;
+        }
+        !matches!(arg.as_str(), "-d" | "-p" | "--dev" | "--peer")
+    });
     args.push(chosen.clone());
 
     match mode_labels[mode_idx] {

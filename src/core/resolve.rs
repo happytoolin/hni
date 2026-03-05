@@ -154,9 +154,12 @@ pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedEx
 
 pub fn resolve_nu(mut args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(&ctx.cwd, &ctx.config, false)?;
-    let interactive = args.iter().any(|a| a == "-i");
+    let interactive = args
+        .iter()
+        .any(|a| matches!(a.as_str(), "-i" | "--interactive"));
     if interactive {
         args = exclude_flag(args, "-i");
+        args = exclude_flag(args, "--interactive");
     }
 
     build_upgrade_exec(detected.pm, args, &ctx.cwd, interactive)
@@ -283,7 +286,12 @@ fn detect_for_action(cwd: &Path, config: &HniConfig, use_global: bool) -> Result
 
     let pm = detection
         .agent
-        .ok_or_else(|| anyhow!("unable to detect package manager in {}", cwd.display()))?;
+        .ok_or_else(|| {
+            anyhow!(
+                "unable to detect package manager in {}.\nAdd packageManager to package.json, add a lockfile, or set defaultAgent in ~/.hnirc",
+                cwd.display()
+            )
+        })?;
 
     ensure_package_manager_available(pm, detection.version_hint.as_deref(), config, cwd)?;
 

@@ -15,12 +15,13 @@ fn config_loads_and_env_overrides() {
         let cfg_path = dir.path().join("nirc");
         fs::write(
             &cfg_path,
-            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\nautoInstall=true\n",
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\n",
         )
         .unwrap();
 
         std::env::set_var("HNI_CONFIG_FILE", &cfg_path);
         std::env::set_var("HNI_GLOBAL_AGENT", "npm");
+        std::env::set_var("HNI_AUTO_INSTALL", "true");
 
         let cfg = HniConfig::load().unwrap();
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
@@ -31,6 +32,7 @@ fn config_loads_and_env_overrides() {
 
         std::env::remove_var("HNI_CONFIG_FILE");
         std::env::remove_var("HNI_GLOBAL_AGENT");
+        std::env::remove_var("HNI_AUTO_INSTALL");
     });
 }
 

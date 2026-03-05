@@ -42,15 +42,19 @@ ns "pnpm lint" "pnpm test"            # run shell commands sequentially (stop on
 node p "pnpm dev" "pnpm test"         # same as np via node shim
 node s "pnpm lint" "pnpm test"        # same as ns via node shim
 node -p "1 + 1"                       # passthrough to real node
+
+hni doctor                            # inspect detection/config/runtime state
+hni completion zsh                    # print shell completion script
 ```
 
 ## Global Flags
 
 ```bash
-?             # print resolved command instead of executing
--C <dir>      # run as if in <dir>
--v --version  # print versions
--h --help     # print help
+? --dry-run --print-command  # print resolved command instead of executing
+--explain                    # print debug/explain block
+-C <dir>                     # run as if in <dir>
+-v --version                 # print versions
+-h --help                    # print help
 ```
 
 ## Configuration
@@ -62,7 +66,6 @@ defaultAgent=prompt
 globalAgent=npm
 runAgent=node
 useSfw=false
-autoInstall=false
 ```
 
 Environment variables:
@@ -72,8 +75,8 @@ Environment variables:
 - `HNI_GLOBAL_AGENT`
 - `HNI_USE_SFW`
 - `HNI_AUTO_INSTALL`
-- `HNI_SKIP_PM_CHECK`
-- `HNI_REAL_NODE`
+
+Internal/testing env vars (not regular user config): `HNI_SKIP_PM_CHECK`, `HNI_REAL_NODE`.
 
 Legacy `NI_*` config env names are still accepted for compatibility.
 

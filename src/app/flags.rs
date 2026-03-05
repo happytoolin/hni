@@ -1,44 +1,52 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
-use clap::{Arg, ArgAction, Command};
 
 #[derive(Debug, Clone)]
 pub struct ParsedFlags {
     pub cwd: PathBuf,
     pub args: Vec<String>,
     pub debug: bool,
+    pub explain: bool,
     pub show_help: bool,
     pub show_version: bool,
 }
 
 pub fn parse_global_flags(base_cwd: &Path, args: Vec<String>) -> Result<ParsedFlags> {
-    let argv = std::iter::once("hni".to_string())
-        .chain(args)
-        .collect::<Vec<_>>();
-
-    let matches = global_flags_command()
-        .try_get_matches_from(argv)
-        .map_err(|e| anyhow!(e.to_string()))?;
-
     let mut cwd = base_cwd.to_path_buf();
-    for path in matches.get_many::<PathBuf>("cwd").into_iter().flatten() {
-        cwd = cwd.join(path);
-    }
-
-    let mut rest = matches
-        .get_many::<String>("args")
-        .map(|vals| vals.cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
+    let mut rest = Vec::new();
     let mut debug = false;
-    rest.retain(|arg| {
-        if matches!(arg.as_str(), "?" | "-?" | "--debug-resolved") {
-            debug = true;
-            false
-        } else {
-            true
+    let mut explain = false;
+    let mut idx = 0;
+
+    while idx < args.len() {
+        let arg = &args[idx];
+        match arg.as_str() {
+            "-C" | "--cwd" => {
+                let Some(path) = args.get(idx + 1) else {
+                    return Err(anyhow!("missing value for {arg}"));
+                };
+                cwd = cwd.join(path);
+                idx += 2;
+            }
+            "?" | "-?" | "--debug-resolved" | "--dry-run" | "--print-command" => {
+                debug = true;
+                idx += 1;
+            }
+            "--explain" => {
+                explain = true;
+                idx += 1;
+            }
+            _ => {
+                if let Some(path) = arg.strip_prefix("-C").filter(|path| !path.is_empty()) {
+                    cwd = cwd.join(path);
+                } else {
+                    rest.push(arg.clone());
+                }
+                idx += 1;
+            }
         }
-    });
+    }
 
     let show_help = rest.len() == 1 && matches!(rest[0].as_str(), "-h" | "--help");
     let show_version = rest.len() == 1 && matches!(rest[0].as_str(), "-v" | "--version");
@@ -47,28 +55,10 @@ pub fn parse_global_flags(base_cwd: &Path, args: Vec<String>) -> Result<ParsedFl
         cwd,
         args: rest,
         debug,
+        explain,
         show_help,
         show_version,
     })
-}
-
-fn global_flags_command() -> Command {
-    Command::new("hni")
-        .disable_help_flag(true)
-        .disable_version_flag(true)
-        .arg(
-            Arg::new("cwd")
-                .short('C')
-                .value_name("DIR")
-                .value_parser(clap::value_parser!(PathBuf))
-                .action(ArgAction::Append),
-        )
-        .arg(
-            Arg::new("args")
-                .num_args(0..)
-                .allow_hyphen_values(true)
-                .action(ArgAction::Append),
-        )
 }
 
 #[cfg(test)]
@@ -87,6 +77,7 @@ mod tests {
         assert_eq!(parsed.cwd, PathBuf::from("/tmp").join("proj"));
         assert_eq!(parsed.args, vec!["dev"]);
         assert!(parsed.debug);
+        assert!(!parsed.explain);
     }
 
     #[test]
@@ -97,5 +88,38 @@ mod tests {
 
         assert_eq!(parsed.args, vec!["-p", "1+1"]);
         assert!(parsed.debug);
+        assert!(!parsed.explain);
+    }
+
+    #[test]
+    fn parses_explain_aliases() {
+        let base = PathBuf::from("/tmp");
+        let parsed = parse_global_flags(
+            &base,
+            vec![
+                "--dry-run".into(),
+                "--explain".into(),
+                "vite".into(),
+                "--print-command".into(),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(parsed.args, vec!["vite"]);
+        assert!(parsed.debug);
+        assert!(parsed.explain);
+    }
+
+    #[test]
+    fn parses_cwd_after_subcommand() {
+        let base = PathBuf::from("/tmp");
+        let parsed = parse_global_flags(
+            &base,
+            vec!["ni".into(), "-C".into(), "proj".into(), "vite".into()],
+        )
+        .unwrap();
+
+        assert_eq!(parsed.cwd, PathBuf::from("/tmp").join("proj"));
+        assert_eq!(parsed.args, vec!["ni", "vite"]);
     }
 }

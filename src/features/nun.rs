@@ -6,9 +6,12 @@ use crate::{
 };
 
 pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
-    let interactive_multi = args.iter().any(|arg| arg == "-m");
+    let interactive_multi = args
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "-m" | "--multi-select"));
     if interactive_multi {
         args = crate::core::resolve::exclude_flag(args, "-m");
+        args = crate::core::resolve::exclude_flag(args, "--multi-select");
     }
 
     if args.is_empty() || interactive_multi {

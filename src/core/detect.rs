@@ -102,9 +102,10 @@ pub fn ensure_package_manager_available(
     }
 
     if !config.auto_install {
+        let install_hint = format!("npm i -g {}", pm.global_package_name());
         return Err(anyhow!(
-            "detected {} but it is not installed. Set HNI_AUTO_INSTALL=true or install it manually",
-            pm.display_name()
+            "detected {} but it is not installed.\nTry: {install_hint}\nOr set HNI_AUTO_INSTALL=true",
+            pm.display_name(),
         ));
     }
 
@@ -127,7 +128,7 @@ pub fn ensure_package_manager_available(
 
     if which::which("npm").is_err() {
         return Err(anyhow!(
-            "auto-install requires npm in PATH, but npm is unavailable"
+            "auto-install requires npm in PATH, but npm is unavailable.\nInstall Node.js/npm first: https://nodejs.org/"
         ));
     }
 
