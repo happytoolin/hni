@@ -31,6 +31,9 @@ fn multicall_aliases_resolve_expected_commands() {
         }
         create_alias(&exe, &bin_dir, "ni");
         create_alias(&exe, &bin_dir, "nr");
+        create_alias(&exe, &bin_dir, "nlx");
+        create_alias(&exe, &bin_dir, "nun");
+        create_alias(&exe, &bin_dir, "nci");
         create_alias(&exe, &bin_dir, "np");
         create_alias(&exe, &bin_dir, "ns");
         create_alias(&exe, &bin_dir, "node");
@@ -51,6 +54,39 @@ fn multicall_aliases_resolve_expected_commands() {
         );
         assert_eq!(nr_out.trim(), "npm run dev -- --port=3000");
 
+        let nr_if_present_out = run_alias(
+            &bin_dir,
+            "nr",
+            vec![
+                "-C",
+                npm_proj.to_str().unwrap(),
+                "--if-present",
+                "missing-script",
+                "?",
+            ],
+            &[],
+        );
+        assert_eq!(
+            nr_if_present_out.trim(),
+            "npm run --if-present missing-script"
+        );
+
+        let ni_frozen_if_present_out = run_alias(
+            &bin_dir,
+            "ni",
+            vec!["-C", npm_proj.to_str().unwrap(), "--frozen-if-present", "?"],
+            &[],
+        );
+        assert_eq!(ni_frozen_if_present_out.trim(), "npm ci");
+
+        let ni_global_out = run_alias(
+            &bin_dir,
+            "ni",
+            vec!["-C", npm_proj.to_str().unwrap(), "-g", "eslint", "?"],
+            &[("HNI_GLOBAL_AGENT", "yarn")],
+        );
+        assert_eq!(ni_global_out.trim(), "yarn global add eslint");
+
         let node_out = run_alias(
             &bin_dir,
             "node",
@@ -58,6 +94,30 @@ fn multicall_aliases_resolve_expected_commands() {
             &[],
         );
         assert_eq!(node_out.trim(), "npm run dev");
+
+        let nlx_out = run_alias(
+            &bin_dir,
+            "nlx",
+            vec!["-C", npm_proj.to_str().unwrap(), "vitest", "--help", "?"],
+            &[],
+        );
+        assert_eq!(nlx_out.trim(), "npx vitest --help");
+
+        let nci_out = run_alias(
+            &bin_dir,
+            "nci",
+            vec!["-C", npm_proj.to_str().unwrap(), "?"],
+            &[],
+        );
+        assert_eq!(nci_out.trim(), "npm ci");
+
+        let nun_global_out = run_alias(
+            &bin_dir,
+            "nun",
+            vec!["-C", npm_proj.to_str().unwrap(), "-g", "eslint", "?"],
+            &[("HNI_GLOBAL_AGENT", "yarn")],
+        );
+        assert_eq!(nun_global_out.trim(), "yarn global remove eslint");
 
         let np_out = run_alias(
             &bin_dir,

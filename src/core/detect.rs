@@ -219,9 +219,44 @@ mod tests {
     }
 
     #[test]
+    fn lockfile_priority_prefers_bun_when_multiple_lockfiles_exist() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("package-lock.json"), "x").unwrap();
+        fs::write(dir.path().join("pnpm-lock.yaml"), "x").unwrap();
+        fs::write(dir.path().join("bun.lockb"), "x").unwrap();
+
+        let out = detect(dir.path(), &HniConfig::default()).unwrap();
+        assert_eq!(out.agent, Some(PackageManager::Bun));
+    }
+
+    #[test]
     fn package_manager_field_yarn_berry() {
         let parsed = parse_package_manager_field("yarn@4.2.1").unwrap();
         assert_eq!(parsed.0, PackageManager::YarnBerry);
+    }
+
+    #[test]
+    fn package_manager_field_name_is_case_insensitive() {
+        let parsed = parse_package_manager_field("PNPM@9.0.0").unwrap();
+        assert_eq!(parsed.0, PackageManager::Pnpm);
+        assert_eq!(parsed.1.as_deref(), Some("9.0.0"));
+    }
+
+    #[test]
+    fn package_manager_field_short_major_yarn_is_berry() {
+        let parsed = parse_package_manager_field("yarn@4").unwrap();
+        assert_eq!(parsed.0, PackageManager::YarnBerry);
+        assert_eq!(parsed.1.as_deref(), Some("4"));
+    }
+
+    #[test]
+    fn package_manager_field_requires_version() {
+        assert!(parse_package_manager_field("pnpm").is_none());
+    }
+
+    #[test]
+    fn package_manager_field_unknown_manager_is_ignored() {
+        assert!(parse_package_manager_field("foo@1.0.0").is_none());
     }
 
     #[test]
@@ -285,6 +320,40 @@ mod tests {
 
         let out = detect(&pkg, &HniConfig::default()).unwrap();
         assert_eq!(out.agent, Some(PackageManager::Npm));
+        assert_eq!(out.source, DetectionSource::Lockfile);
+        assert!(out.has_lock);
+    }
+
+    #[test]
+    fn has_lock_tracks_ancestor_lock_even_when_agent_is_from_subpackage_package_manager_field() {
+        let root = tempdir().unwrap();
+        fs::write(root.path().join("pnpm-lock.yaml"), "lock").unwrap();
+
+        let pkg = root.path().join("packages").join("app");
+        fs::create_dir_all(&pkg).unwrap();
+        fs::write(
+            pkg.join("package.json"),
+            r#"{"name":"app","packageManager":"npm@10.0.0"}"#,
+        )
+        .unwrap();
+
+        let out = detect(&pkg, &HniConfig::default()).unwrap();
+        assert_eq!(out.agent, Some(PackageManager::Npm));
+        assert_eq!(out.source, DetectionSource::PackageManagerField);
+        assert!(out.has_lock);
+    }
+
+    #[test]
+    fn detects_deno_from_deno_json() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("deno.json"),
+            r#"{"tasks":{"dev":"deno test"}}"#,
+        )
+        .unwrap();
+
+        let out = detect(dir.path(), &HniConfig::default()).unwrap();
+        assert_eq!(out.agent, Some(PackageManager::Deno));
         assert_eq!(out.source, DetectionSource::Lockfile);
         assert!(out.has_lock);
     }

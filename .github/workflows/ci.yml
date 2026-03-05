@@ -29,3 +29,81 @@ jobs:
 
       - name: Test
         run: cargo test --all-targets --all-features
+
+  parity:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - manager: npm
+            required_fixtures: npm
+            setup_pnpm: false
+            setup_yarn: false
+            setup_bun: false
+            setup_deno: false
+          - manager: pnpm
+            required_fixtures: pnpm,pnpm-workspace-subpkg
+            setup_pnpm: true
+            setup_yarn: false
+            setup_bun: false
+            setup_deno: false
+          - manager: yarn
+            required_fixtures: yarn
+            setup_pnpm: false
+            setup_yarn: true
+            setup_bun: false
+            setup_deno: false
+          - manager: bun
+            required_fixtures: bun
+            setup_pnpm: false
+            setup_yarn: false
+            setup_bun: true
+            setup_deno: false
+          - manager: deno
+            required_fixtures: deno
+            setup_pnpm: false
+            setup_yarn: false
+            setup_bun: false
+            setup_deno: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        if: matrix.setup_bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Deno
+        if: matrix.setup_deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install pnpm
+        if: matrix.setup_pnpm
+        run: npm i -g pnpm
+
+      - name: Install Yarn Classic
+        if: matrix.setup_yarn
+        run: npm i -g yarn@1
+
+      - name: Install antfu ni binaries
+        run: npm i -g @antfu/ni
+
+      - name: Run parity test (${{ matrix.manager }})
+        env:
+          HNI_PARITY_REQUIRE_FIXTURES: ${{ matrix.required_fixtures }}
+        run: cargo test --test parity_against_antfu -- --nocapture

@@ -64,3 +64,55 @@ fn build_script_entries(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filters_hidden_question_mark_scripts() {
+        let scripts = BTreeMap::from([
+            ("dev".to_string(), "vite".to_string()),
+            ("?dev".to_string(), "hidden".to_string()),
+        ]);
+        let out = build_script_entries(&scripts, &BTreeMap::new());
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].name, "dev");
+    }
+
+    #[test]
+    fn prefers_scripts_info_description() {
+        let scripts = BTreeMap::from([("dev".to_string(), "vite".to_string())]);
+        let scripts_info = BTreeMap::from([("dev".to_string(), "Start dev server".to_string())]);
+        let out = build_script_entries(&scripts, &scripts_info);
+        assert_eq!(out[0].description, "Start dev server");
+    }
+
+    #[test]
+    fn falls_back_to_question_mark_script_description() {
+        let scripts = BTreeMap::from([
+            ("dev".to_string(), "vite".to_string()),
+            ("?dev".to_string(), "Run local dev server".to_string()),
+        ]);
+        let out = build_script_entries(&scripts, &BTreeMap::new());
+        assert_eq!(out[0].description, "Run local dev server");
+    }
+
+    #[test]
+    fn falls_back_to_script_command_when_no_description_available() {
+        let scripts = BTreeMap::from([("build".to_string(), "vite build".to_string())]);
+        let out = build_script_entries(&scripts, &BTreeMap::new());
+        assert_eq!(out[0].description, "vite build");
+    }
+
+    #[test]
+    fn entries_are_stably_sorted_by_script_name() {
+        let scripts = BTreeMap::from([
+            ("test".to_string(), "vitest".to_string()),
+            ("build".to_string(), "vite build".to_string()),
+        ]);
+        let out = build_script_entries(&scripts, &BTreeMap::new());
+        assert_eq!(out[0].name, "build");
+        assert_eq!(out[1].name, "test");
+    }
+}

@@ -293,6 +293,12 @@ fn detect_for_action(cwd: &Path, config: &HniConfig, use_global: bool) -> Result
             )
         })?;
 
+    if use_global && pm == PackageManager::YarnBerry {
+        return Err(anyhow!(
+            "global install/uninstall is not supported by yarn (berry).\nUse a different globalAgent (for example: npm, pnpm, yarn, bun, deno)."
+        ));
+    }
+
     ensure_package_manager_available(pm, detection.version_hint.as_deref(), config, cwd)?;
 
     Ok(AgentResolution {
@@ -581,10 +587,278 @@ mod tests {
     }
 
     #[test]
+    fn install_command_maps_all_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["i", "--ignore-scripts"]),
+            (
+                PackageManager::Yarn,
+                "yarn",
+                vec!["install", "--immutable-cache"],
+            ),
+            (
+                PackageManager::YarnBerry,
+                "yarn",
+                vec!["install", "--immutable-cache"],
+            ),
+            (PackageManager::Pnpm, "pnpm", vec!["i", "--prefer-offline"]),
+            (
+                PackageManager::Bun,
+                "bun",
+                vec!["install", "--frozen-lockfile"],
+            ),
+            (PackageManager::Deno, "deno", vec!["install", "--reload"]),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = install_command(
+                pm,
+                expected_args
+                    .iter()
+                    .skip(1)
+                    .map(ToString::to_string)
+                    .collect(),
+            );
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn add_command_maps_all_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["i", "vite"]),
+            (PackageManager::Yarn, "yarn", vec!["add", "vite"]),
+            (PackageManager::YarnBerry, "yarn", vec!["add", "vite"]),
+            (PackageManager::Pnpm, "pnpm", vec!["add", "vite"]),
+            (PackageManager::Bun, "bun", vec!["add", "vite"]),
+            (PackageManager::Deno, "deno", vec!["add", "vite"]),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = add_command(pm, vec!["vite".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn run_command_maps_all_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["run", "dev"]),
+            (PackageManager::Yarn, "yarn", vec!["run", "dev"]),
+            (PackageManager::YarnBerry, "yarn", vec!["run", "dev"]),
+            (PackageManager::Pnpm, "pnpm", vec!["run", "dev"]),
+            (PackageManager::Bun, "bun", vec!["run", "dev"]),
+            (PackageManager::Deno, "deno", vec!["task", "dev"]),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = run_command(pm, vec!["dev".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn execute_command_maps_non_deno_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npx", vec!["tsx"]),
+            (PackageManager::Yarn, "npx", vec!["tsx"]),
+            (PackageManager::YarnBerry, "yarn", vec!["dlx", "tsx"]),
+            (PackageManager::Pnpm, "pnpm", vec!["dlx", "tsx"]),
+            (PackageManager::Bun, "bun", vec!["x", "tsx"]),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = execute_command(pm, vec!["tsx".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn upgrade_command_maps_all_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["update", "vite"]),
+            (PackageManager::Yarn, "yarn", vec!["upgrade", "vite"]),
+            (PackageManager::YarnBerry, "yarn", vec!["up", "vite"]),
+            (PackageManager::Pnpm, "pnpm", vec!["update", "vite"]),
+            (PackageManager::Bun, "bun", vec!["update", "vite"]),
+            (
+                PackageManager::Deno,
+                "deno",
+                vec!["outdated", "--update", "vite"],
+            ),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = upgrade_command(pm, vec!["vite".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn uninstall_command_maps_all_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["uninstall", "vite"]),
+            (PackageManager::Yarn, "yarn", vec!["remove", "vite"]),
+            (PackageManager::YarnBerry, "yarn", vec!["remove", "vite"]),
+            (PackageManager::Pnpm, "pnpm", vec!["remove", "vite"]),
+            (PackageManager::Bun, "bun", vec!["remove", "vite"]),
+            (PackageManager::Deno, "deno", vec!["remove", "vite"]),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = uninstall_command(pm, vec!["vite".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn global_install_command_maps_supported_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["i", "-g", "eslint"]),
+            (
+                PackageManager::Yarn,
+                "yarn",
+                vec!["global", "add", "eslint"],
+            ),
+            (PackageManager::Pnpm, "pnpm", vec!["add", "-g", "eslint"]),
+            (PackageManager::Bun, "bun", vec!["add", "-g", "eslint"]),
+            (
+                PackageManager::Deno,
+                "deno",
+                vec!["install", "-g", "eslint"],
+            ),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = global_install_command(pm, vec!["eslint".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn global_uninstall_command_maps_supported_package_managers() {
+        let cases = vec![
+            (
+                PackageManager::Npm,
+                "npm",
+                vec!["uninstall", "-g", "eslint"],
+            ),
+            (
+                PackageManager::Yarn,
+                "yarn",
+                vec!["global", "remove", "eslint"],
+            ),
+            (PackageManager::Pnpm, "pnpm", vec!["remove", "-g", "eslint"]),
+            (PackageManager::Bun, "bun", vec!["remove", "-g", "eslint"]),
+            (
+                PackageManager::Deno,
+                "deno",
+                vec!["uninstall", "-g", "eslint"],
+            ),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = global_uninstall_command(pm, vec!["eslint".to_string()]);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
     fn frozen_for_yarn_berry_uses_immutable() {
         let (prog, args) = frozen_command(PackageManager::YarnBerry);
         assert_eq!(prog, "yarn");
         assert_eq!(args, vec!["install", "--immutable"]);
+    }
+
+    #[test]
+    fn frozen_command_maps_all_package_managers() {
+        let cases = vec![
+            (PackageManager::Npm, "npm", vec!["ci"]),
+            (
+                PackageManager::Yarn,
+                "yarn",
+                vec!["install", "--frozen-lockfile"],
+            ),
+            (
+                PackageManager::YarnBerry,
+                "yarn",
+                vec!["install", "--immutable"],
+            ),
+            (PackageManager::Pnpm, "pnpm", vec!["i", "--frozen-lockfile"]),
+            (
+                PackageManager::Bun,
+                "bun",
+                vec!["install", "--frozen-lockfile"],
+            ),
+            (PackageManager::Deno, "deno", vec!["install", "--frozen"]),
+        ];
+
+        for (pm, expected_prog, expected_args) in cases {
+            let (prog, args) = frozen_command(pm);
+            assert_eq!(prog, expected_prog);
+            assert_eq!(
+                args,
+                expected_args
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+        }
     }
 
     #[test]
@@ -595,8 +869,30 @@ mod tests {
         };
 
         let tmp = tempfile::tempdir().unwrap();
-        let detected = detect_for_action(tmp.path(), &config, false).unwrap();
-        assert_eq!(detected.pm, PackageManager::Pnpm);
+        let result = detect_for_action(tmp.path(), &config, false);
+        match result {
+            Ok(detected) => assert_eq!(detected.pm, PackageManager::Pnpm),
+            Err(err) => {
+                assert!(which::which("pnpm").is_err());
+                assert!(err
+                    .to_string()
+                    .contains("detected pnpm but it is not installed"));
+            }
+        }
+    }
+
+    #[test]
+    fn global_mode_rejects_yarn_berry() {
+        let config = HniConfig {
+            global_agent: PackageManager::YarnBerry,
+            ..HniConfig::default()
+        };
+
+        let tmp = tempfile::tempdir().unwrap();
+        let err = detect_for_action(tmp.path(), &config, true).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("global install/uninstall is not supported by yarn (berry)"));
     }
 
     #[test]
@@ -606,6 +902,12 @@ mod tests {
             vec!["dev".to_string(), "--port=3000".to_string()],
         );
         assert_eq!(args, vec!["run", "dev", "--", "--port=3000"]);
+    }
+
+    #[test]
+    fn npm_run_without_extra_args_avoids_double_dash() {
+        let (_, args) = run_command(PackageManager::Npm, vec!["dev".to_string()]);
+        assert_eq!(args, vec!["run", "dev"]);
     }
 
     #[test]
@@ -620,5 +922,44 @@ mod tests {
         let (prog, args) = execute_command(PackageManager::Bun, vec!["vitest".to_string()]);
         assert_eq!(prog, "bun");
         assert_eq!(args, vec!["x", "vitest"]);
+    }
+
+    #[test]
+    fn deno_execute_wraps_binary_with_npm_prefix() {
+        let (prog, args) = execute_command(
+            PackageManager::Deno,
+            vec!["vitest".to_string(), "--help".to_string()],
+        );
+        assert_eq!(prog, "deno");
+        assert_eq!(args, vec!["run", "npm:vitest", "--help"]);
+    }
+
+    #[test]
+    fn deno_execute_without_args_defaults_to_run() {
+        let (prog, args) = execute_command(PackageManager::Deno, Vec::new());
+        assert_eq!(prog, "deno");
+        assert_eq!(args, vec!["run"]);
+    }
+
+    #[test]
+    fn npm_production_flag_maps_to_omit_dev() {
+        let normalized = normalize_ni_args(vec!["-P".to_string()], PackageManager::Npm);
+        assert_eq!(normalized, vec!["--omit=dev"]);
+    }
+
+    #[test]
+    fn non_npm_production_flag_maps_to_production() {
+        let normalized = normalize_ni_args(vec!["-P".to_string()], PackageManager::Yarn);
+        assert_eq!(normalized, vec!["--production"]);
+    }
+
+    #[test]
+    fn interactive_upgrade_is_not_supported_for_npm() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err =
+            build_upgrade_exec(PackageManager::Npm, Vec::new(), tmp.path(), true).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("interactive upgrade is not supported"));
     }
 }

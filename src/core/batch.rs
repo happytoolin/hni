@@ -143,6 +143,7 @@ fn exit_code_from_code(code: i32) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn formats_parallel_debug() {
@@ -154,5 +155,39 @@ mod tests {
         assert!(
             rendered.contains("\"echo hello world\"") || rendered.contains("'echo hello world'")
         );
+    }
+
+    #[test]
+    fn formats_sequential_debug() {
+        let rendered = format_batch_debug(BatchMode::Sequential, &["echo one".to_string()]);
+        assert!(rendered.starts_with("hni batch:sequential"));
+    }
+
+    #[test]
+    fn batch_mode_roundtrip_with_internal_program() {
+        for mode in [BatchMode::Parallel, BatchMode::Sequential] {
+            let parsed = BatchMode::from_internal_program(mode.internal_program());
+            assert_eq!(parsed, Some(mode));
+        }
+        assert_eq!(BatchMode::from_internal_program("not-batch"), None);
+    }
+
+    #[test]
+    fn make_execution_sets_expected_internal_program() {
+        let cwd = PathBuf::from("/tmp");
+        let exec = make_execution(BatchMode::Parallel, vec!["echo hi".to_string()], &cwd);
+        assert_eq!(exec.program, INTERNAL_BATCH_PARALLEL);
+        assert_eq!(exec.args, vec!["echo hi"]);
+        assert_eq!(exec.cwd, cwd);
+        assert!(!exec.passthrough);
+    }
+
+    #[test]
+    fn run_batch_with_no_commands_succeeds() {
+        let cwd = PathBuf::from("/tmp");
+        let code_parallel = run_batch(BatchMode::Parallel, &[], &cwd).unwrap();
+        let code_sequential = run_batch(BatchMode::Sequential, &[], &cwd).unwrap();
+        assert_eq!(code_parallel, ExitCode::SUCCESS);
+        assert_eq!(code_sequential, ExitCode::SUCCESS);
     }
 }

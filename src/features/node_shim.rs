@@ -162,4 +162,67 @@ mod tests {
         assert_eq!(args, vec!["-p", "1+1"]);
         assert!(matches!(decision.mode, NodeShimMode::PassthroughNode));
     }
+
+    #[test]
+    fn routes_exec_aliases() {
+        for verb in ["exec", "x", "dlx"] {
+            let (decision, args) = decide(&[verb.into(), "vitest".into()]);
+            assert_eq!(args, vec!["vitest"]);
+            assert!(matches!(
+                decision.mode,
+                NodeShimMode::RouteToIntent(Intent::Execute)
+            ));
+        }
+    }
+
+    #[test]
+    fn routes_upgrade_aliases() {
+        for verb in ["update", "upgrade"] {
+            let (decision, args) = decide(&[verb.into(), "vite".into()]);
+            assert_eq!(args, vec!["vite"]);
+            assert!(matches!(
+                decision.mode,
+                NodeShimMode::RouteToIntent(Intent::Upgrade)
+            ));
+        }
+    }
+
+    #[test]
+    fn routes_uninstall_aliases() {
+        for verb in ["uninstall", "remove"] {
+            let (decision, args) = decide(&[verb.into(), "vite".into()]);
+            assert_eq!(args, vec!["vite"]);
+            assert!(matches!(
+                decision.mode,
+                NodeShimMode::RouteToIntent(Intent::Uninstall)
+            ));
+        }
+    }
+
+    #[test]
+    fn routes_ci_to_clean_install() {
+        let (decision, args) = decide(&["ci".into()]);
+        assert_eq!(args, Vec::<String>::new());
+        assert!(matches!(
+            decision.mode,
+            NodeShimMode::RouteToIntent(Intent::CleanInstall)
+        ));
+    }
+
+    #[test]
+    fn routes_verbs_case_insensitively() {
+        let (decision, args) = decide(&["RUN".into(), "dev".into()]);
+        assert_eq!(args, vec!["dev"]);
+        assert!(matches!(
+            decision.mode,
+            NodeShimMode::RouteToIntent(Intent::Run)
+        ));
+    }
+
+    #[test]
+    fn passthrough_when_no_args() {
+        let (decision, args) = decide(&[]);
+        assert_eq!(args, Vec::<String>::new());
+        assert!(matches!(decision.mode, NodeShimMode::PassthroughNode));
+    }
 }

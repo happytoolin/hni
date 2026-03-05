@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -9,12 +10,27 @@ mod support;
 #[test]
 fn compare_with_installed_antfu_when_available() {
     support::with_env_lock(|| {
+        let required_fixtures = required_fixtures();
+
         let Some(cmds) = antfu_bins() else {
+            if !required_fixtures.is_empty() {
+                panic!(
+                    "required parity fixtures {:?}, but antfu ni binaries are not installed",
+                    required_fixtures
+                );
+            }
             return;
         };
 
         let our_bin = hni_executable_path();
         if !our_bin.exists() {
+            if !required_fixtures.is_empty() {
+                panic!(
+                    "required parity fixtures {:?}, but local hni binary was not found at {}",
+                    required_fixtures,
+                    our_bin.display()
+                );
+            }
             return;
         }
         let work = tempfile::tempdir().unwrap();
@@ -28,6 +44,8 @@ fn compare_with_installed_antfu_when_available() {
         create_alias(&our_bin, &our_alias_dir, "nci");
         create_alias(&our_bin, &our_alias_dir, "nu");
 
+        let mut executed_fixtures = BTreeSet::new();
+
         for fixture in build_fixtures(work.path(), &cmds) {
             if !fixture
                 .prereq_bins
@@ -36,6 +54,8 @@ fn compare_with_installed_antfu_when_available() {
             {
                 continue;
             }
+
+            executed_fixtures.insert(fixture.name.clone());
 
             for case in &fixture.cases {
                 let antfu_out = run(
@@ -70,6 +90,15 @@ fn compare_with_installed_antfu_when_available() {
                 );
             }
         }
+
+        for required in required_fixtures {
+            assert!(
+                executed_fixtures.contains(&required),
+                "required parity fixture '{}' did not run. executed fixtures: {:?}",
+                required,
+                executed_fixtures
+            );
+        }
     });
 }
 
@@ -95,6 +124,11 @@ fn build_fixtures(root: &Path, cmds: &AntfuBins) -> Vec<Fixture> {
         Case {
             antfu_bin: cmds.ni.clone(),
             our_bin: "ni".into(),
+            args: vec![],
+        },
+        Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
             args: vec!["vite".into()],
         },
         Case {
@@ -108,6 +142,21 @@ fn build_fixtures(root: &Path, cmds: &AntfuBins) -> Vec<Fixture> {
             args: vec!["-P".into()],
         },
         Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
+            args: vec!["-g".into(), "eslint".into()],
+        },
+        Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
+            args: vec!["--frozen".into()],
+        },
+        Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
+            args: vec!["--frozen-if-present".into()],
+        },
+        Case {
             antfu_bin: cmds.nci.clone(),
             our_bin: "nci".into(),
             args: vec![],
@@ -118,9 +167,19 @@ fn build_fixtures(root: &Path, cmds: &AntfuBins) -> Vec<Fixture> {
             args: vec!["dev".into(), "--port=3000".into()],
         },
         Case {
+            antfu_bin: cmds.nr.clone(),
+            our_bin: "nr".into(),
+            args: vec!["--if-present".into(), "missing-script".into()],
+        },
+        Case {
             antfu_bin: cmds.nlx.clone(),
             our_bin: "nlx".into(),
             args: vec!["vitest".into()],
+        },
+        Case {
+            antfu_bin: cmds.nlx.clone(),
+            our_bin: "nlx".into(),
+            args: vec!["vitest".into(), "--help".into()],
         },
         Case {
             antfu_bin: cmds.nun.clone(),
@@ -146,6 +205,21 @@ fn build_fixtures(root: &Path, cmds: &AntfuBins) -> Vec<Fixture> {
         name: "npm".into(),
         path: npm,
         prereq_bins: vec!["npm".into(), "npx".into()],
+        cases: base_cases.clone(),
+    });
+
+    let yarn = root.join("yarn");
+    fs::create_dir_all(&yarn).unwrap();
+    fs::write(
+        yarn.join("package.json"),
+        r#"{"name":"x","scripts":{"dev":"vite"}}"#,
+    )
+    .unwrap();
+    fs::write(yarn.join("yarn.lock"), "lock").unwrap();
+    fixtures.push(Fixture {
+        name: "yarn".into(),
+        path: yarn,
+        prereq_bins: vec!["yarn".into()],
         cases: base_cases.clone(),
     });
 
@@ -308,4 +382,18 @@ fn hni_executable_path() -> PathBuf {
     path.push("debug");
     path.push(if cfg!(windows) { "hni.exe" } else { "hni" });
     path
+}
+
+fn required_fixtures() -> BTreeSet<String> {
+    std::env::var("HNI_PARITY_REQUIRE_FIXTURES")
+        .ok()
+        .into_iter()
+        .flat_map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .filter(|item| !item.is_empty())
+        .collect()
 }

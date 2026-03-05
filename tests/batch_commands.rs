@@ -90,6 +90,48 @@ fn debug_mode_does_not_execute_np_or_node_p() {
     });
 }
 
+#[test]
+fn np_and_ns_with_no_commands_succeed() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let cwd = work.path();
+        let bin_dir = prepare_bin_dir(cwd);
+
+        let np_output = run_alias_output(&bin_dir, "np", vec!["-C", cwd.to_str().unwrap()], &[]);
+        assert!(np_output.status.success());
+        assert!(String::from_utf8_lossy(&np_output.stdout).trim().is_empty());
+
+        let ns_output = run_alias_output(&bin_dir, "ns", vec!["-C", cwd.to_str().unwrap()], &[]);
+        assert!(ns_output.status.success());
+        assert!(String::from_utf8_lossy(&ns_output.stdout).trim().is_empty());
+    });
+}
+
+#[test]
+fn node_parallel_and_sequential_without_commands_succeed() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let cwd = work.path();
+        let bin_dir = prepare_bin_dir(cwd);
+
+        let node_p_output = run_alias_output(
+            &bin_dir,
+            "node",
+            vec!["-C", cwd.to_str().unwrap(), "p"],
+            &[],
+        );
+        assert!(node_p_output.status.success());
+
+        let node_s_output = run_alias_output(
+            &bin_dir,
+            "node",
+            vec!["-C", cwd.to_str().unwrap(), "s"],
+            &[],
+        );
+        assert!(node_s_output.status.success());
+    });
+}
+
 fn prepare_bin_dir(cwd: &Path) -> PathBuf {
     let bin_dir = cwd.join("bin");
     fs::create_dir_all(&bin_dir).unwrap();

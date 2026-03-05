@@ -1,102 +1,310 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use hni::core::{
-    config::HniConfig,
+    config::{DefaultAgent, HniConfig, RunAgent},
     resolve::{self, ResolveContext},
+    types::PackageManager,
 };
 
 mod support;
 
+fn with_skip_pm_check<T>(f: impl FnOnce() -> T) -> T {
+    support::with_env_lock(|| {
+        struct SkipPmCheckGuard;
+        impl Drop for SkipPmCheckGuard {
+            fn drop(&mut self) {
+                std::env::remove_var("HNI_SKIP_PM_CHECK");
+            }
+        }
+
+        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+        let guard = SkipPmCheckGuard;
+        let out = f();
+        drop(guard);
+        out
+    })
+}
+
+fn write_package_json(dir: &Path, raw: &str) {
+    fs::write(dir.join("package.json"), raw).unwrap();
+}
+
 #[test]
 fn ni_maps_npm_add_to_install() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+    with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("package.json"),
-            r#"{"packageManager":"npm@10.0.0"}"#,
-        )
-        .unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let resolved = resolve::resolve_ni(vec!["vite".into()], &ctx).unwrap();
 
         assert_eq!(resolved.program, "npm");
         assert_eq!(resolved.args, vec!["i", "vite"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
+    });
+}
+
+#[test]
+fn ni_empty_args_installs_for_npm() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(Vec::new(), &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["i"]);
+    });
+}
+
+#[test]
+fn ni_only_flags_stays_install_mode_not_add_mode() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@1.22.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(vec!["--check-files".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["install", "--check-files"]);
     });
 }
 
 #[test]
 fn ni_maps_yarn_add() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+    with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("package.json"),
-            r#"{"packageManager":"yarn@1.22.0"}"#,
-        )
-        .unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@1.22.0"}"#);
 
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let resolved = resolve::resolve_ni(vec!["vite".into()], &ctx).unwrap();
 
         assert_eq!(resolved.program, "yarn");
         assert_eq!(resolved.args, vec!["add", "vite"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
     });
 }
 
 #[test]
 fn ni_bun_dev_flag_is_translated() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+    with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("package.json"),
-            r#"{"packageManager":"bun@1.1.0"}"#,
-        )
-        .unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"bun@1.1.0"}"#);
 
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let resolved = resolve::resolve_ni(vec!["@types/node".into(), "-D".into()], &ctx).unwrap();
 
         assert_eq!(resolved.program, "bun");
         assert_eq!(resolved.args, vec!["add", "@types/node", "-d"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
+    });
+}
+
+#[test]
+fn ni_npm_prod_flag_is_translated_to_omit_dev() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(vec!["-P".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["i", "--omit=dev"]);
+    });
+}
+
+#[test]
+fn ni_non_npm_prod_flag_is_translated_to_production() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@1.22.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(vec!["-P".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["install", "--production"]);
+    });
+}
+
+#[test]
+fn ni_global_install_uses_configured_global_agent() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
+
+        let cfg = HniConfig {
+            global_agent: PackageManager::Yarn,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_ni(vec!["-g".into(), "eslint".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["global", "add", "eslint"]);
+    });
+}
+
+#[test]
+fn ni_frozen_if_present_uses_clean_install_with_lock() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+        fs::write(dir.path().join("package-lock.json"), "lock").unwrap();
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(vec!["--frozen-if-present".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["ci"]);
+    });
+}
+
+#[test]
+fn ni_frozen_if_present_falls_back_to_install_without_lock() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(vec!["--frozen-if-present".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["i"]);
+    });
+}
+
+#[test]
+fn ni_frozen_always_uses_clean_install() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_ni(vec!["--frozen".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["ci"]);
     });
 }
 
 #[test]
 fn nr_maps_pnpm_run() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+    with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("package.json"),
-            r#"{"packageManager":"pnpm@9.0.0"}"#,
-        )
-        .unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
 
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let resolved = resolve::resolve_nr(vec!["dev".into()], &ctx).unwrap();
 
         assert_eq!(resolved.program, "pnpm");
         assert_eq!(resolved.args, vec!["run", "dev"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
+    });
+}
+
+#[test]
+fn nr_without_args_defaults_to_start() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nr(Vec::new(), &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["run", "start"]);
+    });
+}
+
+#[test]
+fn nr_npm_with_extra_args_inserts_double_dash() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nr(vec!["dev".into(), "--port=3000".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["run", "dev", "--", "--port=3000"]);
+    });
+}
+
+#[test]
+fn nr_if_present_for_npm_is_inserted_after_run() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved =
+            resolve::resolve_nr(vec!["build".into(), "--if-present".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(resolved.args, vec!["run", "--if-present", "build"]);
+    });
+}
+
+#[test]
+fn nr_if_present_for_npm_with_extra_args_keeps_double_dash() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nr(
+            vec!["dev".into(), "--if-present".into(), "--port=3000".into()],
+            &ctx,
+        )
+        .unwrap();
+
+        assert_eq!(resolved.program, "npm");
+        assert_eq!(
+            resolved.args,
+            vec!["run", "--if-present", "dev", "--", "--port=3000"]
+        );
+    });
+}
+
+#[test]
+fn nr_if_present_for_non_run_command_is_prefixed() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"deno@1.46.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved =
+            resolve::resolve_nr(vec!["build".into(), "--if-present".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "deno");
+        assert_eq!(resolved.args, vec!["--if-present", "task", "build"]);
+    });
+}
+
+#[test]
+fn nr_run_agent_node_uses_node_passthrough_run() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
+
+        let cfg = HniConfig {
+            run_agent: RunAgent::Node,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nr(vec!["dev".into(), "--port=3000".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "node");
+        assert_eq!(resolved.args, vec!["--run", "dev", "--port=3000"]);
+        assert!(resolved.passthrough);
     });
 }
 
 #[test]
 fn nci_uses_immutable_for_yarn_berry() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+    with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("package.json"),
-            r#"{"packageManager":"yarn@4.2.0"}"#,
-        )
-        .unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@4.2.0"}"#);
         fs::write(dir.path().join("yarn.lock"), "# lock").unwrap();
 
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
@@ -104,15 +312,41 @@ fn nci_uses_immutable_for_yarn_berry() {
 
         assert_eq!(resolved.program, "yarn");
         assert_eq!(resolved.args, vec!["install", "--immutable"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
+    });
+}
+
+#[test]
+fn nci_without_lockfile_falls_back_to_install() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nci(Vec::new(), &ctx).unwrap();
+
+        assert_eq!(resolved.program, "pnpm");
+        assert_eq!(resolved.args, vec!["i"]);
+    });
+}
+
+#[test]
+fn nci_deno_lockfile_uses_frozen_install() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"deno@1.46.0"}"#);
+        fs::write(dir.path().join("deno.lock"), "lock").unwrap();
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nci(Vec::new(), &ctx).unwrap();
+
+        assert_eq!(resolved.program, "deno");
+        assert_eq!(resolved.args, vec!["install", "--frozen"]);
     });
 }
 
 #[test]
 fn ni_in_workspace_package_uses_root_package_manager() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
-
+    with_skip_pm_check(|| {
         let root = tempfile::tempdir().unwrap();
         fs::write(
             root.path().join("package.json"),
@@ -123,34 +357,279 @@ fn ni_in_workspace_package_uses_root_package_manager() {
 
         let pkg = root.path().join("packages").join("app");
         fs::create_dir_all(&pkg).unwrap();
-        fs::write(pkg.join("package.json"), r#"{"name":"app"}"#).unwrap();
+        write_package_json(&pkg, r#"{"name":"app"}"#);
 
         let ctx = ResolveContext::new(pkg, HniConfig::default());
         let resolved = resolve::resolve_ni(vec!["vite".into()], &ctx).unwrap();
 
         assert_eq!(resolved.program, "pnpm");
         assert_eq!(resolved.args, vec!["add", "vite"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
     });
 }
 
 #[test]
 fn nci_in_workspace_package_uses_root_lockfile() {
-    support::with_env_lock(|| {
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
-
+    with_skip_pm_check(|| {
         let root = tempfile::tempdir().unwrap();
         fs::write(root.path().join("pnpm-lock.yaml"), "lock").unwrap();
 
         let pkg = root.path().join("packages").join("app");
         fs::create_dir_all(&pkg).unwrap();
-        fs::write(pkg.join("package.json"), r#"{"name":"app"}"#).unwrap();
+        write_package_json(&pkg, r#"{"name":"app"}"#);
 
         let ctx = ResolveContext::new(pkg, HniConfig::default());
         let resolved = resolve::resolve_nci(Vec::new(), &ctx).unwrap();
 
         assert_eq!(resolved.program, "pnpm");
         assert_eq!(resolved.args, vec!["i", "--frozen-lockfile"]);
-        std::env::remove_var("HNI_SKIP_PM_CHECK");
+    });
+}
+
+#[test]
+fn nlx_npm_uses_npx() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nlx(vec!["vitest".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "npx");
+        assert_eq!(resolved.args, vec!["vitest"]);
+    });
+}
+
+#[test]
+fn nlx_pnpm_uses_dlx() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nlx(vec!["vitest".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "pnpm");
+        assert_eq!(resolved.args, vec!["dlx", "vitest"]);
+    });
+}
+
+#[test]
+fn nlx_yarn_berry_uses_dlx() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@4.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nlx(vec!["vitest".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["dlx", "vitest"]);
+    });
+}
+
+#[test]
+fn nlx_bun_uses_x() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"bun@1.1.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nlx(vec!["vitest".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "bun");
+        assert_eq!(resolved.args, vec!["x", "vitest"]);
+    });
+}
+
+#[test]
+fn nlx_deno_wraps_target_with_npm_prefix() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"deno@1.46.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nlx(vec!["vitest".into(), "--help".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "deno");
+        assert_eq!(resolved.args, vec!["run", "npm:vitest", "--help"]);
+    });
+}
+
+#[test]
+fn nu_interactive_for_yarn_classic_uses_upgrade_interactive() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@1.22.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nu(vec!["-i".into(), "vite".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["upgrade-interactive", "vite"]);
+    });
+}
+
+#[test]
+fn nu_interactive_for_yarn_berry_uses_up_i() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"yarn@4.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved =
+            resolve::resolve_nu(vec!["--interactive".into(), "vite".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["up", "-i", "vite"]);
+    });
+}
+
+#[test]
+fn nu_interactive_for_deno_maps_to_outdated_update() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"deno@1.46.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved = resolve::resolve_nu(vec!["-i".into(), "jsr:@std/fs".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "deno");
+        assert_eq!(resolved.args, vec!["outdated", "--update", "jsr:@std/fs"]);
+    });
+}
+
+#[test]
+fn nu_interactive_rejected_for_npm() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let err = resolve::resolve_nu(vec!["-i".into()], &ctx).unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("interactive upgrade is not supported for npm"));
+    });
+}
+
+#[test]
+fn nu_interactive_for_pnpm_uses_update_i() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let resolved =
+            resolve::resolve_nu(vec!["--interactive".into(), "vite".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "pnpm");
+        assert_eq!(resolved.args, vec!["update", "-i", "vite"]);
+    });
+}
+
+#[test]
+fn nun_global_without_target_errors_after_stripping_g_flag() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let err = resolve::resolve_nun(vec!["-g".into()], &ctx).unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("no dependencies selected for uninstall"));
+    });
+}
+
+#[test]
+fn nun_requires_at_least_one_dependency() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+        let err = resolve::resolve_nun(Vec::new(), &ctx).unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("no dependencies selected for uninstall"));
+    });
+}
+
+#[test]
+fn nun_global_uses_configured_global_agent() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let cfg = HniConfig {
+            global_agent: PackageManager::Yarn,
+            ..HniConfig::default()
+        };
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nun(vec!["-g".into(), "eslint".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["global", "remove", "eslint"]);
+    });
+}
+
+#[test]
+fn ni_global_rejects_yarn_berry_agent() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let cfg = HniConfig {
+            global_agent: PackageManager::YarnBerry,
+            ..HniConfig::default()
+        };
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let err = resolve::resolve_ni(vec!["-g".into(), "eslint".into()], &ctx).unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("global install/uninstall is not supported by yarn (berry)"));
+    });
+}
+
+#[test]
+fn nun_global_rejects_yarn_berry_agent() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let cfg = HniConfig {
+            global_agent: PackageManager::YarnBerry,
+            ..HniConfig::default()
+        };
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let err = resolve::resolve_nun(vec!["-g".into(), "eslint".into()], &ctx).unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("global install/uninstall is not supported by yarn (berry)"));
+    });
+}
+
+#[test]
+fn resolves_from_default_agent_when_no_project_hints_exist() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = HniConfig {
+            default_agent: DefaultAgent::Agent(PackageManager::Bun),
+            ..HniConfig::default()
+        };
+
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_ni(vec!["vite".into()], &ctx).unwrap();
+
+        assert_eq!(resolved.program, "bun");
+        assert_eq!(resolved.args, vec!["add", "vite"]);
     });
 }

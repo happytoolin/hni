@@ -4,6 +4,7 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 
 use crate::core::resolve::ResolveContext;
+use crate::core::types::PackageManager;
 
 #[derive(Debug, Deserialize)]
 struct NpmResponse {
@@ -23,17 +24,12 @@ struct NpmPackage {
 }
 
 pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> Result<Vec<String>> {
-    let is_interactive = args
-        .iter()
-        .any(|arg| matches!(arg.as_str(), "-i" | "--interactive"));
+    let is_interactive = interactive_requested(&args);
     if !is_interactive {
         return Ok(args);
     }
 
-    let mut args = args
-        .into_iter()
-        .filter(|arg| !matches!(arg.as_str(), "-i" | "--interactive"))
-        .collect::<Vec<_>>();
+    let args = strip_interactive_flags(args);
 
     let pattern = args
         .iter()
@@ -70,38 +66,56 @@ pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> R
     let chosen = &packages[idx].name;
 
     let agent = crate::core::resolve::detected_package_manager(ctx)?;
-    let can_peer = matches!(
-        agent,
-        crate::core::types::PackageManager::Npm | crate::core::types::PackageManager::Pnpm
-    );
-    let mode_labels = if can_peer {
-        vec!["prod", "dev", "peer"]
-    } else {
-        vec!["prod", "dev"]
-    };
+    let mode_labels = mode_labels_for(agent);
     let mode_idx = Select::with_theme(&ColorfulTheme::default())
         .with_prompt(format!("Install {chosen} as"))
         .items(&mode_labels)
         .default(0)
         .interact()?;
 
+    Ok(apply_selected_package(args, chosen, mode_labels[mode_idx]))
+}
+
+fn interactive_requested(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| matches!(arg.as_str(), "-i" | "--interactive"))
+}
+
+fn strip_interactive_flags(args: Vec<String>) -> Vec<String> {
+    args.into_iter()
+        .filter(|arg| !matches!(arg.as_str(), "-i" | "--interactive"))
+        .collect()
+}
+
+fn mode_labels_for(agent: PackageManager) -> Vec<&'static str> {
+    if matches!(agent, PackageManager::Npm | PackageManager::Pnpm) {
+        vec!["prod", "dev", "peer"]
+    } else {
+        vec!["prod", "dev"]
+    }
+}
+
+fn apply_selected_package(mut args: Vec<String>, chosen: &str, mode: &str) -> Vec<String> {
     let mut removed_search_query = false;
     args.retain(|arg| {
         if !removed_search_query && !arg.starts_with('-') {
             removed_search_query = true;
             return false;
         }
-        !matches!(arg.as_str(), "-d" | "-p" | "--dev" | "--peer")
+        !matches!(
+            arg.as_str(),
+            "-d" | "-D" | "-p" | "--dev" | "--peer" | "--save-dev" | "--save-peer"
+        )
     });
-    args.push(chosen.clone());
+    args.push(chosen.to_string());
 
-    match mode_labels[mode_idx] {
+    match mode {
         "dev" => args.push("-D".to_string()),
         "peer" => args.push("--save-peer".to_string()),
         _ => {}
     }
 
-    Ok(args)
+    args
 }
 
 fn prompt_pattern() -> Result<String> {
@@ -126,4 +140,85 @@ fn fetch_npm_packages(pattern: &str) -> Result<Vec<NpmPackage>> {
         .context("failed to parse npm registry response")?;
 
     Ok(parsed.objects.into_iter().map(|obj| obj.package).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::{config::HniConfig, resolve::ResolveContext};
+    use std::path::PathBuf;
+
+    #[test]
+    fn detects_interactive_request_from_short_or_long_flag() {
+        assert!(interactive_requested(&["-i".to_string()]));
+        assert!(interactive_requested(&["--interactive".to_string()]));
+        assert!(!interactive_requested(&["react".to_string()]));
+    }
+
+    #[test]
+    fn strips_interactive_flags_only() {
+        let out = strip_interactive_flags(vec![
+            "react".to_string(),
+            "-i".to_string(),
+            "--interactive".to_string(),
+            "-D".to_string(),
+        ]);
+        assert_eq!(out, vec!["react", "-D"]);
+    }
+
+    #[test]
+    fn mode_labels_include_peer_only_for_npm_and_pnpm() {
+        assert_eq!(
+            mode_labels_for(PackageManager::Npm),
+            vec!["prod", "dev", "peer"]
+        );
+        assert_eq!(
+            mode_labels_for(PackageManager::Pnpm),
+            vec!["prod", "dev", "peer"]
+        );
+        assert_eq!(mode_labels_for(PackageManager::Yarn), vec!["prod", "dev"]);
+        assert_eq!(
+            mode_labels_for(PackageManager::YarnBerry),
+            vec!["prod", "dev"]
+        );
+        assert_eq!(mode_labels_for(PackageManager::Bun), vec!["prod", "dev"]);
+        assert_eq!(mode_labels_for(PackageManager::Deno), vec!["prod", "dev"]);
+    }
+
+    #[test]
+    fn apply_selected_package_replaces_search_query_and_dev_mode_flags() {
+        let out = apply_selected_package(
+            vec![
+                "--frozen".to_string(),
+                "react".to_string(),
+                "--save-peer".to_string(),
+                "-d".to_string(),
+                "--peer".to_string(),
+                "@types/react".to_string(),
+            ],
+            "vue",
+            "prod",
+        );
+        assert_eq!(out, vec!["--frozen", "@types/react", "vue"]);
+    }
+
+    #[test]
+    fn apply_selected_package_adds_dev_flag() {
+        let out = apply_selected_package(vec!["react".to_string()], "vue", "dev");
+        assert_eq!(out, vec!["vue", "-D"]);
+    }
+
+    #[test]
+    fn apply_selected_package_adds_peer_flag() {
+        let out = apply_selected_package(vec!["react".to_string()], "vue", "peer");
+        assert_eq!(out, vec!["vue", "--save-peer"]);
+    }
+
+    #[test]
+    fn non_interactive_call_is_passthrough() {
+        let ctx = ResolveContext::new(PathBuf::from("."), HniConfig::default());
+        let input = vec!["react".to_string(), "-D".to_string()];
+        let out = augment_ni_args_interactive(input.clone(), &ctx).unwrap();
+        assert_eq!(out, input);
+    }
 }
