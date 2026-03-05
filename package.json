@@ -3,5 +3,10 @@
   "version": "0.0.1",
   "description": "hni project metadata",
   "private": true,
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "bench:ni": "./benchmarks/run.sh",
+    "bench:ni:ci": "./benchmarks/run.sh --min-speedup=8",
+    "bench:ni:clean": "find benchmarks/results -type f ! -name '.gitkeep' -delete"
+  }
 }
