@@ -127,7 +127,7 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Resolve
 
     if has_if_present {
         if let Some(first) = resolved.args.first() {
-            if first == "run" {
+            if matches!(first.as_str(), "run" | "task") {
                 resolved.args.insert(1, "--if-present".to_string());
             } else {
                 resolved.args.insert(0, "--if-present".to_string());

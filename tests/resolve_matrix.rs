@@ -277,7 +277,7 @@ fn nr_if_present_for_non_run_command_is_prefixed() {
             resolve::resolve_nr(vec!["build".into(), "--if-present".into()], &ctx).unwrap();
 
         assert_eq!(resolved.program, "deno");
-        assert_eq!(resolved.args, vec!["--if-present", "task", "build"]);
+        assert_eq!(resolved.args, vec!["task", "--if-present", "build"]);
     });
 }
 
