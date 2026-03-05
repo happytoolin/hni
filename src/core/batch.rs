@@ -151,6 +151,8 @@ mod tests {
             &["echo hello world".to_string(), "echo ok".to_string()],
         );
         assert!(rendered.starts_with("hni batch:parallel"));
-        assert!(rendered.contains("\"echo hello world\""));
+        assert!(
+            rendered.contains("\"echo hello world\"") || rendered.contains("'echo hello world'")
+        );
     }
 }

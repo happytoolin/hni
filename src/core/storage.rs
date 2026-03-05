@@ -1,5 +1,3 @@
-use std::{fs, io, path::PathBuf};
-
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -9,35 +7,9 @@ pub struct Storage {
 }
 
 pub fn load_storage() -> Result<Storage> {
-    let path = storage_path()?;
-    let raw = match fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Storage::default()),
-        Err(e) => {
-            return Err(e)
-                .with_context(|| format!("failed to read storage file {}", path.display()))
-        }
-    };
-
-    let parsed = serde_json::from_str::<Storage>(&raw)
-        .with_context(|| format!("failed to parse storage file {}", path.display()))?;
-
-    Ok(parsed)
+    confy::load("hni", Some("storage")).context("failed to load hni storage")
 }
 
 pub fn save_storage(storage: &Storage) -> Result<()> {
-    let path = storage_path()?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create storage dir {}", parent.display()))?;
-    }
-
-    let raw = serde_json::to_string(storage)?;
-    fs::write(&path, raw).with_context(|| format!("failed to write {}", path.display()))?;
-    Ok(())
-}
-
-fn storage_path() -> Result<PathBuf> {
-    let base = dirs::cache_dir().ok_or_else(|| anyhow::anyhow!("cannot find cache directory"))?;
-    Ok(base.join("hni").join("storage.json"))
+    confy::store("hni", Some("storage"), storage).context("failed to save hni storage")
 }

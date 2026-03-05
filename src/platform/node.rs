@@ -56,35 +56,23 @@ fn scan_path_for_real_node() -> Option<PathBuf> {
     let current_exe = env::current_exe().ok();
     let current_dir = current_exe
         .as_ref()
-        .and_then(|p| p.parent().map(Path::to_path_buf));
-
-    let path_env = env::var_os("PATH")?;
-    let mut candidates = vec!["node"]; // Unix
-    if cfg!(windows) {
-        candidates.extend(["node.exe", "node.cmd", "node.bat"]);
-    }
-
-    for entry in env::split_paths(&path_env) {
+        .and_then(|path| path.parent().map(Path::to_path_buf));
+    let candidates = which::which_all("node").ok()?;
+    for candidate in candidates {
         if let Some(current_dir) = &current_dir {
-            if paths_equal(&entry, current_dir) {
-                continue;
-            }
-        }
-
-        for candidate in &candidates {
-            let bin_path = entry.join(candidate);
-            if !bin_path.exists() {
-                continue;
-            }
-
-            if let Some(current_exe) = &current_exe {
-                if paths_equal(&bin_path, current_exe) {
+            if let Some(parent) = candidate.parent() {
+                if paths_equal(parent, current_dir) {
                     continue;
                 }
             }
-
-            return Some(bin_path);
         }
+
+        if let Some(current_exe) = &current_exe {
+            if paths_equal(&candidate, current_exe) {
+                continue;
+            }
+        }
+        return Some(candidate);
     }
 
     None

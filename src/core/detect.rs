@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use semver::Version;
 
 use super::{
     config::{DefaultAgent, HniConfig},
@@ -175,10 +176,14 @@ fn parse_package_manager_field(value: &str) -> Option<(PackageManager, Option<St
 }
 
 fn parse_major(version: &str) -> Option<u64> {
-    version
-        .split('.')
-        .next()
-        .and_then(|first| first.parse::<u64>().ok())
+    Version::parse(version)
+        .map(|parsed| parsed.major)
+        .ok()
+        .or_else(|| {
+            Version::parse(&format!("{version}.0.0"))
+                .map(|parsed| parsed.major)
+                .ok()
+        })
 }
 
 #[cfg(test)]

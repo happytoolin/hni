@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use configparser::ini::Ini;
 
 use super::types::PackageManager;
 
@@ -101,27 +102,24 @@ fn parse_hnirc_file(path: &Path, config: &mut HniConfig) -> Result<()> {
         }
     };
 
-    for (line_no, line) in raw.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with(';') || line.starts_with('#') {
-            continue;
-        }
+    let mut ini = Ini::new();
+    ini.read(raw)
+        .map_err(|e| anyhow!("failed to parse config file {}: {e}", path.display()))?;
 
-        let (key, value) = line
-            .split_once('=')
-            .ok_or_else(|| anyhow!("invalid config line {} in {}", line_no + 1, path.display()))?;
-
-        let key = key.trim();
-        let value = value.split('#').next().unwrap_or("").trim();
-
-        match key {
-            "defaultAgent" => config.default_agent = parse_default_agent(value)?,
-            "globalAgent" => config.global_agent = parse_pm(value)?,
-            "runAgent" => config.run_agent = parse_run_agent(value)?,
-            "useSfw" => config.use_sfw = parse_bool(value)?,
-            "autoInstall" => config.auto_install = parse_bool(value)?,
-            _ => {}
-        }
+    if let Some(v) = ini.get("default", "defaultagent") {
+        config.default_agent = parse_default_agent(v.trim())?;
+    }
+    if let Some(v) = ini.get("default", "globalagent") {
+        config.global_agent = parse_pm(v.trim())?;
+    }
+    if let Some(v) = ini.get("default", "runagent") {
+        config.run_agent = parse_run_agent(v.trim())?;
+    }
+    if let Some(v) = ini.get("default", "usesfw") {
+        config.use_sfw = parse_bool(v.trim())?;
+    }
+    if let Some(v) = ini.get("default", "autoinstall") {
+        config.auto_install = parse_bool(v.trim())?;
     }
 
     Ok(())
