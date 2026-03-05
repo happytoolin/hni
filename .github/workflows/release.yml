@@ -193,7 +193,7 @@ jobs:
         working-directory: tap
         run: |
           set -euo pipefail
-          if git diff --quiet; then
+          if [[ -z "$(git status --porcelain)" ]]; then
             echo "No Homebrew changes to publish"
             exit 0
           fi
