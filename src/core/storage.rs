@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, io, path::PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -10,12 +10,15 @@ pub struct Storage {
 
 pub fn load_storage() -> Result<Storage> {
     let path = storage_path()?;
-    if !path.exists() {
-        return Ok(Storage::default());
-    }
+    let raw = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Storage::default()),
+        Err(e) => {
+            return Err(e)
+                .with_context(|| format!("failed to read storage file {}", path.display()))
+        }
+    };
 
-    let raw = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read storage file {}", path.display()))?;
     let parsed = serde_json::from_str::<Storage>(&raw)
         .with_context(|| format!("failed to parse storage file {}", path.display()))?;
 

@@ -27,62 +27,69 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExe
 
     if use_global {
         let args = exclude_flag(args, "-g");
-        return build_exec(
+        return Ok(build_exec(
             detected.pm,
             Intent::Install,
             args,
             &ctx.cwd,
             true,
             detected.has_lock,
-        );
+        ));
     }
 
     if args.iter().any(|a| a == "--frozen-if-present") {
         let args = exclude_flag(args, "--frozen-if-present");
         if detected.has_lock {
-            return build_exec(
+            return Ok(build_exec(
                 detected.pm,
                 Intent::CleanInstall,
                 args,
                 &ctx.cwd,
                 false,
                 true,
-            );
+            ));
         }
-        return build_exec(detected.pm, Intent::Install, args, &ctx.cwd, false, false);
+        return Ok(build_exec(
+            detected.pm,
+            Intent::Install,
+            args,
+            &ctx.cwd,
+            false,
+            false,
+        ));
     }
 
     if args.iter().any(|a| a == "--frozen") {
         let args = exclude_flag(args, "--frozen");
-        return build_exec(
+        return Ok(build_exec(
             detected.pm,
             Intent::CleanInstall,
             args,
             &ctx.cwd,
             false,
             true,
-        );
+        ));
     }
 
     if args.is_empty() || args.iter().all(|a| a.starts_with('-')) {
-        return build_exec(
+        return Ok(build_exec(
             detected.pm,
             Intent::Install,
             args,
             &ctx.cwd,
             false,
             detected.has_lock,
-        );
+        ));
     }
 
-    build_exec(
+    Ok(build_exec(
         detected.pm,
         Intent::Add,
         args,
         &ctx.cwd,
         false,
         detected.has_lock,
-    )
+    ))
 }
 
 pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
@@ -116,7 +123,7 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Resolve
         &ctx.cwd,
         false,
         detected.has_lock,
-    )?;
+    );
 
     if has_if_present {
         if let Some(first) = resolved.args.first() {
@@ -135,14 +142,14 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Resolve
 
 pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(&ctx.cwd, &ctx.config, false)?;
-    build_exec(
+    Ok(build_exec(
         detected.pm,
         Intent::Execute,
         args,
         &ctx.cwd,
         false,
         detected.has_lock,
-    )
+    ))
 }
 
 pub fn resolve_nu(mut args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
@@ -168,44 +175,51 @@ pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedEx
         return Err(anyhow!("no dependencies selected for uninstall"));
     }
 
-    build_exec(
+    Ok(build_exec(
         detected.pm,
         Intent::Uninstall,
         args,
         &ctx.cwd,
         use_global,
         detected.has_lock,
-    )
+    ))
 }
 
 pub fn resolve_nci(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(&ctx.cwd, &ctx.config, false)?;
 
     if detected.has_lock {
-        build_exec(
+        Ok(build_exec(
             detected.pm,
             Intent::CleanInstall,
             args,
             &ctx.cwd,
             false,
             true,
-        )
+        ))
     } else {
-        build_exec(detected.pm, Intent::Install, args, &ctx.cwd, false, false)
+        Ok(build_exec(
+            detected.pm,
+            Intent::Install,
+            args,
+            &ctx.cwd,
+            false,
+            false,
+        ))
     }
 }
 
 pub fn resolve_na(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(&ctx.cwd, &ctx.config, false)?;
 
-    build_exec(
+    Ok(build_exec(
         detected.pm,
         Intent::AgentAlias,
         args,
         &ctx.cwd,
         false,
         detected.has_lock,
-    )
+    ))
 }
 
 pub fn resolve_node_passthrough(args: Vec<String>, cwd: &Path) -> ResolvedExecution {
@@ -245,14 +259,14 @@ fn resolve_detected_intent(
     ctx: &ResolveContext,
 ) -> Result<ResolvedExecution> {
     let detected = detect_for_action(&ctx.cwd, &ctx.config, false)?;
-    build_exec(
+    Ok(build_exec(
         detected.pm,
         intent,
         args,
         &ctx.cwd,
         false,
         detected.has_lock,
-    )
+    ))
 }
 
 fn detect_for_action(cwd: &Path, config: &HniConfig, use_global: bool) -> Result<AgentResolution> {
@@ -320,7 +334,7 @@ fn build_exec(
     cwd: &Path,
     use_global: bool,
     has_lock: bool,
-) -> Result<ResolvedExecution> {
+) -> ResolvedExecution {
     let (program, args) = match intent {
         Intent::Install => {
             if use_global {
@@ -349,21 +363,21 @@ fn build_exec(
         }
         Intent::AgentAlias => (pm.bin().to_string(), args),
         Intent::PassthroughNode => {
-            return Ok(ResolvedExecution {
+            return ResolvedExecution {
                 program: "node".to_string(),
                 args,
                 cwd: cwd.to_path_buf(),
                 passthrough: true,
-            })
+            };
         }
     };
 
-    Ok(ResolvedExecution {
+    ResolvedExecution {
         program,
         args,
         cwd: cwd.to_path_buf(),
         passthrough: false,
-    })
+    }
 }
 
 pub fn version_command_for_pm(pm: PackageManager) -> (String, Vec<String>) {
@@ -522,7 +536,7 @@ fn prepend(head: &str, mut tail: Vec<String>) -> Vec<String> {
     out
 }
 
-fn exclude_flag(args: Vec<String>, flag: &str) -> Vec<String> {
+pub fn exclude_flag(args: Vec<String>, flag: &str) -> Vec<String> {
     args.into_iter().filter(|arg| arg != flag).collect()
 }
 

@@ -30,21 +30,25 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<Reso
         }
     }
 
-    if args.first().is_some_and(|a| a == "-") {
-        let storage = load_storage()?;
-        let last = storage
-            .last_run_command
-            .ok_or_else(|| anyhow!("no last command found"))?;
-        args[0] = last;
-    }
+    let needs_last = args.first().is_some_and(|a| a == "-");
 
     if args.is_empty() {
         args.push(choose_script_interactive(&ctx.cwd)?);
     }
 
     let mut storage = load_storage().unwrap_or_default();
+
+    if needs_last {
+        let last = storage
+            .last_run_command
+            .ok_or_else(|| anyhow!("no last command found"))?;
+        args[0] = last;
+    }
+
     storage.last_run_command = args.first().cloned();
-    let _ = save_storage(&storage);
+    if let Err(err) = save_storage(&storage) {
+        eprintln!("[hni] warning: failed to persist last command: {err}");
+    }
 
     let resolved = resolve::resolve_nr(args, ctx)?;
     Ok(Some(resolved))

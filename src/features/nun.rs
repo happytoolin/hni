@@ -8,7 +8,7 @@ use crate::{
 pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
     let interactive_multi = args.iter().any(|arg| arg == "-m");
     if interactive_multi {
-        args.retain(|arg| arg != "-m");
+        args = crate::core::resolve::exclude_flag(args, "-m");
     }
 
     if args.is_empty() || interactive_multi {

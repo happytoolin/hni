@@ -29,13 +29,13 @@ compdef _{command} {command}
 
 pub fn completion_script_fish(command: &str) -> String {
     format!(
-        r#"function __{command}_complete
+        r"function __{command}_complete
   set -lx COMP_LINE (commandline -cp)
   set -lx COMP_CWORD (count (commandline -opc))
   {command} --completion (commandline -opc)
 end
 complete -f -c {command} -a '(__{command}_complete)'
-"#
+"
     )
 }
 

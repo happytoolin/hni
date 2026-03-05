@@ -100,17 +100,17 @@ fn run_parallel(commands: &[String], cwd: &Path) -> Result<ExitCode> {
         }));
     }
 
-    let mut first_non_zero = 0;
+    let mut first_non_zero: Option<i32> = None;
     for handle in handles {
         let code = handle
             .join()
             .map_err(|_| anyhow::anyhow!("parallel command worker panicked"))??;
-        if code != 0 && first_non_zero == 0 {
-            first_non_zero = code;
+        if code != 0 && first_non_zero.is_none() {
+            first_non_zero = Some(code);
         }
     }
 
-    Ok(ExitCode::from(first_non_zero as u8))
+    Ok(first_non_zero.map_or(ExitCode::SUCCESS, exit_code_from_code))
 }
 
 fn shell_command(command_string: &str, cwd: &Path) -> Command {
@@ -132,7 +132,12 @@ fn shell_command(command_string: &str, cwd: &Path) -> Command {
 }
 
 fn exit_code_from_status(code: Option<i32>) -> ExitCode {
-    ExitCode::from(code.unwrap_or(1) as u8)
+    code.map_or_else(|| ExitCode::from(1), exit_code_from_code)
+}
+
+fn exit_code_from_code(code: i32) -> ExitCode {
+    let code = u8::try_from(code).unwrap_or(1);
+    ExitCode::from(code)
 }
 
 #[cfg(test)]

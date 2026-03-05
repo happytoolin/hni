@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    env, fs, io,
     path::{Path, PathBuf},
 };
 
@@ -51,10 +51,9 @@ impl HniConfig {
             .or_else(default_config_path);
 
         if let Some(path) = config_path {
-            if path.exists() {
-                parse_hnirc_file(&path, &mut cfg)?;
-                cfg.config_path = Some(path);
-            }
+            parse_hnirc_file(&path, &mut cfg)
+                .with_context(|| format!("failed to load config from {}", path.display()))?;
+            cfg.config_path = Some(path);
         }
 
         if let Some(v) = env_key(&["HNI_DEFAULT_AGENT", "NI_DEFAULT_AGENT"]) {
@@ -93,8 +92,14 @@ fn env_key(keys: &[&str]) -> Option<String> {
 }
 
 fn parse_hnirc_file(path: &Path, config: &mut HniConfig) -> Result<()> {
-    let raw = fs::read_to_string(path)
-        .with_context(|| format!("failed to read config file {}", path.display()))?;
+    let raw = match fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => {
+            return Err(e)
+                .with_context(|| format!("failed to read config file {}", path.display()))?
+        }
+    };
 
     for (line_no, line) in raw.lines().enumerate() {
         let line = line.trim();

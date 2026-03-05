@@ -3,7 +3,7 @@ use dialoguer::{theme::ColorfulTheme, FuzzySelect, Input, Select};
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
-use crate::core::types::PackageManager;
+use crate::core::resolve::ResolveContext;
 
 #[derive(Debug, Deserialize)]
 struct NpmResponse {
@@ -22,10 +22,7 @@ struct NpmPackage {
     description: Option<String>,
 }
 
-pub fn augment_ni_args_interactive(
-    args: Vec<String>,
-    agent: PackageManager,
-) -> Result<Vec<String>> {
+pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> Result<Vec<String>> {
     let mut args = args;
     let is_interactive = args.first().is_some_and(|a| a == "-i");
     if !is_interactive {
@@ -36,8 +33,7 @@ pub fn augment_ni_args_interactive(
         .get(1)
         .filter(|v| !v.starts_with('-'))
         .cloned()
-        .map(Ok)
-        .unwrap_or_else(prompt_pattern)?;
+        .map_or_else(prompt_pattern, Ok)?;
 
     if pattern.trim().is_empty() {
         return Err(anyhow!(
@@ -67,7 +63,11 @@ pub fn augment_ni_args_interactive(
 
     let chosen = &packages[idx].name;
 
-    let can_peer = matches!(agent, PackageManager::Npm | PackageManager::Pnpm);
+    let agent = crate::core::resolve::detected_package_manager(ctx)?;
+    let can_peer = matches!(
+        agent,
+        crate::core::types::PackageManager::Npm | crate::core::types::PackageManager::Pnpm
+    );
     let mode_labels = if can_peer {
         vec!["prod", "dev", "peer"]
     } else {
@@ -80,7 +80,7 @@ pub fn augment_ni_args_interactive(
         .interact()?;
 
     args.retain(|arg| !matches!(arg.as_str(), "-i" | "-d" | "-p"));
-    args.push(chosen.to_string());
+    args.push(chosen.clone());
 
     match mode_labels[mode_idx] {
         "dev" => args.push("-D".to_string()),

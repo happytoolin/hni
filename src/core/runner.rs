@@ -32,8 +32,7 @@ pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
         .status()
         .with_context(|| format!("failed to execute {program}"))?;
 
-    let code = status.code().unwrap_or(1) as u8;
-    Ok(ExitCode::from(code))
+    Ok(exit_code_from_status(status.code()))
 }
 
 pub fn format_debug(exec: &ResolvedExecution, use_sfw: bool) -> Result<String> {
@@ -70,4 +69,13 @@ fn materialize(exec: &ResolvedExecution, use_sfw: bool) -> Result<(String, Vec<S
     }
 
     Ok((program, args, passthrough))
+}
+
+fn exit_code_from_status(code: Option<i32>) -> ExitCode {
+    code.map_or_else(|| ExitCode::from(1), exit_code_from_code)
+}
+
+fn exit_code_from_code(code: i32) -> ExitCode {
+    let code = u8::try_from(code).unwrap_or(1);
+    ExitCode::from(code)
 }

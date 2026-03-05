@@ -29,12 +29,12 @@ pub fn package_json_path(cwd: &Path) -> PathBuf {
 
 pub fn read_package_json(cwd: &Path) -> Result<Option<PackageJson>> {
     let path = package_json_path(cwd);
-    if !path.exists() {
-        return Ok(None);
-    }
+    let raw = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e).with_context(|| format!("failed to read {}", path.display()))?,
+    };
 
-    let raw =
-        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     let parsed: PackageJson = serde_json::from_str(&raw)
         .with_context(|| format!("failed to parse {}", path.display()))?;
     Ok(Some(parsed))
