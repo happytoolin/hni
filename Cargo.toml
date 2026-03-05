@@ -1,84 +1,29 @@
 [package]
-name = "nirs"
-version = "0.0.7"
-authors = ["Spark <spark@noreply.github.com>"]
+name = "hni"
+version = "0.0.1"
+authors = ["Spark <helllo@kamran.sh>"]
 categories = ["command-line-utilities", "development-tools"]
 edition = "2021"
-exclude = [
-  "tests/*",
-  ".github/*",
-  ".gitignore",
-  ".specstory/*",
-]
 keywords = ["package-manager", "npm", "yarn", "pnpm", "cli"]
 license = "MIT"
-readme = "README.md"
-repository = "https://github.com/spark/nirs"
-description = "A collection of npm-inspired commands reimplemented in Rust for better performance"
+repository = "https://github.com/happytoolin/hni"
+description = "ni-compatible package manager command router with node shim"
 
-# Enable better optimizations for release builds
 [profile.release]
-lto = true # Enable link-time optimization
-codegen-units = 1 # Reduce parallel code generation units for better optimization
-opt-level = 3 # Maximum optimization
-panic = "abort" # Remove panic unwinding code
-strip = true # Strip symbols from binary
-
-# Development profile with good debugging experience
-[profile.dev]
-opt-level = 1 # Basic optimizations without sacrificing debug experience
-debug = true # Keep debug symbols
+lto = true
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+strip = true
 
 [dependencies]
-anyhow = "1.0.95"
-chrono = { version = "0.4", features = ["serde"] }
-config = { version = "0.15", features = ["yaml"] }
-crossbeam = "0.8.4"
-ctrlc = { version = "3.4.5", features = ["termination"] }
-env_logger = { version = "0.11", features = ["auto-color", "humantime"] }
-log = { version = "0.4", features = ["release_max_level_info"] }
-reqwest = { version = "0.11", features = ["json"] }
+anyhow = "1.0"
+dialoguer = { version = "0.12", features = ["fuzzy-select"] }
+dirs = "6.0"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "rustls"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.138"
-thiserror = "2.0.11"
-tokio = { version = "1.0", features = ["full"] }
-
-[[bin]]
-name = "na"
-path = "src/bin/na.rs"
-
-[[bin]]
-name = "nci"
-path = "src/bin/nci.rs"
-
-[[bin]]
-name = "ni"
-path = "src/bin/ni.rs"
-
-[[bin]]
-name = "nlx"
-path = "src/bin/nlx.rs"
-
-[[bin]]
-name = "nr"
-path = "src/bin/nr.rs"
-
-[[bin]]
-name = "nu"
-path = "src/bin/nu.rs"
-
-[[bin]]
-name = "nun"
-path = "src/bin/nun.rs"
-
-[[bin]]
-name = "np"
-path = "src/bin/np.rs"
-
-[[bin]]
-name = "ns"
-path = "src/bin/ns.rs"
+serde_json = "1.0"
+which = "8.0"
 
 [dev-dependencies]
-tempfile = "3.17.0"
-which = "7.0.2"
+tempfile = "3.26"

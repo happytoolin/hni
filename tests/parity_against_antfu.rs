@@ -1,0 +1,311 @@
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
+
+mod support;
+
+#[test]
+fn compare_with_installed_antfu_when_available() {
+    support::with_env_lock(|| {
+        let Some(cmds) = antfu_bins() else {
+            return;
+        };
+
+        let our_bin = hni_executable_path();
+        if !our_bin.exists() {
+            return;
+        }
+        let work = tempfile::tempdir().unwrap();
+        let our_alias_dir = work.path().join("our-bin");
+        fs::create_dir_all(&our_alias_dir).unwrap();
+
+        create_alias(&our_bin, &our_alias_dir, "ni");
+        create_alias(&our_bin, &our_alias_dir, "nr");
+        create_alias(&our_bin, &our_alias_dir, "nlx");
+        create_alias(&our_bin, &our_alias_dir, "nun");
+        create_alias(&our_bin, &our_alias_dir, "nci");
+        create_alias(&our_bin, &our_alias_dir, "nu");
+
+        for fixture in build_fixtures(work.path(), &cmds) {
+            if !fixture
+                .prereq_bins
+                .iter()
+                .all(|bin| which::which(bin).is_ok())
+            {
+                continue;
+            }
+
+            for case in &fixture.cases {
+                let antfu_out = run(
+                    &case.antfu_bin,
+                    &fixture.path,
+                    &case.args,
+                    &[("HNI_SKIP_PM_CHECK", "1")],
+                );
+
+                let our_bin_path = if cfg!(windows) {
+                    our_alias_dir.join(format!("{}.exe", case.our_bin))
+                } else {
+                    our_alias_dir.join(&case.our_bin)
+                };
+
+                let our_out = run(
+                    &our_bin_path,
+                    &fixture.path,
+                    &case.args,
+                    &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_AUTO_INSTALL", "false")],
+                );
+
+                assert_eq!(
+                    normalize(&our_out),
+                    normalize(&antfu_out),
+                    "mismatch for fixture={} our={} args={:?}\nantfu={}\nours={}",
+                    fixture.name,
+                    case.our_bin,
+                    case.args,
+                    antfu_out.trim(),
+                    our_out.trim()
+                );
+            }
+        }
+    });
+}
+
+#[derive(Clone)]
+struct Fixture {
+    name: String,
+    path: PathBuf,
+    prereq_bins: Vec<String>,
+    cases: Vec<Case>,
+}
+
+#[derive(Clone)]
+struct Case {
+    antfu_bin: PathBuf,
+    our_bin: String,
+    args: Vec<String>,
+}
+
+fn build_fixtures(root: &Path, cmds: &AntfuBins) -> Vec<Fixture> {
+    let mut fixtures = Vec::new();
+
+    let base_cases = vec![
+        Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
+            args: vec!["vite".into()],
+        },
+        Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
+            args: vec!["@types/node".into(), "-D".into()],
+        },
+        Case {
+            antfu_bin: cmds.ni.clone(),
+            our_bin: "ni".into(),
+            args: vec!["-P".into()],
+        },
+        Case {
+            antfu_bin: cmds.nci.clone(),
+            our_bin: "nci".into(),
+            args: vec![],
+        },
+        Case {
+            antfu_bin: cmds.nr.clone(),
+            our_bin: "nr".into(),
+            args: vec!["dev".into(), "--port=3000".into()],
+        },
+        Case {
+            antfu_bin: cmds.nlx.clone(),
+            our_bin: "nlx".into(),
+            args: vec!["vitest".into()],
+        },
+        Case {
+            antfu_bin: cmds.nun.clone(),
+            our_bin: "nun".into(),
+            args: vec!["webpack".into()],
+        },
+        Case {
+            antfu_bin: cmds.nup.clone(),
+            our_bin: "nu".into(),
+            args: vec![],
+        },
+    ];
+
+    let npm = root.join("npm");
+    fs::create_dir_all(&npm).unwrap();
+    fs::write(
+        npm.join("package.json"),
+        r#"{"name":"x","scripts":{"dev":"vite"}}"#,
+    )
+    .unwrap();
+    fs::write(npm.join("package-lock.json"), "lock").unwrap();
+    fixtures.push(Fixture {
+        name: "npm".into(),
+        path: npm,
+        prereq_bins: vec!["npm".into(), "npx".into()],
+        cases: base_cases.clone(),
+    });
+
+    let pnpm = root.join("pnpm");
+    fs::create_dir_all(&pnpm).unwrap();
+    fs::write(
+        pnpm.join("package.json"),
+        r#"{"name":"x","scripts":{"dev":"vite"}}"#,
+    )
+    .unwrap();
+    fs::write(pnpm.join("pnpm-lock.yaml"), "lock").unwrap();
+    let mut pnpm_cases = base_cases.clone();
+    pnpm_cases.push(Case {
+        antfu_bin: cmds.nup.clone(),
+        our_bin: "nu".into(),
+        args: vec!["-i".into()],
+    });
+    fixtures.push(Fixture {
+        name: "pnpm".into(),
+        path: pnpm,
+        prereq_bins: vec!["pnpm".into()],
+        cases: pnpm_cases.clone(),
+    });
+
+    let workspace_root = root.join("pnpm-workspace");
+    let workspace_pkg = workspace_root.join("packages").join("app");
+    fs::create_dir_all(&workspace_pkg).unwrap();
+    fs::write(
+        workspace_root.join("package.json"),
+        r#"{"name":"workspace","packageManager":"pnpm@9.0.0","workspaces":["packages/*"]}"#,
+    )
+    .unwrap();
+    fs::write(workspace_root.join("pnpm-lock.yaml"), "lock").unwrap();
+    fs::write(
+        workspace_pkg.join("package.json"),
+        r#"{"name":"app","scripts":{"dev":"vite"}}"#,
+    )
+    .unwrap();
+    fixtures.push(Fixture {
+        name: "pnpm-workspace-subpkg".into(),
+        path: workspace_pkg,
+        prereq_bins: vec!["pnpm".into()],
+        cases: pnpm_cases,
+    });
+
+    let bun = root.join("bun");
+    fs::create_dir_all(&bun).unwrap();
+    fs::write(
+        bun.join("package.json"),
+        r#"{"name":"x","scripts":{"dev":"vite"}}"#,
+    )
+    .unwrap();
+    fs::write(bun.join("bun.lockb"), "lock").unwrap();
+    fixtures.push(Fixture {
+        name: "bun".into(),
+        path: bun,
+        prereq_bins: vec!["bun".into()],
+        cases: base_cases.clone(),
+    });
+
+    let deno = root.join("deno");
+    fs::create_dir_all(&deno).unwrap();
+    fs::write(
+        deno.join("package.json"),
+        r#"{"name":"x","scripts":{"dev":"deno task dev"}}"#,
+    )
+    .unwrap();
+    fs::write(deno.join("deno.lock"), "lock").unwrap();
+    let mut deno_cases = base_cases;
+    deno_cases.push(Case {
+        antfu_bin: cmds.nup.clone(),
+        our_bin: "nu".into(),
+        args: vec!["-i".into()],
+    });
+    fixtures.push(Fixture {
+        name: "deno".into(),
+        path: deno,
+        prereq_bins: vec!["deno".into()],
+        cases: deno_cases,
+    });
+
+    fixtures
+}
+
+#[derive(Clone)]
+struct AntfuBins {
+    ni: PathBuf,
+    nr: PathBuf,
+    nlx: PathBuf,
+    nun: PathBuf,
+    nci: PathBuf,
+    nup: PathBuf,
+}
+
+fn antfu_bins() -> Option<AntfuBins> {
+    Some(AntfuBins {
+        ni: which::which("ni").ok()?,
+        nr: which::which("nr").ok()?,
+        nlx: which::which("nlx").ok()?,
+        nun: which::which("nun").ok()?,
+        nci: which::which("nci").ok()?,
+        nup: which::which("nup").ok()?,
+    })
+}
+
+fn run(bin: &Path, fixture: &Path, args: &[String], envs: &[(&str, &str)]) -> String {
+    let mut cmd = Command::new(bin);
+    cmd.arg("-C").arg(fixture);
+    cmd.args(args);
+    cmd.arg("?");
+
+    for (k, v) in envs {
+        cmd.env(k, v);
+    }
+
+    let output = cmd.output().expect("failed to run command");
+    assert!(
+        output.status.success(),
+        "command failed: {}\n{}",
+        bin.display(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8_lossy(&output.stdout).to_string()
+}
+
+fn normalize(input: &str) -> String {
+    input.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn create_alias(target: &Path, dir: &Path, alias: &str) {
+    let alias_path = if cfg!(windows) {
+        dir.join(format!("{alias}.exe"))
+    } else {
+        dir.join(alias)
+    };
+
+    if alias_path.exists() {
+        fs::remove_file(&alias_path).unwrap();
+    }
+
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, alias_path).unwrap();
+    }
+
+    #[cfg(windows)]
+    {
+        fs::copy(target, alias_path).unwrap();
+    }
+}
+
+fn hni_executable_path() -> PathBuf {
+    if let Ok(path) = std::env::var("CARGO_BIN_EXE_hni") {
+        return PathBuf::from(path);
+    }
+
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("target");
+    path.push("debug");
+    path.push(if cfg!(windows) { "hni.exe" } else { "hni" });
+    path
+}

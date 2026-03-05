@@ -1,12 +1,7 @@
 {
-  "name": "nirs",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "name": "hni",
+  "version": "0.0.1",
+  "description": "hni project metadata",
+  "private": true,
+  "license": "MIT"
 }

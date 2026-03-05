@@ -1,0 +1,82 @@
+use std::env;
+
+use anyhow::{anyhow, Result};
+
+use crate::{
+    core::{
+        resolve::{self, ResolveContext},
+        storage::{load_storage, save_storage},
+        types::ResolvedExecution,
+    },
+    features::interactive::{
+        completion::{
+            completion_candidates, completion_script_bash, completion_script_fish,
+            completion_script_zsh,
+        },
+        nr_scripts::{choose_script_interactive, read_scripts},
+    },
+};
+
+pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
+    if let Some(first) = args.first() {
+        if let Some(script) = completion_script_for(first) {
+            println!("{script}");
+            return Ok(None);
+        }
+
+        if first == "--completion" {
+            handle_completion_query(&args[1..], &ctx.cwd)?;
+            return Ok(None);
+        }
+    }
+
+    if args.first().is_some_and(|a| a == "-") {
+        let storage = load_storage()?;
+        let last = storage
+            .last_run_command
+            .ok_or_else(|| anyhow!("no last command found"))?;
+        args[0] = last;
+    }
+
+    if args.is_empty() {
+        args.push(choose_script_interactive(&ctx.cwd)?);
+    }
+
+    let mut storage = load_storage().unwrap_or_default();
+    storage.last_run_command = args.first().cloned();
+    let _ = save_storage(&storage);
+
+    let resolved = resolve::resolve_nr(args, ctx)?;
+    Ok(Some(resolved))
+}
+
+fn handle_completion_query(args: &[String], cwd: &std::path::Path) -> Result<()> {
+    let scripts = read_scripts(cwd)?;
+    let script_names = scripts.into_iter().map(|s| s.name).collect::<Vec<_>>();
+
+    let comp_word = env::var("COMP_CWORD")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+
+    let prefix = if comp_word > 1 {
+        args.last().cloned().unwrap_or_default()
+    } else {
+        args.get(1).cloned().unwrap_or_default()
+    };
+
+    for candidate in completion_candidates(&prefix, script_names) {
+        println!("{candidate}");
+    }
+
+    Ok(())
+}
+
+fn completion_script_for(flag: &str) -> Option<String> {
+    match flag {
+        "--completion-bash" => Some(completion_script_bash("nr")),
+        "--completion-zsh" => Some(completion_script_zsh("nr")),
+        "--completion-fish" => Some(completion_script_fish("nr")),
+        _ => None,
+    }
+}

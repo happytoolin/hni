@@ -1,181 +1,89 @@
-# nirs
+# hni
 
-A Rust implementation of the [ni](https://github.com/antfu/ni) command-line tool for simplified package management. It automatically detects your package manager (npm, yarn, pnpm, etc.) and provides a unified interface for common operations.
+`hni` is a multicall package-manager router inspired by the `ni` command family.
 
-## Installation
+It provides one binary (`hni`) plus command aliases (`ni`, `nr`, `nlx`, `nu`, `nun`, `nci`, `na`, `np`, `ns`, `node`).
 
-To install `nirs` and all its associated binaries (na, ni, nlx, nr, nun) using a single command, follow these steps:
+## Install
 
-1. **Run the following command** in your terminal:
-
-   - **Linux/macOS:**
-
-     ```bash
-     curl -sSL http://bin.saybackend.com/nirs/install.sh | bash
-     ```
-
-   - **Windows:**
-
-     ```powershell
-     iex ((New-Object System.Net.WebClient).DownloadString('https://bin.saybackend.com/nirs/install.ps1'))
-     ```
-
-     (Run PowerShell as Administrator if you want to install to `C:\Program Files\nirs`)
-
-   This command will:
-
-   - Download the installation script.
-   - Detect your operating system and architecture.
-   - Download all the correct binaries from the latest release.
-   - Install the binaries to a suitable location (`~/bin` on Linux/macOS, `~\AppData\Local\Programs\nirs` on Windows, or a system-wide directory if necessary).
-   - Add the installation directory to your PATH environment variable.
-
-2. **Open a new terminal** or restart your system for the PATH changes to take effect.
-
-Alternatively, you can install `nirs` directly from cargo:
+### macOS / Linux
 
 ```bash
-cargo install nirs
+curl -fsSL https://raw.githubusercontent.com/happytoolin/hni/main/install.sh | bash
 ```
 
-However, this will only install the `nirs` binary itself, and not the associated binaries (na, ni, nlx, nr, nun). You will need to install those separately using the method described above.
+### Windows (PowerShell)
 
-## Commands
+```powershell
+iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/happytoolin/hni/main/install.ps1'))
+```
 
-- `ni` - Install packages
-  ```bash
-  ni           # Install all dependencies
-  ni react     # Install react
-  ni react -D  # Install react as dev dependency
-  ni -g yarn   # Install yarn globally
-  ```
+## Core Commands
 
-- `nr` - Run scripts
-  ```bash
-  nr           # Run default script (start)
-  nr dev       # Run dev script
-  nr build     # Run build script
-  ```
+```bash
+ni                 # install dependencies
+ni vite            # add dependency
+ni -g eslint       # global install
+ni --frozen        # frozen install
 
-- `nlx` - Execute packages (like npx)
-  ```bash
-  nlx vitest   # Run vitest
-  nlx prettier . --write  # Run prettier
-  ```
+nr dev             # run script
+nr                 # interactive script picker
 
-- `nu` - Upgrade packages
-  ```bash
-  nu           # Upgrade all packages
-  nu react     # Upgrade react
-  ```
+nlx vitest         # execute package binary
 
-- `nun` - Uninstall packages
-  ```bash
-  nun react    # Uninstall react
-  ```
+nu                 # upgrade dependencies
+nun lodash         # uninstall dependency
+nci                # clean install (falls back when lockfile is missing)
+na                 # print detected package manager
 
-- `nci` - Clean install
-  ```bash
-  nci          # Clean install (like npm ci)
-  ```
+np "pnpm dev" "pnpm test"             # run shell commands in parallel
+ns "pnpm lint" "pnpm test"            # run shell commands sequentially (stop on first failure)
 
-- `na` - Show agent info
-  ```bash
-  na           # Show detected package manager and its version
-  ```
-  Example output:
-  ```
-  INFO  10:00:00 na Using package manager: npm
-  INFO  10:00:00 na Getting version information
-  INFO  10:00:00 na Executing: npm with args: ["--version"]
-  9.6.7
-  ```
+node p "pnpm dev" "pnpm test"         # same as np via node shim
+node s "pnpm lint" "pnpm test"        # same as ns via node shim
+node -p "1 + 1"                       # passthrough to real node
+```
 
-## Package Manager Detection
+## Global Flags
 
-The tool automatically detects your package manager based on lockfiles in the following order:
-
-1. `bun.lock` or `bun.lockb` → Bun
-2. `pnpm-lock.yaml` → PNPM
-3. `yarn.lock` → Yarn
-4. `package-lock.json` or `npm-shrinkwrap.json` → npm
+```bash
+?             # print resolved command instead of executing
+-C <dir>      # run as if in <dir>
+-v --version  # print versions
+-h --help     # print help
+```
 
 ## Configuration
 
-`nirs` can be configured using a `.nirs` file in the project directory or in the home directory. The configuration file format is TOML. See `memory_bank/config.md` for details.
+Config file: `~/.hnirc` (legacy fallback: `~/.nirc`)
 
-## Logging
-
-The tool provides detailed logging with different verbosity levels. You can control the log level using the `LOG_LEVEL` environment variable:
-
-```bash
-# Available levels (from least to most verbose):
-LOG_LEVEL=error cargo run --bin ni react  # Only errors (red)
-LOG_LEVEL=warn cargo run --bin ni react   # Warnings (yellow) and errors
-LOG_LEVEL=info cargo run --bin ni react   # Normal output (green) - default
-LOG_LEVEL=debug cargo run --bin ni react  # Detailed debugging (cyan)
-LOG_LEVEL=trace cargo run --bin ni react  # Very detailed debugging (white)
+```ini
+defaultAgent=prompt
+globalAgent=npm
+runAgent=node
+useSfw=false
+autoInstall=false
 ```
 
-The logs include:
+Environment variables:
 
-- Log level with appropriate color
-- Timestamp
-- Module name
-- Detailed operation information
+- `HNI_CONFIG_FILE`
+- `HNI_DEFAULT_AGENT`
+- `HNI_GLOBAL_AGENT`
+- `HNI_USE_SFW`
+- `HNI_AUTO_INSTALL`
+- `HNI_SKIP_PM_CHECK`
+- `HNI_REAL_NODE`
 
-Example debug output:
+Legacy `NI_*` config env names are still accepted for compatibility.
 
-```
-DEBUG 19:04:51 nirs::logger Logger initialized with environment: LOG_LEVEL=debug
-DEBUG 19:04:51 ni Current working directory: /path/to/project
-DEBUG 19:04:51 ni Parsed arguments: ["react", "-D"]
-INFO  19:04:51 ni Installing packages with arguments: ["react", "-D"]
-INFO  19:04:51 nirs::detect Detecting package manager in directory: /path/to/project
-DEBUG 19:04:51 nirs::detect Checking for 6 known lockfile patterns
-INFO  19:04:51 nirs::detect Found package manager npm (lockfile: package-lock.json)
-DEBUG 19:04:51 nirs::detect Creating factory for package manager: npm
-INFO  19:04:51 ni Executing: npm with args: ["install", "react", "-D"]
-```
+## Node Shim
+
+When invoked as `node`, `hni` routes package-manager verbs (`install`, `run`, `add`, etc.), plus `p` and `s` for batch execution, and passes through normal Node usage (`node file.js`, `node -v`, `node -p`, `node -- ...`) to the real Node binary.
 
 ## Development
 
-Requirements:
-
-- Rust 1.70 or later
-- Cargo
-
-Building:
-
 ```bash
-cargo build
-```
-
-Running tests:
-
-```bash
+cargo fmt
 cargo test
 ```
-
-- Write tests for `src/bin/np.rs`
-- Write tests for `src/bin/ns.rs`
-
-## Installation via Brew
-
-To install `nirs` using Brew, follow these steps:
-
-1. Tap the repository:
-
-   ```bash
-   brew tap spa5k/nirs
-   ```
-
-2. Install `nirs`:
-
-   ```bash
-   brew install nirs
-   ```
-
-## License
-
-MIT
