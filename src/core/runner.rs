@@ -3,11 +3,11 @@ use std::process::{Command, ExitCode, Stdio};
 use anyhow::{Context, Result};
 
 use super::{
-    batch::{format_batch_debug, run_batch, BatchMode},
+    batch::{BatchMode, format_batch_debug, run_batch},
     shell::shell_escape,
     types::ResolvedExecution,
 };
-use crate::platform::node::{resolve_real_node_path, SHIM_ACTIVE_ENV};
+use crate::platform::node::{SHIM_ACTIVE_ENV, resolve_real_node_path};
 
 pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
     if let Some(mode) = BatchMode::from_internal_program(&exec.program) {

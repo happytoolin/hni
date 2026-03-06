@@ -9,6 +9,10 @@ mod support;
 
 #[test]
 fn compare_with_installed_antfu_when_available() {
+    if std::env::var("HNI_ENABLE_PARITY_REFERENCE").ok().as_deref() != Some("1") {
+        return;
+    }
+
     support::with_env_lock(|| {
         let required_fixtures = required_fixtures();
 

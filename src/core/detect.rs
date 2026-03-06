@@ -4,11 +4,11 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, Context, Result};
 use semver::Version;
 
 use super::{
     config::{DefaultAgent, HniConfig},
+    error::{HniError, HniResult},
     pkg_json::read_package_json,
     types::{DetectionResult, DetectionSource, PackageManager},
 };
@@ -25,7 +25,7 @@ const LOCKFILES: &[(&str, PackageManager)] = &[
     ("deno.jsonc", PackageManager::Deno),
 ];
 
-pub fn detect(cwd: &Path, config: &HniConfig) -> Result<DetectionResult> {
+pub fn detect(cwd: &Path, config: &HniConfig) -> HniResult<DetectionResult> {
     let ancestors = cwd.ancestors().collect::<Vec<_>>();
     let has_lock = ancestors
         .iter()
@@ -92,7 +92,7 @@ pub fn ensure_package_manager_available(
     version_hint: Option<&str>,
     config: &HniConfig,
     cwd: &Path,
-) -> Result<()> {
+) -> HniResult<()> {
     if env::var_os("HNI_SKIP_PM_CHECK").is_some() {
         return Ok(());
     }
@@ -103,10 +103,10 @@ pub fn ensure_package_manager_available(
 
     if !config.auto_install {
         let install_hint = format!("npm i -g {}", pm.global_package_name());
-        return Err(anyhow!(
+        return Err(HniError::detection(format!(
             "detected {} but it is not installed.\nTry: {install_hint}\nOr set HNI_AUTO_INSTALL=true",
             pm.display_name(),
-        ));
+        )));
     }
 
     if env::var_os("CI").is_some() {
@@ -115,20 +115,20 @@ pub fn ensure_package_manager_available(
 
     let package = pm.global_package_name();
     if package == "npm" {
-        return Err(anyhow!(
-            "npm is required for auto-install but was not found in PATH"
+        return Err(HniError::detection(
+            "npm is required for auto-install but was not found in PATH",
         ));
     }
 
     if matches!(pm, PackageManager::Deno) {
-        return Err(anyhow!(
-            "auto-install for deno is not supported; install deno manually"
+        return Err(HniError::detection(
+            "auto-install for deno is not supported; install deno manually",
         ));
     }
 
     if which::which("npm").is_err() {
-        return Err(anyhow!(
-            "auto-install requires npm in PATH, but npm is unavailable.\nInstall Node.js/npm first: https://nodejs.org/"
+        return Err(HniError::detection(
+            "auto-install requires npm in PATH, but npm is unavailable.\nInstall Node.js/npm first: https://nodejs.org/",
         ));
     }
 
@@ -144,21 +144,23 @@ pub fn ensure_package_manager_available(
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .context("failed to run npm for auto-install")?;
+        .map_err(|error| {
+            HniError::detection(format!("failed to run npm for auto-install: {error}"))
+        })?;
 
     if !status.success() {
-        return Err(anyhow!(
+        return Err(HniError::detection(format!(
             "auto-install failed for {} with exit code {:?}",
             pm.display_name(),
             status.code()
-        ));
+        )));
     }
 
     if which::which(pm.bin()).is_err() {
-        return Err(anyhow!(
+        return Err(HniError::detection(format!(
             "auto-install for {} completed but binary is still not in PATH",
             pm.display_name()
-        ));
+        )));
     }
 
     Ok(())

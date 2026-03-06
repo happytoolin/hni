@@ -1,11 +1,14 @@
-use anyhow::{anyhow, Result};
+use crate::core::{
+    error::{HniError, HniResult},
+    resolve,
+    resolve::ResolveContext,
+    types::ResolvedExecution,
+};
 
-use crate::core::{resolve, resolve::ResolveContext, types::ResolvedExecution};
-
-pub fn handle(args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
+pub fn handle(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<ResolvedExecution>> {
     if args.is_empty() {
-        return Err(anyhow!(
-            "nlx requires a command to execute.\nTry: nlx create-vite@latest"
+        return Err(HniError::execution(
+            "nlx requires a command to execute.\nTry: nlx create-vite@latest",
         ));
     }
 

@@ -1,4 +1,4 @@
-use clap::{value_parser, Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, Command, value_parser};
 
 use crate::core::types::InvocationKind;
 
@@ -22,6 +22,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              ni -D vitest         Add dev dependency\n\
              ni --interactive     Search and choose a package interactively\n\
              ni --frozen          Use lockfile-only install (nci behavior)\n\
+             ni -- --help         Forward --help to underlying package manager\n\
              ni -g npm-check-updates",
         ),
         InvocationKind::Nr => command_help(
@@ -163,6 +164,7 @@ fn top_level_help() -> Command {
                  np \"echo one\" \"echo two\"\n\
                  ns \"npm run build\" \"npm run test\"\n\
                  hni doctor\n\
+                 hni help ni\n\
                  hni completion zsh\n\
                  node install react",
             ),

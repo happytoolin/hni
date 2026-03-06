@@ -3,7 +3,7 @@ use std::process::Command;
 use crate::{
     core::{
         detect::detect,
-        resolve::{version_command_for_pm, ResolveContext},
+        resolve::{ResolveContext, version_command_for_pm},
     },
     platform::node::resolve_real_node_path,
 };

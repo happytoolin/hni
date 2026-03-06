@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
@@ -16,10 +16,10 @@ pub fn resolve_real_node_path() -> Result<PathBuf> {
         }
     }
 
-    if let Some(recorded) = read_recorded_real_node_path()? {
-        if recorded.exists() {
-            return Ok(recorded);
-        }
+    if let Some(recorded) = read_recorded_real_node_path()?
+        && recorded.exists()
+    {
+        return Ok(recorded);
     }
 
     scan_path_for_real_node().ok_or_else(|| {
@@ -59,18 +59,17 @@ fn scan_path_for_real_node() -> Option<PathBuf> {
         .and_then(|path| path.parent().map(Path::to_path_buf));
     let candidates = which::which_all("node").ok()?;
     for candidate in candidates {
-        if let Some(current_dir) = &current_dir {
-            if let Some(parent) = candidate.parent() {
-                if paths_equal(parent, current_dir) {
-                    continue;
-                }
-            }
+        if let Some(current_dir) = &current_dir
+            && let Some(parent) = candidate.parent()
+            && paths_equal(parent, current_dir)
+        {
+            continue;
         }
 
-        if let Some(current_exe) = &current_exe {
-            if paths_equal(&candidate, current_exe) {
-                continue;
-            }
+        if let Some(current_exe) = &current_exe
+            && paths_equal(&candidate, current_exe)
+        {
+            continue;
         }
         return Some(candidate);
     }

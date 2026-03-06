@@ -1,20 +1,22 @@
 use std::io;
 
-use anyhow::{anyhow, Result};
 use clap_complete::{
     generate,
     shells::{Bash, Fish, Zsh},
 };
 
-use crate::core::types::InvocationKind;
+use crate::core::{
+    error::{HniError, HniResult},
+    types::InvocationKind,
+};
 
 use super::help::help_command;
 
-pub fn print_completion(shell: Option<&str>, program: &str) -> Result<()> {
+pub fn print_completion(shell: Option<&str>, program: &str) -> HniResult<()> {
     let shell = shell
         .map(str::to_owned)
         .or_else(detect_shell_from_env)
-        .ok_or_else(|| anyhow!("missing shell; use one of: bash, zsh, fish"))?;
+        .ok_or_else(|| HniError::parse("missing shell; use one of: bash, zsh, fish"))?;
 
     let mut cmd = help_command(InvocationKind::Hni);
     let mut out = io::stdout();
@@ -23,7 +25,11 @@ pub fn print_completion(shell: Option<&str>, program: &str) -> Result<()> {
         "bash" => generate(Bash, &mut cmd, program, &mut out),
         "zsh" => generate(Zsh, &mut cmd, program, &mut out),
         "fish" => generate(Fish, &mut cmd, program, &mut out),
-        _ => return Err(anyhow!("unsupported shell '{shell}'; use: bash, zsh, fish")),
+        _ => {
+            return Err(HniError::parse(format!(
+                "unsupported shell '{shell}'; use: bash, zsh, fish"
+            )));
+        }
     }
 
     Ok(())

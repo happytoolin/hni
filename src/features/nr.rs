@@ -1,11 +1,10 @@
 use std::env;
 
-use anyhow::{anyhow, Result};
-
 use crate::{
     core::{
+        error::{HniError, HniResult},
         resolve::{self, ResolveContext},
-        storage::{load_storage, save_storage},
+        storage::{Storage, load_storage, save_storage},
         types::ResolvedExecution,
     },
     features::interactive::{
@@ -17,7 +16,7 @@ use crate::{
     },
 };
 
-pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
+pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<ResolvedExecution>> {
     if let Some(first) = args.first() {
         if let Some(script) = completion_script_for(first) {
             println!("{script}");
@@ -38,12 +37,18 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<Reso
         args.push(choose_script_interactive(&ctx.cwd)?);
     }
 
-    let mut storage = load_storage().unwrap_or_default();
+    let mut storage = match load_storage() {
+        Ok(storage) => storage,
+        Err(err) => {
+            eprintln!("[hni] warning: failed to load stored command history: {err}");
+            Storage::default()
+        }
+    };
 
     if needs_last {
         let last = storage
             .last_run_command
-            .ok_or_else(|| anyhow!("no last command found"))?;
+            .ok_or_else(|| HniError::interactive("no last command found"))?;
         args[0] = last;
     }
 
@@ -56,7 +61,7 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<Reso
     Ok(Some(resolved))
 }
 
-fn handle_completion_query(args: &[String], cwd: &std::path::Path) -> Result<()> {
+fn handle_completion_query(args: &[String], cwd: &std::path::Path) -> HniResult<()> {
     let scripts = read_scripts(cwd)?;
     let script_names = scripts.into_iter().map(|s| s.name).collect::<Vec<_>>();
 

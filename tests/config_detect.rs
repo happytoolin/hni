@@ -19,9 +19,9 @@ fn config_loads_and_env_overrides() {
         )
         .unwrap();
 
-        std::env::set_var("HNI_CONFIG_FILE", &cfg_path);
-        std::env::set_var("HNI_GLOBAL_AGENT", "npm");
-        std::env::set_var("HNI_AUTO_INSTALL", "true");
+        support::set_var("HNI_CONFIG_FILE", &cfg_path);
+        support::set_var("HNI_GLOBAL_AGENT", "npm");
+        support::set_var("HNI_AUTO_INSTALL", "true");
 
         let cfg = HniConfig::load().unwrap();
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
@@ -30,9 +30,24 @@ fn config_loads_and_env_overrides() {
         assert!(cfg.use_sfw);
         assert!(cfg.auto_install);
 
-        std::env::remove_var("HNI_CONFIG_FILE");
-        std::env::remove_var("HNI_GLOBAL_AGENT");
-        std::env::remove_var("HNI_AUTO_INSTALL");
+        support::remove_var("HNI_CONFIG_FILE");
+        support::remove_var("HNI_GLOBAL_AGENT");
+        support::remove_var("HNI_AUTO_INSTALL");
+    });
+}
+
+#[test]
+fn explicit_config_path_must_exist() {
+    support::with_env_lock(|| {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing-hnirc");
+
+        support::set_var("HNI_CONFIG_FILE", &missing);
+        let err = HniConfig::load().unwrap_err();
+        support::remove_var("HNI_CONFIG_FILE");
+
+        assert!(err.to_string().contains("config file not found"));
+        assert!(err.to_string().contains("failed to load"));
     });
 }
 

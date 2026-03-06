@@ -57,6 +57,10 @@ Optional parameters:
 ## Quick usage
 
 ```bash
+hni help ni          # command-specific help
+hni ni --help        # same as above
+hni ni -- --help     # forward --help to npm/yarn/pnpm/bun/deno
+
 ni                  # install dependencies
 ni vite             # add dependency
 ni -g eslint        # global install
@@ -84,7 +88,7 @@ hni completion zsh  # print completion script
 ## Global flags
 
 ```bash
-? --dry-run --print-command  # print resolved command
+? --dry-run --print-command  # print resolved command (deprecated: prefer --debug-resolved)
 --explain                    # print explain/debug block
 -C <dir>                     # run as if in <dir>
 -v --version                 # print versions

@@ -3,10 +3,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context, Result};
 use configparser::ini::Ini;
 
-use super::types::PackageManager;
+use super::{
+    error::{HniError, HniResult},
+    types::PackageManager,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DefaultAgent {
@@ -44,17 +46,25 @@ impl Default for HniConfig {
 }
 
 impl HniConfig {
-    pub fn load() -> Result<Self> {
+    pub fn load() -> HniResult<Self> {
         let mut cfg = Self::default();
 
-        let config_path = env_key(&["HNI_CONFIG_FILE", "NI_CONFIG_FILE"])
-            .map(PathBuf::from)
-            .or_else(default_config_path);
+        let explicit_path = env_key(&["HNI_CONFIG_FILE", "NI_CONFIG_FILE"]).map(PathBuf::from);
 
-        if let Some(path) = config_path {
-            parse_hnirc_file(&path, &mut cfg)
-                .with_context(|| format!("failed to load config from {}", path.display()))?;
-            cfg.config_path = Some(path);
+        if let Some(path) = explicit_path {
+            let loaded = parse_hnirc_file(&path, &mut cfg, true).map_err(|error| {
+                error.with_context(format!("failed to load {}", path.display()))
+            })?;
+            if loaded {
+                cfg.config_path = Some(path);
+            }
+        } else if let Some(path) = default_config_path() {
+            let loaded = parse_hnirc_file(&path, &mut cfg, false).map_err(|error| {
+                error.with_context(format!("failed to load {}", path.display()))
+            })?;
+            if loaded {
+                cfg.config_path = Some(path);
+            }
         }
 
         if let Some(v) = env_key(&["HNI_DEFAULT_AGENT", "NI_DEFAULT_AGENT"]) {
@@ -78,33 +88,42 @@ impl HniConfig {
 }
 
 fn default_config_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| {
-        let hni = home.join(".hnirc");
-        if hni.exists() {
-            hni
-        } else {
-            home.join(".nirc")
-        }
-    })
+    let home = dirs::home_dir()?;
+    let hni = home.join(".hnirc");
+    if hni.exists() {
+        return Some(hni);
+    }
+
+    let ni = home.join(".nirc");
+    ni.exists().then_some(ni)
 }
 
 fn env_key(keys: &[&str]) -> Option<String> {
     keys.iter().find_map(|key| env::var(key).ok())
 }
 
-fn parse_hnirc_file(path: &Path, config: &mut HniConfig) -> Result<()> {
+fn parse_hnirc_file(path: &Path, config: &mut HniConfig, required: bool) -> HniResult<bool> {
     let raw = match fs::read_to_string(path) {
         Ok(content) => content,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
-        Err(e) => {
-            return Err(e)
-                .with_context(|| format!("failed to read config file {}", path.display()))?
+        Err(error) if error.kind() == io::ErrorKind::NotFound && !required => return Ok(false),
+        Err(error) if error.kind() == io::ErrorKind::NotFound && required => {
+            return Err(HniError::config(format!(
+                "config file not found: {}",
+                path.display()
+            )));
+        }
+        Err(error) => {
+            return Err(HniError::config(format!(
+                "failed to read config file {}: {error}",
+                path.display()
+            )));
         }
     };
 
     let mut ini = Ini::new();
-    ini.read(raw)
-        .map_err(|e| anyhow!("failed to parse config file {}: {e}", path.display()))?;
+    ini.read(raw).map_err(|error| {
+        HniError::config(format!("failed to parse {}: {error}", path.display()))
+    })?;
 
     if let Some(v) = ini.get("default", "defaultagent") {
         config.default_agent = parse_default_agent(v.trim())?;
@@ -119,35 +138,35 @@ fn parse_hnirc_file(path: &Path, config: &mut HniConfig) -> Result<()> {
         config.use_sfw = parse_bool(v.trim())?;
     }
 
-    Ok(())
+    Ok(true)
 }
 
-fn parse_pm(value: &str) -> Result<PackageManager> {
+fn parse_pm(value: &str) -> HniResult<PackageManager> {
     PackageManager::from_name(&value.to_ascii_lowercase())
-        .ok_or_else(|| anyhow!("unsupported package manager: {value}"))
+        .ok_or_else(|| HniError::config(format!("unsupported package manager: {value}")))
 }
 
-fn parse_default_agent(value: &str) -> Result<DefaultAgent> {
+fn parse_default_agent(value: &str) -> HniResult<DefaultAgent> {
     if value.eq_ignore_ascii_case("prompt") {
         return Ok(DefaultAgent::Prompt);
     }
     Ok(DefaultAgent::Agent(parse_pm(value)?))
 }
 
-fn parse_run_agent(value: &str) -> Result<RunAgent> {
+fn parse_run_agent(value: &str) -> HniResult<RunAgent> {
     let normalized = value.trim().to_ascii_lowercase();
     match normalized.as_str() {
         "node" => Ok(RunAgent::Node),
         _ if PackageManager::from_name(&normalized).is_some() => Ok(RunAgent::PackageManager),
-        _ => Err(anyhow!("invalid runAgent value: {value}")),
+        _ => Err(HniError::config(format!("invalid runAgent value: {value}"))),
     }
 }
 
-fn parse_bool(value: &str) -> Result<bool> {
+fn parse_bool(value: &str) -> HniResult<bool> {
     match value.trim().to_ascii_lowercase().as_str() {
         "1" | "true" | "yes" | "on" => Ok(true),
         "0" | "false" | "no" | "off" => Ok(false),
-        _ => Err(anyhow!("invalid boolean: {value}")),
+        _ => Err(HniError::config(format!("invalid boolean: {value}"))),
     }
 }
 
@@ -167,7 +186,7 @@ mod tests {
         .unwrap();
 
         let mut cfg = HniConfig::default();
-        parse_hnirc_file(&path, &mut cfg).unwrap();
+        parse_hnirc_file(&path, &mut cfg, true).unwrap();
 
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
         assert_eq!(cfg.global_agent, PackageManager::Yarn);
@@ -180,5 +199,14 @@ mod tests {
     fn parse_default_prompt() {
         let parsed = parse_default_agent("prompt").unwrap();
         assert_eq!(parsed, DefaultAgent::Prompt);
+    }
+
+    #[test]
+    fn explicit_missing_config_is_error() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("missing-hnirc");
+        let mut cfg = HniConfig::default();
+        let err = parse_hnirc_file(&path, &mut cfg, true).unwrap_err();
+        assert!(err.to_string().contains("config file not found"));
     }
 }

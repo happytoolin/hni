@@ -26,7 +26,7 @@ fn passthrough_uses_explicit_real_node_env() {
             fs::set_permissions(&real_node, perms).unwrap();
         }
 
-        std::env::set_var(REAL_NODE_ENV, &real_node);
+        support::set_var(REAL_NODE_ENV, &real_node);
 
         let exec = ResolvedExecution {
             program: "node".into(),
@@ -38,6 +38,6 @@ fn passthrough_uses_explicit_real_node_env() {
         let rendered = runner::format_debug(&exec, false).unwrap();
         assert!(rendered.contains(real_node.to_string_lossy().as_ref()));
 
-        std::env::remove_var(REAL_NODE_ENV);
+        support::remove_var(REAL_NODE_ENV);
     });
 }

@@ -1,11 +1,9 @@
-use anyhow::Result;
-
 use crate::{
-    core::{resolve, resolve::ResolveContext, types::ResolvedExecution},
+    core::{error::HniResult, resolve, resolve::ResolveContext, types::ResolvedExecution},
     features::interactive::nun_select::choose_dependencies_for_uninstall,
 };
 
-pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
+pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<ResolvedExecution>> {
     let (normalized_args, interactive_multi) = strip_multi_select_flags(args);
     args = normalized_args;
 

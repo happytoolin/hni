@@ -1,10 +1,13 @@
-use anyhow::{anyhow, Context, Result};
-use dialoguer::{theme::ColorfulTheme, FuzzySelect, Input, Select};
+use dialoguer::{FuzzySelect, Input, Select, theme::ColorfulTheme};
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use std::time::Duration;
 
-use crate::core::resolve::ResolveContext;
-use crate::core::types::PackageManager;
+use crate::core::{
+    error::{HniError, HniResult},
+    resolve::ResolveContext,
+    types::PackageManager,
+};
 
 #[derive(Debug, Deserialize)]
 struct NpmResponse {
@@ -23,7 +26,10 @@ struct NpmPackage {
     description: Option<String>,
 }
 
-pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> Result<Vec<String>> {
+pub fn augment_ni_args_interactive(
+    args: Vec<String>,
+    ctx: &ResolveContext,
+) -> HniResult<Vec<String>> {
     let is_interactive = interactive_requested(&args);
     if !is_interactive {
         return Ok(args);
@@ -38,14 +44,16 @@ pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> R
         .map_or_else(prompt_pattern, Ok)?;
 
     if pattern.trim().is_empty() {
-        return Err(anyhow!(
-            "interactive install requires a package search pattern"
+        return Err(HniError::interactive(
+            "interactive install requires a package search pattern",
         ));
     }
 
     let packages = fetch_npm_packages(&pattern)?;
     if packages.is_empty() {
-        return Err(anyhow!("no npm packages found for pattern '{pattern}'"));
+        return Err(HniError::interactive(format!(
+            "no npm packages found for pattern '{pattern}'"
+        )));
     }
 
     let labels: Vec<String> = packages
@@ -60,8 +68,11 @@ pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> R
         .with_prompt("Choose package to install")
         .items(&labels)
         .default(0)
-        .interact_opt()?
-        .ok_or_else(|| anyhow!("package selection canceled"))?;
+        .interact_opt()
+        .map_err(|error| {
+            HniError::interactive(format!("failed to read package selection: {error}"))
+        })?
+        .ok_or_else(|| HniError::interactive("package selection canceled"))?;
 
     let chosen = &packages[idx].name;
 
@@ -71,7 +82,8 @@ pub fn augment_ni_args_interactive(args: Vec<String>, ctx: &ResolveContext) -> R
         .with_prompt(format!("Install {chosen} as"))
         .items(&mode_labels)
         .default(0)
-        .interact()?;
+        .interact()
+        .map_err(|error| HniError::interactive(format!("failed to read install mode: {error}")))?;
 
     Ok(apply_selected_package(args, chosen, mode_labels[mode_idx]))
 }
@@ -118,28 +130,48 @@ fn apply_selected_package(mut args: Vec<String>, chosen: &str, mode: &str) -> Ve
     args
 }
 
-fn prompt_pattern() -> Result<String> {
+fn prompt_pattern() -> HniResult<String> {
     Input::with_theme(&ColorfulTheme::default())
         .with_prompt("search for package")
         .interact_text()
-        .context("failed to read interactive search pattern")
+        .map_err(|error| {
+            HniError::interactive(format!(
+                "failed to read interactive search pattern: {error}"
+            ))
+        })
 }
 
-fn fetch_npm_packages(pattern: &str) -> Result<Vec<NpmPackage>> {
-    let url = format!("https://registry.npmjs.com/-/v1/search?text={pattern}&size=35");
+fn fetch_npm_packages(pattern: &str) -> HniResult<Vec<NpmPackage>> {
+    let client = Client::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|error| {
+            HniError::network(format!("failed to create npm registry client: {error}"))
+        })?;
 
-    let response = Client::new()
+    let url = npm_search_url(pattern)?;
+
+    let response = client
         .get(url)
         .send()
-        .context("failed to query npm registry")?
+        .map_err(|error| HniError::network(format!("failed to query npm registry: {error}")))?
         .error_for_status()
-        .context("npm registry returned an error")?;
+        .map_err(|error| HniError::network(format!("npm registry returned an error: {error}")))?;
 
-    let parsed = response
-        .json::<NpmResponse>()
-        .context("failed to parse npm registry response")?;
+    let parsed = response.json::<NpmResponse>().map_err(|error| {
+        HniError::network(format!("failed to parse npm registry response: {error}"))
+    })?;
 
     Ok(parsed.objects.into_iter().map(|obj| obj.package).collect())
+}
+
+fn npm_search_url(pattern: &str) -> HniResult<reqwest::Url> {
+    reqwest::Url::parse_with_params(
+        "https://registry.npmjs.com/-/v1/search",
+        [("text", pattern), ("size", "35")],
+    )
+    .map_err(|error| HniError::network(format!("failed to build npm search URL: {error}")))
 }
 
 #[cfg(test)]
@@ -220,5 +252,14 @@ mod tests {
         let input = vec!["react".to_string(), "-D".to_string()];
         let out = augment_ni_args_interactive(input.clone(), &ctx).unwrap();
         assert_eq!(out, input);
+    }
+
+    #[test]
+    fn npm_search_url_encodes_pattern() {
+        let url = npm_search_url("react+dom @types").unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://registry.npmjs.com/-/v1/search?text=react%2Bdom+%40types&size=35"
+        );
     }
 }

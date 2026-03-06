@@ -1,24 +1,31 @@
 use std::{collections::BTreeSet, path::Path};
 
-use anyhow::{anyhow, Result};
-use dialoguer::{theme::ColorfulTheme, MultiSelect};
+use dialoguer::{MultiSelect, theme::ColorfulTheme};
 
-use crate::core::pkg_json::{read_package_json, PackageJson};
+use crate::core::{
+    error::{HniError, HniResult},
+    pkg_json::{PackageJson, read_package_json},
+};
 
-pub fn choose_dependencies_for_uninstall(cwd: &Path) -> Result<Vec<String>> {
+pub fn choose_dependencies_for_uninstall(cwd: &Path) -> HniResult<Vec<String>> {
     let Some(pkg) = read_package_json(cwd)? else {
-        return Err(anyhow!("package.json not found"));
+        return Err(HniError::interactive("package.json not found"));
     };
 
     let items = dependency_items(&pkg);
     if items.is_empty() {
-        return Err(anyhow!("no dependencies found in package.json"));
+        return Err(HniError::interactive(
+            "no dependencies found in package.json",
+        ));
     }
 
     let selected = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Select dependencies to remove")
         .items(&items)
-        .interact()?;
+        .interact()
+        .map_err(|error| {
+            HniError::interactive(format!("failed to read dependency selection: {error}"))
+        })?;
 
     if selected.is_empty() {
         return Ok(Vec::new());

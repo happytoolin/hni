@@ -13,11 +13,11 @@ fn with_skip_pm_check<T>(f: impl FnOnce() -> T) -> T {
         struct SkipPmCheckGuard;
         impl Drop for SkipPmCheckGuard {
             fn drop(&mut self) {
-                std::env::remove_var("HNI_SKIP_PM_CHECK");
+                support::remove_var("HNI_SKIP_PM_CHECK");
             }
         }
 
-        std::env::set_var("HNI_SKIP_PM_CHECK", "1");
+        support::set_var("HNI_SKIP_PM_CHECK", "1");
         let guard = SkipPmCheckGuard;
         let out = f();
         drop(guard);
@@ -507,9 +507,10 @@ fn nu_interactive_rejected_for_npm() {
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let err = resolve::resolve_nu(vec!["-i".into()], &ctx).unwrap_err();
 
-        assert!(err
-            .to_string()
-            .contains("interactive upgrade is not supported for npm"));
+        assert!(
+            err.to_string()
+                .contains("interactive upgrade is not supported for npm")
+        );
     });
 }
 
@@ -537,9 +538,10 @@ fn nun_global_without_target_errors_after_stripping_g_flag() {
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let err = resolve::resolve_nun(vec!["-g".into()], &ctx).unwrap_err();
 
-        assert!(err
-            .to_string()
-            .contains("no dependencies selected for uninstall"));
+        assert!(
+            err.to_string()
+                .contains("no dependencies selected for uninstall")
+        );
     });
 }
 
@@ -552,9 +554,10 @@ fn nun_requires_at_least_one_dependency() {
         let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
         let err = resolve::resolve_nun(Vec::new(), &ctx).unwrap_err();
 
-        assert!(err
-            .to_string()
-            .contains("no dependencies selected for uninstall"));
+        assert!(
+            err.to_string()
+                .contains("no dependencies selected for uninstall")
+        );
     });
 }
 
@@ -591,9 +594,10 @@ fn ni_global_rejects_yarn_berry_agent() {
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
         let err = resolve::resolve_ni(vec!["-g".into(), "eslint".into()], &ctx).unwrap_err();
 
-        assert!(err
-            .to_string()
-            .contains("global install/uninstall is not supported by yarn (berry)"));
+        assert!(
+            err.to_string()
+                .contains("global install/uninstall is not supported by yarn (berry)")
+        );
     });
 }
 
@@ -611,9 +615,10 @@ fn nun_global_rejects_yarn_berry_agent() {
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
         let err = resolve::resolve_nun(vec!["-g".into(), "eslint".into()], &ctx).unwrap_err();
 
-        assert!(err
-            .to_string()
-            .contains("global install/uninstall is not supported by yarn (berry)"));
+        assert!(
+            err.to_string()
+                .contains("global install/uninstall is not supported by yarn (berry)")
+        );
     });
 }
 

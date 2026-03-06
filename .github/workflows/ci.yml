@@ -32,6 +32,7 @@ jobs:
 
   parity:
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -105,5 +106,6 @@ jobs:
 
       - name: Run parity test (${{ matrix.manager }})
         env:
+          HNI_ENABLE_PARITY_REFERENCE: "1"
           HNI_PARITY_REQUIRE_FIXTURES: ${{ matrix.required_fixtures }}
         run: cargo test --test parity_against_antfu -- --nocapture

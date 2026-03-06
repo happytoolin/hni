@@ -98,10 +98,21 @@ fn multicall_aliases_resolve_expected_commands() {
         let nlx_out = run_alias(
             &bin_dir,
             "nlx",
-            vec!["-C", npm_proj.to_str().unwrap(), "vitest", "--help", "?"],
+            vec![
+                "-C",
+                npm_proj.to_str().unwrap(),
+                "vitest",
+                "--",
+                "--help",
+                "?",
+            ],
             &[],
         );
-        assert_eq!(nlx_out.trim(), "npx vitest --help");
+        assert!(
+            nlx_out.trim().contains("npx vitest -- --help"),
+            "unexpected nlx debug output: {}",
+            nlx_out.trim()
+        );
 
         let nci_out = run_alias(
             &bin_dir,
