@@ -1,6 +1,6 @@
 {
   "name": "@happytoolin/hni-darwin-arm64",
-  "version": "0.0.1",
+  "version": "0.0.1-alpha-1",
   "description": "darwin arm64 native binary for hni",
   "license": "GPL-3.0-only",
   "repository": {

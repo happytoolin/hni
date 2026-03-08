@@ -51,7 +51,7 @@ curl -fsSL https://happytoolin.com/hni/install.sh | bash
 
 Optional environment variables:
 
-- `HNI_VERSION` - install a specific version, for example `v0.0.1`
+- `HNI_VERSION` - install a specific version, for example `v0.0.1-alpha-1`
 - `HNI_INSTALL_DIR` - install somewhere other than `~/.local/bin`
 
 ### Script install (PowerShell)
