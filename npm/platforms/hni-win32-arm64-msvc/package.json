@@ -1,6 +1,6 @@
 {
   "name": "@happytoolin/hni-win32-arm64-msvc",
-  "version": "0.0.1-alpha-1",
+  "version": "0.0.1-alpha-2",
   "description": "windows arm64 native binary for hni",
   "license": "GPL-3.0-only",
   "repository": {
