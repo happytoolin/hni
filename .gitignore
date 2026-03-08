@@ -156,3 +156,9 @@ dist
 benchmarks/results/*.json
 benchmarks/results/*.md
 benchmarks/results/raw/*.json
+
+# hni npm/jsr publish artifacts
+npm/platforms/*/bin/hni
+npm/platforms/*/bin/hni.exe
+npm/platforms/*/LICENSE
+deno.lock

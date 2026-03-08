@@ -91,6 +91,7 @@ fn render_posix(shell: InitShell, exe_path: &Path, bin_dir: &Path) -> String {
          if [ \"${{PATH:-}}\" != \"$_hni_bin\" ] && [ \"${{PATH#\"$_hni_bin:\"}}\" = \"${{PATH}}\" ]; then\n\
            export PATH=\"$_hni_bin${{PATH:+:$PATH}}\"\n\
          fi\n\
+         node() {{ {hni_cmd} node \"$@\"; }}\n\
          unset _hni_cmd\n\
          unset _hni_bin\n\
          unset _hni_real_node\n"
@@ -115,6 +116,10 @@ fn render_fish(exe_path: &Path, bin_dir: &Path) -> String {
              set -gx PATH \"$__hni_bin\"\n\
          else if test \"$PATH[1]\" != \"$__hni_bin\"\n\
              set -gx PATH \"$__hni_bin\" $PATH\n\
+         end\n\
+         functions -e node 2>/dev/null\n\
+         function node --description \"hni node shim\"\n\
+             \"$__hni_cmd\" node $argv\n\
          end\n"
     )
 }
@@ -137,6 +142,9 @@ fn render_powershell(exe_path: &Path, bin_dir: &Path) -> String {
          $__hniHasPriority = $__hniPathEntries.Count -gt 0 -and [System.StringComparer]::OrdinalIgnoreCase.Equals($__hniPathEntries[0], $__hniBin)\n\
          if (-not $__hniHasPriority) {{\n\
            $env:PATH = if ($env:PATH) {{ \"$($__hniBin);$env:PATH\" }} else {{ $__hniBin }}\n\
+         }}\n\
+         function global:node {{\n\
+           & $__hniCmd node @args\n\
          }}\n"
     )
 }
@@ -157,6 +165,10 @@ fn render_nushell(exe_path: &Path, bin_dir: &Path) -> String {
          }}\n\
          if (($env.PATH | is-empty) or (($env.PATH | first) != $hni_bin)) {{\n\
            $env.PATH = ($env.PATH | prepend $hni_bin)\n\
+         }}\n\
+         $env.HNI_CMD = $hni_cmd\n\
+         def --wrapped node [...rest] {{\n\
+           ^$env.HNI_CMD node ...$rest\n\
          }}\n"
     )
 }
@@ -215,6 +227,7 @@ mod tests {
         assert!(out.contains("/tmp/hni/bin"));
         assert!(out.contains("internal real-node-path"));
         assert!(out.contains("PATH#\"$_hni_bin:\""));
+        assert!(out.contains("node() {"));
     }
 
     #[test]
@@ -227,6 +240,7 @@ mod tests {
         assert!(out.contains("set -gx PATH"));
         assert!(out.contains("$PATH[1]"));
         assert!(out.contains("internal real-node-path"));
+        assert!(out.contains("function node"));
     }
 
     #[test]
@@ -239,6 +253,7 @@ mod tests {
         assert!(out.contains("$env:HNI_REAL_NODE"));
         assert!(out.contains("[System.StringComparer]::OrdinalIgnoreCase"));
         assert!(out.contains("internal real-node-path"));
+        assert!(out.contains("function global:node"));
     }
 
     #[test]
@@ -251,6 +266,7 @@ mod tests {
         assert!(out.contains("let hni_cmd = r'"));
         assert!(out.contains("| prepend $hni_bin"));
         assert!(out.contains("^$hni_cmd internal real-node-path"));
+        assert!(out.contains("def --wrapped node"));
     }
 
     #[test]

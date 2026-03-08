@@ -5,7 +5,7 @@ authors = ["Spark <helllo@kamran.sh>"]
 categories = ["command-line-utilities", "development-tools"]
 edition = "2024"
 keywords = ["package-manager", "npm", "yarn", "pnpm", "cli"]
-license = "MIT"
+license = "GPL-3.0-only"
 repository = "https://github.com/happytoolin/hni"
 description = "ni-compatible package manager command router with node shim"
 

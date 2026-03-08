@@ -12,6 +12,7 @@ fn init_command_renders_bash_setup() {
         assert!(stdout.contains("# hni init for bash"));
         assert!(stdout.contains("internal real-node-path"));
         assert!(stdout.contains("export PATH="));
+        assert!(stdout.contains("node() {"));
     });
 }
 
@@ -99,11 +100,8 @@ fn bash_init_gives_node_shim_precedence_and_preserves_real_node() {
 
         let source_exe = support::hni_executable_path();
         let copied_hni = hni_bin.join("hni");
-        let copied_node = hni_bin.join("node");
         fs::copy(&source_exe, &copied_hni).unwrap();
-        fs::copy(&source_exe, &copied_node).unwrap();
         set_executable_if_needed(&copied_hni);
-        set_executable_if_needed(&copied_node);
 
         let fake_node = real_node_bin.join("node");
         fs::write(&fake_node, "#!/bin/sh\nexit 0\n").unwrap();
@@ -115,7 +113,7 @@ fn bash_init_gives_node_shim_precedence_and_preserves_real_node() {
             std::env::var("PATH").unwrap_or_default()
         );
         let script = format!(
-            "eval \"$({} init bash)\"\nprintf 'NODE=%s\\nREAL=%s\\n' \"$(command -v node)\" \"$HNI_REAL_NODE\"\n",
+            "eval \"$({} init bash)\"\nnode -- -v >/dev/null 2>&1\nprintf 'NODE_TYPE=%s\\nREAL=%s\\n' \"$(type -t node)\" \"$HNI_REAL_NODE\"\n",
             copied_hni.display()
         );
 
@@ -131,19 +129,16 @@ fn bash_init_gives_node_shim_precedence_and_preserves_real_node() {
 
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let reported_node = stdout
+        let reported_node_type = stdout
             .lines()
-            .find_map(|line| line.strip_prefix("NODE="))
-            .expect("missing NODE line");
+            .find_map(|line| line.strip_prefix("NODE_TYPE="))
+            .expect("missing NODE_TYPE line");
         let reported_real_node = stdout
             .lines()
             .find_map(|line| line.strip_prefix("REAL="))
             .expect("missing REAL line");
 
-        assert_eq!(
-            Path::new(reported_node).canonicalize().unwrap(),
-            copied_node.canonicalize().unwrap()
-        );
+        assert_eq!(reported_node_type, "function");
         assert_eq!(
             Path::new(reported_real_node).canonicalize().unwrap(),
             fake_node.canonicalize().unwrap()

@@ -1,0 +1,25 @@
+{
+  "name": "@happytoolin/hni",
+  "version": "0.0.1",
+  "license": "GPL-3.0-only",
+  "exports": {
+    ".": "./jsr/mod.ts",
+    "./hni": "./jsr/hni.ts",
+    "./ni": "./jsr/ni.ts",
+    "./nr": "./jsr/nr.ts",
+    "./nlx": "./jsr/nlx.ts",
+    "./nu": "./jsr/nu.ts",
+    "./nun": "./jsr/nun.ts",
+    "./nci": "./jsr/nci.ts",
+    "./na": "./jsr/na.ts",
+    "./np": "./jsr/np.ts",
+    "./ns": "./jsr/ns.ts"
+  },
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "jsr/**/*.ts"
+    ]
+  }
+}

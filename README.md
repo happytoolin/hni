@@ -3,7 +3,7 @@
 ![hni og banner](.github/og-image.png)
 
 [![CI](https://github.com/happytoolin/hni/actions/workflows/ci.yml/badge.svg)](https://github.com/happytoolin/hni/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-4F46E5.svg)](https://opensource.org/licenses/MIT)
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-4F46E5.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![crates.io](https://img.shields.io/crates/v/hni?logo=rust&logoColor=white)](https://crates.io/crates/hni)
 [![npm](https://img.shields.io/npm/v/hni?logo=npm&logoColor=white)](https://www.npmjs.com/package/hni)
 ![npm](https://img.shields.io/badge/npm-supported-CB3837?logo=npm&logoColor=white)
@@ -20,9 +20,20 @@ One install gives you:
 
 - `hni`
 - `ni`, `nr`, `nlx`, `nu`, `nun`, `nci`, `na`, `np`, `ns`
-- `node` (shim mode)
+- `node` shim via `hni init <shell>` (shell plugin only)
 
 ## Install
+
+### npm (global)
+
+```bash
+npm install -g hni
+hni --version
+```
+
+This installs `hni` and the `ni`-family aliases (`ni`, `nr`, `nlx`, `nu`, `nun`, `nci`, `na`, `np`, `ns`) onto your global npm bin path.
+The `node` shim is only enabled through `hni init <shell>`.
+Under the hood, npm resolves a platform-specific optional dependency package that contains the native `hni` binary.
 
 ### Homebrew
 
@@ -53,6 +64,22 @@ Optional parameters:
 
 - `-Version latest`
 - `-InstallDir "$env:LOCALAPPDATA\hni\bin"`
+
+### Deno / JSR
+
+Install `hni`:
+
+```bash
+deno install -gA -n hni jsr:@happytoolin/hni/hni
+hni --version
+```
+
+Install alias commands (example):
+
+```bash
+deno install -gA -n ni jsr:@happytoolin/hni/ni
+deno install -gA -n nr jsr:@happytoolin/hni/nr
+```
 
 ## Commands
 
@@ -143,6 +170,7 @@ ns "pnpm lint" "pnpm test"
 ### `node`
 
 `hni` can also act as a package-manager-aware `node` shim.
+Enable it by adding `hni init <shell>` to your shell config first.
 
 ```bash
 node install vite
@@ -171,7 +199,7 @@ hni doctor
 
 ## Shell Setup
 
-If you want `hni` to win command lookup for `node`, add the init line at the end of your shell config file, after anything that manages Node or rewrites `PATH`, such as `nvm`, `mise`, `asdf`, `fnm`, or `volta`.
+If you want node-shim behavior, add the init line at the end of your shell config file, after anything that manages Node or rewrites `PATH`, such as `nvm`, `mise`, `asdf`, `fnm`, or `volta`.
 
 Do not append the `hni` directory to the end of `PATH`. Put the init line at the end of the shell config file and let it prepend the correct path for you.
 

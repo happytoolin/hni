@@ -37,28 +37,32 @@ jobs:
             target: x86_64-pc-windows-msvc
             builder: cargo
             extension: zip
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            builder: cargo
+            extension: zip
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
         with:
           targets: ${{ matrix.target }}
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.8.2
 
       - name: Install Zig
         if: matrix.builder == 'zigbuild'
-        uses: goto-bus-stop/setup-zig@v2
+        uses: goto-bus-stop/setup-zig@v2.2.1
 
       - name: Install cargo-zigbuild
         if: matrix.builder == 'zigbuild'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.68.23
         with:
           tool: cargo-zigbuild
 
@@ -87,6 +91,8 @@ jobs:
           mkdir -p dist
           stage="$(mktemp -d)"
           cp "target/${{ matrix.target }}/release/${BINARY_NAME}" "${stage}/hni"
+          cp "${stage}/hni" "dist/${name}"
+          chmod 0755 "dist/${name}"
           tar -C "${stage}" -czf "dist/${name}.tar.gz" "hni"
 
       - name: Package (Windows)
@@ -99,10 +105,11 @@ jobs:
           $stage = Join-Path $env:TEMP ("hni-stage-" + [Guid]::NewGuid().ToString("N"))
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/$env:BINARY_NAME.exe" (Join-Path $stage "hni.exe")
+          Copy-Item (Join-Path $stage "hni.exe") "dist/$name.exe"
           Compress-Archive -Path (Join-Path $stage "hni.exe") -DestinationPath "dist/$name.zip" -Force
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: ${{ env.BINARY_NAME }}-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.extension }}
           path: dist/*
@@ -114,7 +121,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           path: dist
           merge-multiple: true
@@ -125,7 +132,7 @@ jobs:
           shasum -a 256 * > SHA256SUMS
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           files: |
             dist/*
@@ -150,11 +157,11 @@ jobs:
 
       - name: Checkout source repository
         if: steps.check_token.outputs.has_token == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Download artifacts
         if: steps.check_token.outputs.has_token == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           path: dist
           merge-multiple: true
@@ -202,3 +209,86 @@ jobs:
           git add Formula/hni.rb
           git commit -m "hni v${GITHUB_REF_NAME#v}"
           git push origin HEAD:main
+
+  npm:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6.3.0
+        with:
+          node-version: 22.14.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8.0.0
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Validate npm package version
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [[ "$pkg_version" != "$tag_version" ]]; then
+            echo "package.json version ($pkg_version) does not match tag ($tag_version)"
+            exit 1
+          fi
+
+      - name: Prepare npm platform packages
+        run: node scripts/prepare-npm-platform-packages.mjs
+
+      - name: Publish npm platform packages
+        run: |
+          set -euo pipefail
+          npm publish ./npm/platforms/hni-darwin-arm64 --access public
+          npm publish ./npm/platforms/hni-darwin-x64 --access public
+          npm publish ./npm/platforms/hni-linux-arm64-musl --access public
+          npm publish ./npm/platforms/hni-linux-x64-musl --access public
+          npm publish ./npm/platforms/hni-win32-arm64-msvc --access public
+          npm publish ./npm/platforms/hni-win32-x64-msvc --access public
+
+      - name: Publish npm package
+        run: npm publish --access public
+
+  jsr:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2.0.3
+        with:
+          deno-version: v2.x
+
+      - name: Validate JSR package version
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          jsr_version="$(deno eval "console.log(JSON.parse(Deno.readTextFileSync('jsr.json')).version)")"
+          runtime_version="$(sed -nE 's/^const VERSION = \"([^\"]+)\";$/\1/p' jsr/shared.ts | head -n1)"
+          if [[ "$jsr_version" != "$tag_version" ]]; then
+            echo "jsr.json version ($jsr_version) does not match tag ($tag_version)"
+            exit 1
+          fi
+          if [[ -z "$runtime_version" || "$runtime_version" != "$tag_version" ]]; then
+            echo "jsr/shared.ts VERSION ($runtime_version) does not match tag ($tag_version)"
+            exit 1
+          fi
+
+      - name: Publish JSR package
+        run: deno publish

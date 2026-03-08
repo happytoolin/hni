@@ -147,10 +147,10 @@ pub fn help_command(topic: HelpTopic) -> Command {
         ),
         HelpTopic::Init => with_global_flags(
             Command::new("init")
-                .about("print shell init code for node shim precedence")
+                .about("print shell init code for node shim")
                 .long_about(
                     "Prints shell-specific init code that captures the current real Node.js binary\n\
-                     and then prepends the hni install dir so the node shim takes precedence.\n\
+                     and registers a shell-level node wrapper for shim behavior.\n\
                      Add the generated line at the end of your shell config, after nvm/mise/asdf/fnm/volta init.",
                 )
                 .arg(init_shell_arg())

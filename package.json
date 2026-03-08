@@ -1,9 +1,56 @@
 {
   "name": "hni",
   "version": "0.0.1",
-  "description": "hni project metadata",
-  "private": true,
-  "license": "MIT",
+  "description": "ni-compatible package manager command router with node shim",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happytoolin/hni.git"
+  },
+  "homepage": "https://github.com/happytoolin/hni#readme",
+  "bugs": {
+    "url": "https://github.com/happytoolin/hni/issues"
+  },
+  "keywords": [
+    "cli",
+    "ni",
+    "npm",
+    "pnpm",
+    "yarn",
+    "bun",
+    "deno"
+  ],
+  "bin": {
+    "hni": "bin/hni.js",
+    "ni": "bin/ni.js",
+    "nr": "bin/nr.js",
+    "nlx": "bin/nlx.js",
+    "nu": "bin/nu.js",
+    "nun": "bin/nun.js",
+    "nci": "bin/nci.js",
+    "na": "bin/na.js",
+    "np": "bin/np.js",
+    "ns": "bin/ns.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "optionalDependencies": {
+    "@happytoolin/hni-darwin-arm64": "0.0.1",
+    "@happytoolin/hni-darwin-x64": "0.0.1",
+    "@happytoolin/hni-linux-arm64-musl": "0.0.1",
+    "@happytoolin/hni-linux-x64-musl": "0.0.1",
+    "@happytoolin/hni-win32-arm64-msvc": "0.0.1",
+    "@happytoolin/hni-win32-x64-msvc": "0.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "bench:ni": "./benchmarks/run.sh",
     "bench:ni:ci": "./benchmarks/run.sh --min-speedup=8",

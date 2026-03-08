@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $Repo = "happytoolin/hni"
 $DownloadRoot = "https://happytoolin.com"
 $FallbackDownloadRoot = "https://github.com/$Repo"
-$Aliases = @("ni", "nr", "nlx", "nu", "nun", "nci", "na", "np", "ns", "node")
+$Aliases = @("ni", "nr", "nlx", "nu", "nun", "nci", "na", "np", "ns")
 
 function Write-Log {
   param([string]$Message)
@@ -37,7 +37,7 @@ function Resolve-Target {
 
   switch ($arch) {
     "AMD64" { return "x86_64-pc-windows-msvc" }
-    "ARM64" { return "x86_64-pc-windows-msvc" }
+    "ARM64" { return "aarch64-pc-windows-msvc" }
     default { throw "Unsupported architecture: $arch" }
   }
 }
