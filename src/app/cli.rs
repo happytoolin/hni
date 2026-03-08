@@ -178,12 +178,30 @@ fn parse_alias(
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
 ) -> HniResult<ParsedInvocation> {
-    let mut command = ParsedCommand::Execute { invocation, args };
+    let mut forwarded_args = args;
+    let has_forwarded_args = !forwarded_args.is_empty();
 
-    if shared_flags.version {
-        command = ParsedCommand::PrintVersions;
-    } else if shared_flags.help {
-        command = ParsedCommand::PrintHelp(help_topic_for_invocation(invocation));
+    // In alias mode, treat --help/--version as passthrough flags when a target command exists.
+    if has_forwarded_args {
+        if shared_flags.help {
+            forwarded_args.push("--help".to_string());
+        }
+        if shared_flags.version {
+            forwarded_args.push("--version".to_string());
+        }
+    }
+
+    let mut command = ParsedCommand::Execute {
+        invocation,
+        args: forwarded_args,
+    };
+
+    if !has_forwarded_args {
+        if shared_flags.version {
+            command = ParsedCommand::PrintVersions;
+        } else if shared_flags.help {
+            command = ParsedCommand::PrintHelp(help_topic_for_invocation(invocation));
+        }
     }
 
     Ok(ParsedInvocation {
@@ -555,5 +573,57 @@ mod tests {
         let (args, deprecated) = normalize_debug_aliases(&["-?".to_string()]);
         assert!(deprecated);
         assert_eq!(args, vec!["--debug-resolved"]);
+    }
+
+    #[test]
+    fn alias_help_with_args_is_forwarded() {
+        let shared_flags = SharedFlags {
+            cwd: vec![],
+            debug: false,
+            explain: false,
+            help: true,
+            version: false,
+        };
+
+        let parsed = parse_alias(
+            InvocationKind::Nlx,
+            Path::new("/tmp"),
+            vec!["vitest".to_string()],
+            shared_flags,
+            false,
+        )
+        .unwrap();
+
+        match parsed.command {
+            ParsedCommand::Execute { args, .. } => {
+                assert_eq!(args, vec!["vitest", "--help"]);
+            }
+            _ => panic!("expected execute command"),
+        }
+    }
+
+    #[test]
+    fn alias_help_without_args_prints_help() {
+        let shared_flags = SharedFlags {
+            cwd: vec![],
+            debug: false,
+            explain: false,
+            help: true,
+            version: false,
+        };
+
+        let parsed = parse_alias(
+            InvocationKind::Nlx,
+            Path::new("/tmp"),
+            vec![],
+            shared_flags,
+            false,
+        )
+        .unwrap();
+
+        match parsed.command {
+            ParsedCommand::PrintHelp(HelpTopic::Nlx) => {}
+            _ => panic!("expected nlx help command"),
+        }
     }
 }
