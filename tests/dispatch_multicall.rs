@@ -101,10 +101,10 @@ fn multicall_aliases_resolve_expected_commands() {
             vec![
                 "-C",
                 npm_proj.to_str().unwrap(),
+                "--debug-resolved",
                 "vitest",
                 "--",
                 "--help",
-                "?",
             ],
             &[],
         );
