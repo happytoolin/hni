@@ -217,6 +217,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - name: Checkout source repository
@@ -244,21 +246,40 @@ jobs:
             exit 1
           fi
 
+      - name: Validate npm auth token
+        run: |
+          set -euo pipefail
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "NPM_TOKEN is not set"
+            exit 1
+          fi
+
+      - name: Resolve npm dist-tag
+        id: npm_tag
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$version" == *-* ]]; then
+            echo "tag=alpha" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare npm platform packages
         run: node scripts/prepare-npm-platform-packages.mjs
 
       - name: Publish npm platform packages
         run: |
           set -euo pipefail
-          npm publish ./npm/platforms/hni-darwin-arm64 --access public
-          npm publish ./npm/platforms/hni-darwin-x64 --access public
-          npm publish ./npm/platforms/hni-linux-arm64-musl --access public
-          npm publish ./npm/platforms/hni-linux-x64-musl --access public
-          npm publish ./npm/platforms/hni-win32-arm64-msvc --access public
-          npm publish ./npm/platforms/hni-win32-x64-msvc --access public
+          npm publish ./npm/platforms/hni-darwin-arm64 --access public --tag "${{ steps.npm_tag.outputs.tag }}"
+          npm publish ./npm/platforms/hni-darwin-x64 --access public --tag "${{ steps.npm_tag.outputs.tag }}"
+          npm publish ./npm/platforms/hni-linux-arm64-musl --access public --tag "${{ steps.npm_tag.outputs.tag }}"
+          npm publish ./npm/platforms/hni-linux-x64-musl --access public --tag "${{ steps.npm_tag.outputs.tag }}"
+          npm publish ./npm/platforms/hni-win32-arm64-msvc --access public --tag "${{ steps.npm_tag.outputs.tag }}"
+          npm publish ./npm/platforms/hni-win32-x64-msvc --access public --tag "${{ steps.npm_tag.outputs.tag }}"
 
       - name: Publish npm package
-        run: npm publish --access public
+        run: npm publish --access public --tag "${{ steps.npm_tag.outputs.tag }}"
 
   crates-io:
     needs: release
