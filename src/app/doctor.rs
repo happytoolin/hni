@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ffi::OsStr, path::Path};
 
 use crate::{
     core::{
@@ -10,9 +10,38 @@ use crate::{
 };
 
 pub fn print_doctor(cwd: &Path, config: &HniConfig) {
+    let current_hni = std::env::current_exe()
+        .ok()
+        .map(|path| path.canonicalize().unwrap_or(path));
+    let path_node = which::which("node").ok();
+    let resolved_real_node = resolve_real_node_path().ok();
+
     println!("hni doctor");
     println!();
     println!("cwd: {}", cwd.display());
+    println!(
+        "current_hni: {}",
+        current_hni
+            .as_ref()
+            .map_or_else(|| "unavailable".to_string(), |p| p.display().to_string())
+    );
+    println!(
+        "path_node: {}",
+        path_node
+            .as_ref()
+            .map_or_else(|| "missing".to_string(), |p| p.display().to_string())
+    );
+    println!(
+        "real_node: {}",
+        resolved_real_node
+            .as_ref()
+            .map_or_else(|| "unavailable".to_string(), |p| p.display().to_string())
+    );
+    println!(
+        "shim_precedence_active: {}",
+        shim_precedence_active(current_hni.as_deref(), path_node.as_deref())
+    );
+    println!();
     println!(
         "config_file: {}",
         config
@@ -53,12 +82,6 @@ pub fn print_doctor(cwd: &Path, config: &HniConfig) {
     }
 
     println!();
-    match resolve_real_node_path() {
-        Ok(path) => println!("real_node: {}", path.display()),
-        Err(err) => println!("real_node: unavailable ({err})"),
-    }
-
-    println!();
     println!("package_manager_binaries:");
     for (label, bin) in [
         ("npm", "npm"),
@@ -73,6 +96,34 @@ pub fn print_doctor(cwd: &Path, config: &HniConfig) {
             "missing"
         };
         println!("  {label:<5} {state}");
+    }
+}
+
+fn shim_precedence_active(current_hni: Option<&Path>, path_node: Option<&Path>) -> bool {
+    let (Some(current_hni), Some(path_node)) = (current_hni, path_node) else {
+        return false;
+    };
+
+    let Some(node_dir) = path_node.parent() else {
+        return false;
+    };
+    let Some(hni_dir) = current_hni.parent() else {
+        return false;
+    };
+    if !paths_equal(node_dir, hni_dir) {
+        return false;
+    }
+
+    matches!(
+        path_node.file_name().and_then(OsStr::to_str),
+        Some("node") | Some("node.exe")
+    )
+}
+
+fn paths_equal(a: &Path, b: &Path) -> bool {
+    match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
     }
 }
 

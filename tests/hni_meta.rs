@@ -31,7 +31,7 @@ fn hni_subcommand_aliases_resolve_like_multicall() {
 }
 
 #[test]
-fn hni_doctor_and_completion_are_available() {
+fn hni_doctor_completion_and_init_are_available() {
     support::with_env_lock(|| {
         let doctor = run_hni(vec!["doctor"], &[("HNI_SKIP_PM_CHECK", "1")]);
         assert!(doctor.status.success());
@@ -42,6 +42,11 @@ fn hni_doctor_and_completion_are_available() {
         assert!(completion.status.success());
         let completion_out = String::from_utf8_lossy(&completion.stdout);
         assert!(completion_out.contains("hni"));
+
+        let init = run_hni(vec!["init", "bash"], &[]);
+        assert!(init.status.success());
+        let init_out = String::from_utf8_lossy(&init.stdout);
+        assert!(init_out.contains("# hni init for bash"));
     });
 }
 

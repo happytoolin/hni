@@ -32,3 +32,14 @@ fn unknown_help_topic_reports_parse_error() {
         assert!(stderr.contains("unknown help topic"));
     });
 }
+
+#[test]
+fn invalid_init_shell_reports_parse_error() {
+    support::with_env_lock(|| {
+        let output = run_hni(vec!["init", "tcsh"], &[("HNI_SKIP_PM_CHECK", "1")]);
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("hni: parse error:"));
+        assert!(stderr.contains("tcsh"));
+    });
+}

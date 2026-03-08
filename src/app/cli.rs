@@ -4,8 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command, builder::PossibleValuesParser};
 
+use crate::app::{help::HelpTopic, init::SUPPORTED_SHELL_NAMES};
 use crate::core::{
     error::{HniError, HniResult},
     types::InvocationKind,
@@ -22,13 +23,17 @@ pub struct ParsedInvocation {
 
 #[derive(Debug, Clone)]
 pub enum ParsedCommand {
-    PrintHelp(InvocationKind),
+    PrintHelp(HelpTopic),
     PrintVersions,
     Doctor,
     Completion {
         shell: Option<String>,
         program: String,
     },
+    Init {
+        shell: String,
+    },
+    InternalRealNodePath,
     Execute {
         invocation: InvocationKind,
         args: Vec<String>,
@@ -135,10 +140,20 @@ fn parse_hni(
                 shell: sub_matches.get_one::<String>("shell").cloned(),
                 program: program.clone(),
             },
-            _ => ParsedCommand::PrintHelp(InvocationKind::Hni),
+            "init" => ParsedCommand::Init {
+                shell: sub_matches
+                    .get_one::<String>("shell")
+                    .cloned()
+                    .ok_or_else(|| HniError::parse("missing shell for init"))?,
+            },
+            "internal" => match sub_matches.subcommand_name() {
+                Some("real-node-path") => ParsedCommand::InternalRealNodePath,
+                _ => ParsedCommand::PrintHelp(HelpTopic::Hni),
+            },
+            _ => ParsedCommand::PrintHelp(HelpTopic::Hni),
         }
     } else {
-        ParsedCommand::PrintHelp(InvocationKind::Hni)
+        ParsedCommand::PrintHelp(HelpTopic::Hni)
     };
 
     if shared_flags.version {
@@ -168,7 +183,7 @@ fn parse_alias(
     if shared_flags.version {
         command = ParsedCommand::PrintVersions;
     } else if shared_flags.help {
-        command = ParsedCommand::PrintHelp(invocation);
+        command = ParsedCommand::PrintHelp(help_topic_for_invocation(invocation));
     }
 
     Ok(ParsedInvocation {
@@ -221,25 +236,26 @@ fn resolve_cwd(mut base_cwd: PathBuf, cwd_flags: &[PathBuf]) -> PathBuf {
     base_cwd
 }
 
-fn help_target(command: Option<String>) -> HniResult<InvocationKind> {
+fn help_target(command: Option<String>) -> HniResult<HelpTopic> {
     let Some(command) = command else {
-        return Ok(InvocationKind::Hni);
+        return Ok(HelpTopic::Hni);
     };
 
     let normalized = command.to_ascii_lowercase();
     let target = match normalized.as_str() {
-        "hni" => InvocationKind::Hni,
-        "ni" => InvocationKind::Ni,
-        "nr" => InvocationKind::Nr,
-        "nlx" => InvocationKind::Nlx,
-        "nu" => InvocationKind::Nu,
-        "nun" => InvocationKind::Nun,
-        "nci" => InvocationKind::Nci,
-        "na" => InvocationKind::Na,
-        "np" => InvocationKind::Np,
-        "ns" => InvocationKind::Ns,
-        "node" => InvocationKind::NodeShim,
-        "doctor" | "completion" | "help" => InvocationKind::Hni,
+        "hni" => HelpTopic::Hni,
+        "ni" => HelpTopic::Ni,
+        "nr" => HelpTopic::Nr,
+        "nlx" => HelpTopic::Nlx,
+        "nu" => HelpTopic::Nu,
+        "nun" => HelpTopic::Nun,
+        "nci" => HelpTopic::Nci,
+        "na" => HelpTopic::Na,
+        "np" => HelpTopic::Np,
+        "ns" => HelpTopic::Ns,
+        "node" => HelpTopic::Node,
+        "init" => HelpTopic::Init,
+        "doctor" | "completion" | "help" => HelpTopic::Hni,
         _ => {
             return Err(HniError::parse(format!(
                 "unknown help topic '{command}'. Try: hni help"
@@ -249,14 +265,46 @@ fn help_target(command: Option<String>) -> HniResult<InvocationKind> {
     Ok(target)
 }
 
-fn help_target_from_command(command: &ParsedCommand) -> InvocationKind {
+fn help_target_from_command(command: &ParsedCommand) -> HelpTopic {
     match command {
-        ParsedCommand::PrintHelp(invocation) => *invocation,
-        ParsedCommand::Execute { invocation, .. } => *invocation,
-        ParsedCommand::Doctor | ParsedCommand::Completion { .. } | ParsedCommand::PrintVersions => {
-            InvocationKind::Hni
-        }
+        ParsedCommand::PrintHelp(topic) => *topic,
+        ParsedCommand::Init { .. } => HelpTopic::Init,
+        ParsedCommand::Execute { invocation, .. } => help_topic_for_invocation(*invocation),
+        ParsedCommand::Doctor
+        | ParsedCommand::Completion { .. }
+        | ParsedCommand::InternalRealNodePath
+        | ParsedCommand::PrintVersions => HelpTopic::Hni,
     }
+}
+
+fn help_topic_for_invocation(invocation: InvocationKind) -> HelpTopic {
+    match invocation {
+        InvocationKind::Hni => HelpTopic::Hni,
+        InvocationKind::Ni => HelpTopic::Ni,
+        InvocationKind::Nr => HelpTopic::Nr,
+        InvocationKind::Nlx => HelpTopic::Nlx,
+        InvocationKind::Nu => HelpTopic::Nu,
+        InvocationKind::Nun => HelpTopic::Nun,
+        InvocationKind::Nci => HelpTopic::Nci,
+        InvocationKind::Na => HelpTopic::Na,
+        InvocationKind::Np => HelpTopic::Np,
+        InvocationKind::Ns => HelpTopic::Ns,
+        InvocationKind::NodeShim => HelpTopic::Node,
+    }
+}
+
+fn init_parser() -> Command {
+    Command::new("init").arg(
+        Arg::new("shell")
+            .required(true)
+            .value_parser(PossibleValuesParser::new(SUPPORTED_SHELL_NAMES)),
+    )
+}
+
+fn internal_parser() -> Command {
+    Command::new("internal")
+        .hide(true)
+        .subcommand(Command::new("real-node-path").hide(true))
 }
 
 fn hni_parser() -> Command {
@@ -276,6 +324,8 @@ fn hni_parser() -> Command {
         .subcommand(command_parser("node"))
         .subcommand(Command::new("doctor"))
         .subcommand(Command::new("completion").arg(Arg::new("shell").num_args(0..=1)))
+        .subcommand(init_parser())
+        .subcommand(internal_parser())
 }
 
 fn command_parser(name: &'static str) -> Command {

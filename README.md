@@ -1,8 +1,22 @@
 # hni
 
-`hni` is a fast multicall package manager router inspired by Antfu's `ni` command family.
+![hni og banner](.github/og-image.png)
 
-One binary provides:
+[![CI](https://github.com/happytoolin/hni/actions/workflows/ci.yml/badge.svg)](https://github.com/happytoolin/hni/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-4F46E5.svg)](https://opensource.org/licenses/MIT)
+[![crates.io](https://img.shields.io/crates/v/hni?logo=rust&logoColor=white)](https://crates.io/crates/hni)
+[![npm](https://img.shields.io/npm/v/hni?logo=npm&logoColor=white)](https://www.npmjs.com/package/hni)
+![npm](https://img.shields.io/badge/npm-supported-CB3837?logo=npm&logoColor=white)
+![yarn](https://img.shields.io/badge/yarn-supported-2C8EBB?logo=yarn&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-supported-F69220?logo=pnpm&logoColor=white)
+![bun](https://img.shields.io/badge/bun-supported-111111?logo=bun&logoColor=white)
+![deno](https://img.shields.io/badge/deno-supported-000000?logo=deno&logoColor=white)
+
+Fast package manager routing for `npm`, `yarn`, `pnpm`, `bun`, and `deno`.
+
+`hni` is inspired by Antfu's [`ni`](https://github.com/antfu-collective/ni#readme), but packaged as a single multicall binary with extra shell setup for a `node` shim.
+
+One install gives you:
 
 - `hni`
 - `ni`, `nr`, `nlx`, `nu`, `nun`, `nci`, `na`, `np`, `ns`
@@ -10,7 +24,7 @@ One binary provides:
 
 ## Install
 
-### Homebrew (recommended)
+### Homebrew
 
 ```bash
 brew tap happytoolin/happytap
@@ -18,91 +32,216 @@ brew install hni
 hni --version
 ```
 
-### Script install (Unix)
+### Script install (macOS / Linux)
 
 ```bash
 curl -fsSL https://happytoolin.com/hni/install.sh | bash
 ```
 
-Fallback:
+Optional environment variables:
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/happytoolin/hni/main/install.sh | bash
-```
+- `HNI_VERSION` - install a specific version, for example `v0.0.1`
+- `HNI_INSTALL_DIR` - install somewhere other than `~/.local/bin`
 
-Environment overrides:
-
-- `HNI_VERSION` (default: `latest`, accepts `v0.0.1` or `0.0.1`)
-- `HNI_INSTALL_DIR` (default: `~/.local/bin`)
-- `HNI_BASE_URL` (default: `https://happytoolin.com`)
-
-### Script install (Windows PowerShell)
+### Script install (PowerShell)
 
 ```powershell
 irm https://happytoolin.com/hni/install.ps1 | iex
-```
-
-Fallback:
-
-```powershell
-irm https://raw.githubusercontent.com/happytoolin/hni/main/install.ps1 | iex
 ```
 
 Optional parameters:
 
 - `-Version latest`
 - `-InstallDir "$env:LOCALAPPDATA\hni\bin"`
-- `-BaseUrl "https://happytoolin.com"`
 
-## Quick usage
+## Commands
+
+### `ni`
+
+Install dependencies or add new ones.
 
 ```bash
-hni help ni          # command-specific help
-hni ni --help        # same as above
-hni ni -- --help     # forward --help to npm/yarn/pnpm/bun/deno
-
-ni                  # install dependencies
-ni vite             # add dependency
-ni -g eslint        # global install
-ni --frozen         # lockfile-focused install
-
-nr dev              # run script
-nr                  # interactive script picker
-
-nlx vitest          # execute package binary
-
-nu                  # upgrade dependencies
-nu --interactive    # interactive upgrade where supported
-
-nun lodash          # uninstall dependency
-nci                 # clean install
-na                  # print detected package manager
-
-np "pnpm dev" "pnpm test"   # run shell commands in parallel
-ns "pnpm lint" "pnpm test"  # run shell commands sequentially
-
-hni doctor          # inspect runtime + detection state
-hni completion zsh  # print completion script
+ni
+ni vite
+ni -D vitest
+ni -g eslint
+ni --frozen
+ni --frozen-if-present
+ni --interactive
 ```
 
-## Global flags
+### `nr`
+
+Run package scripts.
 
 ```bash
-? --dry-run --print-command  # print resolved command (deprecated: prefer --debug-resolved)
---explain                    # print explain/debug block
--C <dir>                     # run as if in <dir>
--v --version                 # print versions
--h --help                    # print help
+nr
+nr dev
+nr build
+nr test -- --watch
+nr --if-present lint
+nr --repeat-last
+```
+
+### `nlx`
+
+Execute binaries without adding them permanently to your project.
+
+```bash
+nlx vitest
+nlx eslint .
+nlx create-vite@latest
+```
+
+### `nu`
+
+Upgrade dependencies.
+
+```bash
+nu
+nu react react-dom
+nu --interactive
+```
+
+### `nun`
+
+Remove dependencies.
+
+```bash
+nun lodash
+nun react react-dom
+nun --multi-select
+nun -g typescript
+```
+
+### `nci`
+
+Run a clean install. If a lockfile exists, `hni` uses the package-manager-specific frozen install command.
+
+```bash
+nci
+```
+
+### `na`
+
+Print or forward directly to the detected package manager.
+
+```bash
+na --version
+na config get registry
+```
+
+### `np` / `ns`
+
+Run shell commands in parallel or sequentially.
+
+```bash
+np "pnpm dev" "pnpm test"
+ns "pnpm lint" "pnpm test"
+```
+
+### `node`
+
+`hni` can also act as a package-manager-aware `node` shim.
+
+```bash
+node install vite
+node run dev
+node exec vitest
+node ci
+node p "echo one" "echo two"
+```
+
+Regular Node.js usage still passes through:
+
+```bash
+node script.js
+node -v
+node -- --trace-warnings
+```
+
+### Utilities
+
+```bash
+hni help ni
+hni completion zsh
+hni init bash
+hni doctor
+```
+
+## Shell Setup
+
+If you want `hni` to win command lookup for `node`, add the init line at the end of your shell config file, after anything that manages Node or rewrites `PATH`, such as `nvm`, `mise`, `asdf`, `fnm`, or `volta`.
+
+Do not append the `hni` directory to the end of `PATH`. Put the init line at the end of the shell config file and let it prepend the correct path for you.
+
+### zsh
+
+Add to `~/.zshrc`:
+
+```bash
+eval "$(hni init zsh)"
+```
+
+### bash
+
+Add to `~/.bashrc`:
+
+```bash
+eval "$(hni init bash)"
+```
+
+### fish
+
+Add to `~/.config/fish/config.fish`:
+
+```fish
+hni init fish | source
+```
+
+### PowerShell
+
+Add to `$PROFILE`:
+
+```powershell
+Invoke-Expression (& hni init powershell)
+```
+
+### Nushell
+
+Generate a stable init file, then source it from the end of `~/.config/nushell/config.nu`:
+
+```nu
+hni init nushell | save --force ~/.config/nushell/hni.nu
+source ~/.config/nushell/hni.nu
+```
+
+## Global Flags
+
+These work across `hni` and the multicall aliases:
+
+```bash
+? --dry-run --print-command
+--explain
+-C <dir>
+-v --version
+-h --help
+```
+
+Use `--` to forward flags to the underlying package manager or script:
+
+```bash
+hni ni -- --help
+nr test -- --watch
 ```
 
 ## Configuration
 
-Config file locations:
+Config file:
 
-- `~/.hnirc` (preferred)
-- `~/.nirc` (legacy fallback)
+- `~/.hnirc`
 
-Supported file keys:
+Supported keys:
 
 ```ini
 defaultAgent=prompt
@@ -119,34 +258,39 @@ Environment overrides:
 - `HNI_USE_SFW`
 - `HNI_AUTO_INSTALL`
 
-Legacy `NI_*` variants are also accepted.
+## How It Works
 
-Internal/testing env vars:
+`hni` detects the package manager from:
 
-- `HNI_SKIP_PM_CHECK`
-- `HNI_REAL_NODE`
-- `HNI_NODE_SHIM_ACTIVE`
+1. `packageManager` in `package.json`
+2. lockfiles such as `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`, or `deno.lock`
+3. config defaults if detection is unavailable
 
-## Node shim behavior
+Then it maps the command family to the right native command:
 
-When invoked as `node`, `hni` routes package-manager verbs and batch shortcuts (`p` / `s`) while passing regular Node usage through to the real Node binary.
+- `ni` -> install or add
+- `nr` -> run or task
+- `nlx` -> `npx` / `pnpm dlx` / `yarn dlx` / `bun x`
+- `nu` -> update / upgrade
+- `nci` -> frozen install when lockfiles exist
 
-## Release automation
+## Troubleshooting
 
-Tag pushes matching `v*` run `.github/workflows/release.yml` to:
+### PowerShell `ni` alias conflict
 
-1. Build release binaries for Linux, macOS, and Windows targets.
-2. Publish GitHub release assets and `SHA256SUMS`.
-3. Update `Formula/hni.rb` in `happytoolin/homebrew-happytap`.
+PowerShell ships with a built-in `ni` alias for `New-Item`.
 
-Required secret for tap publishing:
+If that conflicts with `hni`, remove or override it in your profile before loading `hni`:
 
-- `HOMEBREW_TAP_GITHUB_TOKEN`
+```powershell
+Remove-Item Alias:ni -ErrorAction SilentlyContinue
+Invoke-Expression (& hni init powershell)
+```
 
-## Development
+### Check what `hni` resolved
 
 ```bash
-cargo fmt
-cargo clippy --all-targets --all-features
-cargo test
+ni vite --debug-resolved
+nr dev --explain
+hni doctor
 ```

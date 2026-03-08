@@ -1,12 +1,12 @@
 param(
   [string]$Version = "latest",
-  [string]$InstallDir = "$env:LOCALAPPDATA\hni\bin",
-  [string]$BaseUrl = "https://happytoolin.com"
+  [string]$InstallDir = "$env:LOCALAPPDATA\hni\bin"
 )
 
 $ErrorActionPreference = "Stop"
 $Repo = "happytoolin/hni"
-$FallbackBaseUrl = "https://github.com/$Repo"
+$DownloadRoot = "https://happytoolin.com"
+$FallbackDownloadRoot = "https://github.com/$Repo"
 $Aliases = @("ni", "nr", "nlx", "nu", "nun", "nci", "na", "np", "ns", "node")
 
 function Write-Log {
@@ -50,12 +50,12 @@ function Download-Asset {
   )
 
   $asset = "hni-$Tag-$Target.zip"
-  $primaryUrl = "$($BaseUrl.TrimEnd('/'))/hni/releases/download/$Tag/$asset"
-  $fallbackUrl = "$FallbackBaseUrl/releases/download/$Tag/$asset"
+  $primaryUrl = "$($DownloadRoot.TrimEnd('/'))/hni/releases/download/$Tag/$asset"
+  $fallbackUrl = "$FallbackDownloadRoot/releases/download/$Tag/$asset"
 
   try {
     Invoke-WebRequest -Uri $primaryUrl -OutFile $OutputPath
-    Write-Log "Downloaded $asset from $BaseUrl"
+    Write-Log "Downloaded $asset from $DownloadRoot"
   } catch {
     Write-Log "Primary URL failed, falling back to GitHub releases"
     Invoke-WebRequest -Uri $fallbackUrl -OutFile $OutputPath
@@ -77,6 +77,18 @@ function Ensure-PathEntry {
   }
 
   [Environment]::SetEnvironmentVariable("Path", "$current;$PathEntry", "User")
+}
+
+function Write-ShellSetup {
+  Write-Log "Shell setup:"
+  Write-Log "  Add the hni init line at the end of your shell config, after nvm/mise/asdf/fnm/volta init."
+  Write-Log '  PowerShell ($PROFILE): Invoke-Expression (& hni init powershell)'
+  Write-Log '  bash (~/.bashrc): eval "$(hni init bash)"'
+  Write-Log '  zsh (~/.zshrc): eval "$(hni init zsh)"'
+  Write-Log '  fish (~/.config/fish/config.fish): hni init fish | source'
+  Write-Log '  nushell (~/.config/nushell/config.nu):'
+  Write-Log '    hni init nushell | save --force ~/.config/nushell/hni.nu'
+  Write-Log '    source ~/.config/nushell/hni.nu'
 }
 
 $tag = Resolve-Tag -RequestedVersion $Version
@@ -112,4 +124,5 @@ try {
 }
 
 Write-Log "Installed to $InstallDir"
+Write-ShellSetup
 Write-Log "Restart your terminal to use the command immediately."

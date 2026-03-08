@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO="happytoolin/hni"
-BASE_URL="${HNI_BASE_URL:-https://happytoolin.com}"
-FALLBACK_BASE_URL="https://github.com/${REPO}"
+DOWNLOAD_ROOT="https://happytoolin.com"
+FALLBACK_DOWNLOAD_ROOT="https://github.com/${REPO}"
 INSTALL_DIR="${HNI_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${HNI_VERSION:-latest}"
 
@@ -20,6 +20,40 @@ fail() {
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
+}
+
+detect_shell_name() {
+  local shell_name
+  shell_name="${SHELL:-}"
+  shell_name="${shell_name##*/}"
+  printf '%s' "${shell_name,,}"
+}
+
+print_shell_setup() {
+  local shell_name="$1"
+  log "shell setup:"
+  log "  add the hni init line at the end of your shell config, after nvm/mise/asdf/fnm/volta init"
+
+  case "$shell_name" in
+  zsh)
+    log "  ~/.zshrc: eval \"\$(hni init zsh)\""
+    ;;
+  bash)
+    log "  ~/.bashrc: eval \"\$(hni init bash)\""
+    ;;
+  fish)
+    log "  ~/.config/fish/config.fish: hni init fish | source"
+    ;;
+  *)
+    log "  bash/zsh: eval \"\$(hni init bash)\" or eval \"\$(hni init zsh)\""
+    log "  fish: hni init fish | source"
+    ;;
+  esac
+
+  log "  powershell (\$PROFILE): Invoke-Expression (& hni init powershell)"
+  log "  nushell (~/.config/nushell/config.nu):"
+  log "    hni init nushell > ~/.config/nushell/hni.nu"
+  log "    source ~/.config/nushell/hni.nu"
 }
 
 normalize_tag() {
@@ -73,11 +107,11 @@ download_asset() {
   asset="hni-${tag}-${target}.tar.gz"
 
   local primary_url fallback_url
-  primary_url="${BASE_URL%/}/hni/releases/download/${tag}/${asset}"
-  fallback_url="${FALLBACK_BASE_URL}/releases/download/${tag}/${asset}"
+  primary_url="${DOWNLOAD_ROOT%/}/hni/releases/download/${tag}/${asset}"
+  fallback_url="${FALLBACK_DOWNLOAD_ROOT}/releases/download/${tag}/${asset}"
 
   if curl -fsSL "$primary_url" -o "$out_file"; then
-    log "downloaded ${asset} from ${BASE_URL}"
+    log "downloaded ${asset} from ${DOWNLOAD_ROOT}"
     return
   fi
 
@@ -118,6 +152,8 @@ main() {
     log "add this directory to PATH:"
     log "  export PATH=\"${INSTALL_DIR}:\$PATH\""
   fi
+
+  print_shell_setup "$(detect_shell_name)"
 }
 
 main "$@"

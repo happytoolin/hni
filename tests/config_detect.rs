@@ -80,3 +80,49 @@ fn detect_uses_config_fallback_when_no_lock_or_package_manager() {
     assert_eq!(detected.agent, Some(PackageManager::Bun));
     assert_eq!(detected.source, DetectionSource::Config);
 }
+
+#[test]
+fn ignores_legacy_ni_environment_variables() {
+    support::with_env_lock(|| {
+        support::set_var("NI_DEFAULT_AGENT", "pnpm");
+        support::set_var("NI_GLOBAL_AGENT", "yarn");
+        support::set_var("NI_USE_SFW", "true");
+        support::set_var("NI_AUTO_INSTALL", "true");
+
+        let cfg = HniConfig::load().unwrap();
+
+        support::remove_var("NI_DEFAULT_AGENT");
+        support::remove_var("NI_GLOBAL_AGENT");
+        support::remove_var("NI_USE_SFW");
+        support::remove_var("NI_AUTO_INSTALL");
+
+        assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
+        assert_eq!(cfg.global_agent, PackageManager::Npm);
+        assert_eq!(cfg.run_agent, RunAgent::PackageManager);
+        assert!(!cfg.use_sfw);
+        assert!(!cfg.auto_install);
+    });
+}
+
+#[test]
+fn ignores_legacy_nirc_fallback() {
+    support::with_env_lock(|| {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).unwrap();
+        fs::write(
+            home.join(".nirc"),
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\n",
+        )
+        .unwrap();
+
+        support::set_var("HOME", &home);
+        let cfg = HniConfig::load().unwrap();
+        support::remove_var("HOME");
+
+        assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
+        assert_eq!(cfg.global_agent, PackageManager::Npm);
+        assert_eq!(cfg.run_agent, RunAgent::PackageManager);
+        assert!(!cfg.use_sfw);
+    });
+}

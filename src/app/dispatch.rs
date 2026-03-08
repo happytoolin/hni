@@ -6,6 +6,7 @@ use crate::{
         completion::print_completion,
         doctor::print_doctor,
         help::print_help,
+        init::print_init,
         version::print_versions,
     },
     core::{
@@ -17,6 +18,7 @@ use crate::{
         types::{InvocationKind, ResolvedExecution},
     },
     features,
+    platform::node::resolve_real_node_path,
 };
 
 pub fn run_from_env() -> HniResult<ExitCode> {
@@ -52,6 +54,16 @@ pub fn run_from_env() -> HniResult<ExitCode> {
         }
         ParsedCommand::Completion { shell, program } => {
             print_completion(shell.as_deref(), &program)?;
+            Ok(ExitCode::SUCCESS)
+        }
+        ParsedCommand::Init { shell } => {
+            print_init(&shell)?;
+            Ok(ExitCode::SUCCESS)
+        }
+        ParsedCommand::InternalRealNodePath => {
+            if let Ok(path) = resolve_real_node_path() {
+                println!("{}", path.display());
+            }
             Ok(ExitCode::SUCCESS)
         }
         ParsedCommand::Execute { invocation, args } => {

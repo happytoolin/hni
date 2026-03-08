@@ -49,7 +49,7 @@ impl HniConfig {
     pub fn load() -> HniResult<Self> {
         let mut cfg = Self::default();
 
-        let explicit_path = env_key(&["HNI_CONFIG_FILE", "NI_CONFIG_FILE"]).map(PathBuf::from);
+        let explicit_path = env::var("HNI_CONFIG_FILE").ok().map(PathBuf::from);
 
         if let Some(path) = explicit_path {
             let loaded = parse_hnirc_file(&path, &mut cfg, true).map_err(|error| {
@@ -67,19 +67,19 @@ impl HniConfig {
             }
         }
 
-        if let Some(v) = env_key(&["HNI_DEFAULT_AGENT", "NI_DEFAULT_AGENT"]) {
+        if let Ok(v) = env::var("HNI_DEFAULT_AGENT") {
             cfg.default_agent = parse_default_agent(&v)?;
         }
 
-        if let Some(v) = env_key(&["HNI_GLOBAL_AGENT", "NI_GLOBAL_AGENT"]) {
+        if let Ok(v) = env::var("HNI_GLOBAL_AGENT") {
             cfg.global_agent = parse_pm(&v)?;
         }
 
-        if let Some(v) = env_key(&["HNI_USE_SFW", "NI_USE_SFW"]) {
+        if let Ok(v) = env::var("HNI_USE_SFW") {
             cfg.use_sfw = parse_bool(&v)?;
         }
 
-        if let Some(v) = env_key(&["HNI_AUTO_INSTALL", "NI_AUTO_INSTALL"]) {
+        if let Ok(v) = env::var("HNI_AUTO_INSTALL") {
             cfg.auto_install = parse_bool(&v)?;
         }
 
@@ -90,16 +90,7 @@ impl HniConfig {
 fn default_config_path() -> Option<PathBuf> {
     let home = dirs::home_dir()?;
     let hni = home.join(".hnirc");
-    if hni.exists() {
-        return Some(hni);
-    }
-
-    let ni = home.join(".nirc");
-    ni.exists().then_some(ni)
-}
-
-fn env_key(keys: &[&str]) -> Option<String> {
-    keys.iter().find_map(|key| env::var(key).ok())
+    hni.exists().then_some(hni)
 }
 
 fn parse_hnirc_file(path: &Path, config: &mut HniConfig, required: bool) -> HniResult<bool> {
@@ -209,4 +200,30 @@ mod tests {
         let err = parse_hnirc_file(&path, &mut cfg, true).unwrap_err();
         assert!(err.to_string().contains("config file not found"));
     }
+
+    #[test]
+    fn default_config_path_only_considers_hnirc() {
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+        fs::write(home.join(".nirc"), "defaultAgent=pnpm\n").unwrap();
+        fs::write(home.join(".hnirc"), "defaultAgent=bun\n").unwrap();
+
+        let resolved = default_config_path_with_home(home).unwrap();
+        assert_eq!(resolved, home.join(".hnirc"));
+    }
+
+    #[test]
+    fn default_config_path_ignores_nirc_when_hnirc_missing() {
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+        fs::write(home.join(".nirc"), "defaultAgent=pnpm\n").unwrap();
+
+        assert_eq!(default_config_path_with_home(home), None);
+    }
+}
+
+#[cfg(test)]
+fn default_config_path_with_home(home: &Path) -> Option<PathBuf> {
+    let hni = home.join(".hnirc");
+    hni.exists().then_some(hni)
 }

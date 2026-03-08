@@ -1,0 +1,79 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">hni Open Graph Image</title>
+  <desc id="desc">hni provides one command interface across npm, yarn, pnpm, bun, and deno.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="40" y1="20" x2="1160" y2="610" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6F1E7"/>
+      <stop offset="1" stop-color="#E7EEF8"/>
+    </linearGradient>
+
+    <linearGradient id="terminal" x1="650" y1="84" x2="1134" y2="546" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F263F"/>
+      <stop offset="1" stop-color="#1D3C60"/>
+    </linearGradient>
+
+    <linearGradient id="route" x1="700" y1="300" x2="1088" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#58CFAD"/>
+      <stop offset="1" stop-color="#F0A25B"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="620" y="62" width="548" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="14"/>
+      <feGaussianBlur stdDeviation="12"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.07 0 0 0 0 0.14 0 0 0 0 0.22 0 0 0 0.22 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <circle cx="1090" cy="96" r="148" fill="#FFD8AB" fill-opacity="0.45"/>
+  <circle cx="98" cy="570" r="138" fill="#BCE7DE" fill-opacity="0.42"/>
+
+  <g>
+    <text x="96" y="238" fill="#132B44" font-family="Sora, Segoe UI, sans-serif" font-size="164" font-weight="800" letter-spacing="-3">hni</text>
+    <text x="98" y="300" fill="#2B547F" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="42" font-weight="600">One CLI.</text>
+    <text x="98" y="346" fill="#2B547F" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="42" font-weight="600">Any package manager.</text>
+
+    <text x="98" y="430" fill="#3A5F86" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="30" font-weight="500">ni · nr · nlx · nu · nun · nci · na · np · ns</text>
+    <text x="98" y="474" fill="#446788" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="28" font-weight="500">npm · yarn · pnpm · bun · deno</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="644" y="84" width="500" height="462" rx="24" fill="url(#terminal)"/>
+  </g>
+  <rect x="644" y="84" width="500" height="462" rx="24" stroke="#6F8DAD" stroke-opacity="0.42"/>
+
+  <circle cx="682" cy="118" r="6" fill="#F37C72"/>
+  <circle cx="704" cy="118" r="6" fill="#F4C46A"/>
+  <circle cx="726" cy="118" r="6" fill="#67D0B4"/>
+
+  <text x="684" y="182" fill="#EEF5FF" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="31" font-weight="600">$ ni react</text>
+
+  <line x1="684" y1="214" x2="1088" y2="214" stroke="url(#route)" stroke-width="5" stroke-linecap="round"/>
+
+  <g font-family="Space Grotesk, Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#18314D">
+    <rect x="684" y="250" width="102" height="46" rx="12" fill="#F2F7FF"/>
+    <text x="716" y="280">npm</text>
+
+    <rect x="800" y="250" width="108" height="46" rx="12" fill="#F2F7FF"/>
+    <text x="833" y="280">yarn</text>
+
+    <rect x="922" y="250" width="112" height="46" rx="12" fill="#F2F7FF"/>
+    <text x="954" y="280">pnpm</text>
+
+    <rect x="684" y="312" width="98" height="46" rx="12" fill="#F2F7FF"/>
+    <text x="716" y="342">bun</text>
+
+    <rect x="796" y="312" width="100" height="46" rx="12" fill="#F2F7FF"/>
+    <text x="826" y="342">deno</text>
+  </g>
+
+  <text x="684" y="422" fill="#9EC0E5" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="26" font-weight="500">Detect project context.</text>
+  <text x="684" y="462" fill="#EAF2FD" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="28" font-weight="500">Run the right command every time.</text>
+</svg>

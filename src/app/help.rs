@@ -1,17 +1,33 @@
-use clap::{Arg, ArgAction, Command, value_parser};
+use clap::{Arg, ArgAction, Command, builder::PossibleValuesParser, value_parser};
 
-use crate::core::types::InvocationKind;
+use crate::app::init::SUPPORTED_SHELL_NAMES;
 
-pub fn print_help(invocation: InvocationKind) {
-    let mut cmd = help_command(invocation);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HelpTopic {
+    Hni,
+    Ni,
+    Nr,
+    Nlx,
+    Nu,
+    Nun,
+    Nci,
+    Na,
+    Np,
+    Ns,
+    Node,
+    Init,
+}
+
+pub fn print_help(topic: HelpTopic) {
+    let mut cmd = help_command(topic);
     let _ = cmd.print_long_help();
     println!();
 }
 
-pub fn help_command(invocation: InvocationKind) -> Command {
-    match invocation {
-        InvocationKind::Hni => top_level_help(),
-        InvocationKind::Ni => command_help(
+pub fn help_command(topic: HelpTopic) -> Command {
+    match topic {
+        HelpTopic::Hni => top_level_help(),
+        HelpTopic::Ni => command_help(
             "ni",
             "install or add dependencies",
             "Routes installs to the package manager detected from packageManager or lockfile.",
@@ -25,7 +41,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              ni -- --help         Forward --help to underlying package manager\n\
              ni -g npm-check-updates",
         ),
-        InvocationKind::Nr => command_help(
+        HelpTopic::Nr => command_help(
             "nr",
             "run package scripts",
             "Runs scripts through the detected package manager and keeps npm '--' behavior consistent.",
@@ -37,7 +53,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              nr --if-present lint Skip failure if script is missing\n\
              nr --repeat-last      Re-run last script",
         ),
-        InvocationKind::Nlx => command_help(
+        HelpTopic::Nlx => command_help(
             "nlx",
             "execute package binaries",
             "Runs package binaries without permanently installing them (npx / pnpm dlx / yarn dlx / bun x).",
@@ -47,7 +63,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              nlx eslint .\n\
              nlx degit user/repo app",
         ),
-        InvocationKind::Nu => command_help(
+        HelpTopic::Nu => command_help(
             "nu",
             "upgrade dependencies",
             "Upgrades dependencies using package-manager-specific update commands.",
@@ -57,7 +73,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              nu react react-dom\n\
              nu --interactive      Interactive mode when supported",
         ),
-        InvocationKind::Nun => command_help(
+        HelpTopic::Nun => command_help(
             "nun",
             "remove dependencies",
             "Uninstalls dependencies. Supports interactive multi-select mode.",
@@ -68,7 +84,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              nun --multi-select    Interactive multi-select\n\
              nun -g typescript",
         ),
-        InvocationKind::Nci => command_help(
+        HelpTopic::Nci => command_help(
             "nci",
             "clean install",
             "Performs lockfile-clean install when lockfile exists; falls back to install otherwise.",
@@ -77,7 +93,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              nci\n\
              nci --prefer-offline",
         ),
-        InvocationKind::Na => command_help(
+        HelpTopic::Na => command_help(
             "na",
             "package manager alias",
             "Forwards arguments directly to the detected package manager binary.",
@@ -87,7 +103,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              na config get registry\n\
              na cache clean --force",
         ),
-        InvocationKind::Np => command_help(
+        HelpTopic::Np => command_help(
             "np",
             "run shell commands in parallel",
             "Runs each argument as a separate shell command concurrently. Returns first non-zero code.",
@@ -96,7 +112,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              np \"npm:test\" \"npm:lint\"\n\
              np \"echo one\" \"echo two\"",
         ),
-        InvocationKind::Ns => command_help(
+        HelpTopic::Ns => command_help(
             "ns",
             "run shell commands sequentially",
             "Runs each argument in order and stops at first failure.",
@@ -105,7 +121,7 @@ pub fn help_command(invocation: InvocationKind) -> Command {
              ns \"npm run build\" \"npm run test\"\n\
              ns \"echo pre\" \"echo post\"",
         ),
-        InvocationKind::NodeShim => with_global_flags(
+        HelpTopic::Node => with_global_flags(
             Command::new("node")
                 .about("package-manager-aware node shim")
                 .long_about(
@@ -129,6 +145,25 @@ pub fn help_command(invocation: InvocationKind) -> Command {
                      Routed verbs: p, s, install|i, add, run, exec|x|dlx, update|upgrade, uninstall|remove, ci",
                 ),
         ),
+        HelpTopic::Init => with_global_flags(
+            Command::new("init")
+                .about("print shell init code for node shim precedence")
+                .long_about(
+                    "Prints shell-specific init code that captures the current real Node.js binary\n\
+                     and then prepends the hni install dir so the node shim takes precedence.\n\
+                     Add the generated line at the end of your shell config, after nvm/mise/asdf/fnm/volta init.",
+                )
+                .arg(init_shell_arg())
+                .after_help(
+                    "Examples:\n\
+                     \n\
+                     hni init bash\n\
+                     hni init zsh\n\
+                     hni init fish\n\
+                     hni init powershell\n\
+                     hni init nushell",
+                ),
+        ),
     }
 }
 
@@ -150,6 +185,7 @@ fn top_level_help() -> Command {
             .subcommand(Command::new("np").about("run shell commands in parallel"))
             .subcommand(Command::new("ns").about("run shell commands sequentially"))
             .subcommand(Command::new("node").about("package-manager-aware node shim"))
+            .subcommand(Command::new("init").about("print shell init code"))
             .subcommand(Command::new("doctor").about("print environment and detection diagnostics"))
             .subcommand(Command::new("completion").about("print shell completion script"))
             .after_help(
@@ -163,6 +199,7 @@ fn top_level_help() -> Command {
                  nun --multi-select\n\
                  np \"echo one\" \"echo two\"\n\
                  ns \"npm run build\" \"npm run test\"\n\
+                 hni init bash\n\
                  hni doctor\n\
                  hni help ni\n\
                  hni completion zsh\n\
@@ -233,4 +270,12 @@ fn command_args_arg() -> Arg {
         .num_args(0..)
         .allow_hyphen_values(true)
         .action(ArgAction::Append)
+}
+
+fn init_shell_arg() -> Arg {
+    Arg::new("shell")
+        .value_name("SHELL")
+        .help("shell to initialize")
+        .required(true)
+        .value_parser(PossibleValuesParser::new(SUPPORTED_SHELL_NAMES))
 }

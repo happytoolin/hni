@@ -64,6 +64,22 @@ class Hni < Formula
     generate_completions_from_executable(bin/"hni", "completion", shells: [:bash, :zsh, :fish])
   end
 
+  def caveats
+    <<~EOS
+      Add the hni init line at the end of your shell config, after nvm/mise/asdf/fnm/volta init:
+
+        zsh:  eval "$(hni init zsh)"
+        bash: eval "$(hni init bash)"
+        fish: hni init fish | source
+        pwsh: Invoke-Expression (& hni init powershell)
+
+      Nushell:
+
+        hni init nushell | save --force ~/.config/nushell/hni.nu
+        source ~/.config/nushell/hni.nu
+    EOS
+  end
+
   test do
     assert_match "hni", shell_output("#{bin}/hni --version")
     assert_match "usage", shell_output("#{bin}/hni --help").downcase
