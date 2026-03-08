@@ -162,6 +162,12 @@ fn parse_bool(value: &str) -> HniResult<bool> {
 }
 
 #[cfg(test)]
+fn default_config_path_with_home(home: &Path) -> Option<PathBuf> {
+    let hni = home.join(".hnirc");
+    hni.exists().then_some(hni)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::tempdir;
@@ -220,10 +226,4 @@ mod tests {
 
         assert_eq!(default_config_path_with_home(home), None);
     }
-}
-
-#[cfg(test)]
-fn default_config_path_with_home(home: &Path) -> Option<PathBuf> {
-    let hni = home.join(".hnirc");
-    hni.exists().then_some(hni)
 }
