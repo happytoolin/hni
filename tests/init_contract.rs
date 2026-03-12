@@ -146,6 +146,98 @@ fn bash_init_gives_node_shim_precedence_and_preserves_real_node() {
     });
 }
 
+#[cfg(unix)]
+#[test]
+fn bash_init_keeps_package_manager_shebangs_on_real_node() {
+    support::with_env_lock(|| {
+        use std::os::unix::fs::PermissionsExt;
+
+        let Some(bash) = which::which("bash").ok() else {
+            return;
+        };
+
+        let dir = tempfile::tempdir().unwrap();
+        let hni_bin = dir.path().join("hni-bin");
+        let real_node_bin = dir.path().join("real-node-bin");
+        let pm_bin = dir.path().join("pm-bin");
+        let fake_home = dir.path().join("home");
+        let fake_config = dir.path().join("config");
+        let shim_log = dir.path().join("shim.log");
+
+        fs::create_dir_all(&hni_bin).unwrap();
+        fs::create_dir_all(&real_node_bin).unwrap();
+        fs::create_dir_all(&pm_bin).unwrap();
+        fs::create_dir_all(&fake_home).unwrap();
+        fs::create_dir_all(&fake_config).unwrap();
+
+        let source_exe = support::hni_executable_path();
+        let copied_hni = hni_bin.join("hni");
+        fs::copy(&source_exe, &copied_hni).unwrap();
+        set_executable_if_needed(&copied_hni);
+
+        let fake_node = real_node_bin.join("node");
+        fs::write(
+            &fake_node,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  printf 'v99.0.0\\n'\n  exit 0\nfi\nprintf '99.0.0\\n'\n",
+        )
+        .unwrap();
+        set_executable_if_needed(&fake_node);
+
+        let bad_shim_node = hni_bin.join("node");
+        fs::write(
+            &bad_shim_node,
+            format!(
+                "#!/bin/sh\nprintf 'shim-used\\n' >> '{}'\nexit 97\n",
+                shim_log.display()
+            ),
+        )
+        .unwrap();
+        set_executable_if_needed(&bad_shim_node);
+
+        let fake_npm = pm_bin.join("npm");
+        fs::write(&fake_npm, "#!/usr/bin/env node\nconsole.log('npm');\n").unwrap();
+        set_executable_if_needed(&fake_npm);
+
+        let base_path = format!(
+            "{}:{}:{}",
+            pm_bin.display(),
+            real_node_bin.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        let script = format!(
+            "eval \"$({} init bash)\"\n{} --version\n",
+            copied_hni.display(),
+            copied_hni.display()
+        );
+
+        let output = Command::new(bash)
+            .arg("-c")
+            .arg(script)
+            .env("PATH", base_path)
+            .env("HOME", &fake_home)
+            .env("XDG_CONFIG_HOME", &fake_config)
+            .env("APPDATA", &fake_config)
+            .output()
+            .expect("failed to run bash version flow");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("node       v99.0.0"));
+        assert!(stdout.contains("agent      npm (99.0.0)"));
+        assert!(stdout.contains("global     npm (99.0.0)"));
+        assert!(
+            !shim_log.exists()
+                || fs::read_to_string(&shim_log)
+                    .unwrap_or_default()
+                    .trim()
+                    .is_empty()
+        );
+
+        let perms = fs::metadata(&bad_shim_node).unwrap().permissions();
+        assert_eq!(perms.mode() & 0o111, 0o111);
+    });
+}
+
 fn set_executable_if_needed(path: &Path) {
     #[cfg(unix)]
     {

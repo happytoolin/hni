@@ -1,5 +1,7 @@
 use std::{
-    env, fs,
+    env,
+    ffi::OsString,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -59,16 +61,7 @@ fn scan_path_for_real_node() -> Option<PathBuf> {
         .and_then(|path| path.parent().map(Path::to_path_buf));
     let candidates = which::which_all("node").ok()?;
     for candidate in candidates {
-        if let Some(current_dir) = &current_dir
-            && let Some(parent) = candidate.parent()
-            && paths_equal(parent, current_dir)
-        {
-            continue;
-        }
-
-        if let Some(current_exe) = &current_exe
-            && paths_equal(&candidate, current_exe)
-        {
+        if should_skip_node_candidate(&candidate, current_exe.as_deref(), current_dir.as_deref()) {
             continue;
         }
         return Some(candidate);
@@ -77,9 +70,108 @@ fn scan_path_for_real_node() -> Option<PathBuf> {
     None
 }
 
+pub fn path_with_real_node_priority(
+    real_node: &Path,
+    current_path: Option<OsString>,
+) -> Option<OsString> {
+    let real_node_dir = real_node.parent()?;
+    let mut ordered = Vec::new();
+    ordered.push(real_node_dir.to_path_buf());
+
+    if let Some(current_path) = current_path {
+        ordered.extend(
+            env::split_paths(&current_path).filter(|entry| !paths_equal(entry, real_node_dir)),
+        );
+    }
+
+    env::join_paths(ordered).ok()
+}
+
+fn should_skip_node_candidate(
+    candidate: &Path,
+    current_exe: Option<&Path>,
+    current_dir: Option<&Path>,
+) -> bool {
+    if let Some(current_dir) = current_dir
+        && let Some(parent) = candidate.parent()
+        && paths_equal(parent, current_dir)
+    {
+        return true;
+    }
+
+    if let Some(current_exe) = current_exe
+        && paths_equal(candidate, current_exe)
+    {
+        return true;
+    }
+
+    matches!(
+        candidate
+            .canonicalize()
+            .ok()
+            .as_deref()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str()),
+        Some("hni") | Some("hni.exe")
+    )
+}
+
 fn paths_equal(a: &Path, b: &Path) -> bool {
     match (a.canonicalize(), b.canonicalize()) {
         (Ok(a), Ok(b)) => a == b,
         _ => a == b,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn path_with_real_node_priority_prepends_real_node_dir_once() {
+        let path = path_with_real_node_priority(
+            Path::new("/real/node"),
+            Some(OsString::from("/shim:/real:/other")),
+        )
+        .unwrap();
+        let entries = env::split_paths(&path).collect::<Vec<_>>();
+
+        assert_eq!(
+            entries,
+            vec![
+                PathBuf::from("/real"),
+                PathBuf::from("/shim"),
+                PathBuf::from("/other"),
+            ]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skips_node_candidates_that_resolve_to_hni() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempdir().unwrap();
+        let release_dir = dir.path().join("release");
+        let debug_dir = dir.path().join("debug");
+        let shim_dir = dir.path().join("shim");
+
+        fs::create_dir_all(&release_dir).unwrap();
+        fs::create_dir_all(&debug_dir).unwrap();
+        fs::create_dir_all(&shim_dir).unwrap();
+
+        let release_hni = release_dir.join("hni");
+        let debug_hni = debug_dir.join("hni");
+        fs::write(&release_hni, b"release").unwrap();
+        fs::write(&debug_hni, b"debug").unwrap();
+        symlink(&release_hni, shim_dir.join("node")).unwrap();
+
+        assert!(should_skip_node_candidate(
+            &shim_dir.join("node"),
+            Some(&debug_hni),
+            Some(&debug_dir),
+        ));
     }
 }

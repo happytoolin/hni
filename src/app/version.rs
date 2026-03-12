@@ -5,7 +5,7 @@ use crate::{
         detect::detect,
         resolve::{ResolveContext, version_command_for_pm},
     },
-    platform::node::resolve_real_node_path,
+    platform::node::{REAL_NODE_ENV, path_with_real_node_priority, resolve_real_node_path},
 };
 
 pub fn print_versions(ctx: &ResolveContext) {
@@ -45,11 +45,17 @@ pub fn print_versions(ctx: &ResolveContext) {
 }
 
 fn run_version(program: String, args: Vec<String>, ctx: &ResolveContext) -> Option<String> {
-    let output = Command::new(program)
-        .args(args)
-        .current_dir(&ctx.cwd)
-        .output()
-        .ok()?;
+    let mut command = Command::new(program);
+    command.args(args).current_dir(&ctx.cwd);
+
+    if let Ok(real_node) = resolve_real_node_path() {
+        command.env(REAL_NODE_ENV, &real_node);
+        if let Some(path) = path_with_real_node_priority(&real_node, std::env::var_os("PATH")) {
+            command.env("PATH", path);
+        }
+    }
+
+    let output = command.output().ok()?;
 
     if !output.status.success() {
         return None;

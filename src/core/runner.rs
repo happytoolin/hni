@@ -7,7 +7,9 @@ use super::{
     shell::shell_escape,
     types::ResolvedExecution,
 };
-use crate::platform::node::{SHIM_ACTIVE_ENV, resolve_real_node_path};
+use crate::platform::node::{
+    REAL_NODE_ENV, SHIM_ACTIVE_ENV, path_with_real_node_priority, resolve_real_node_path,
+};
 
 pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
     if let Some(mode) = BatchMode::from_internal_program(&exec.program) {
@@ -23,6 +25,13 @@ pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
+
+    if let Ok(real_node) = resolve_real_node_path() {
+        command.env(REAL_NODE_ENV, &real_node);
+        if let Some(path) = path_with_real_node_priority(&real_node, std::env::var_os("PATH")) {
+            command.env("PATH", path);
+        }
+    }
 
     if passthrough {
         command.env(SHIM_ACTIVE_ENV, "1");
