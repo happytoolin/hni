@@ -9,6 +9,7 @@ use anyhow::{Result, anyhow};
 
 pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
+pub const NODE_SHIM_ENV: &str = "HNI_NODE";
 
 pub fn resolve_real_node_path() -> Result<PathBuf> {
     if let Some(from_env) = env::var_os(REAL_NODE_ENV) {

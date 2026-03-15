@@ -16,6 +16,8 @@ Fast package manager routing for `npm`, `yarn`, `pnpm`, `bun`, and `deno`.
 
 `hni` is inspired by Antfu's [`ni`](https://github.com/antfu-collective/ni#readme), but packaged as a single multicall binary with extra shell setup for a `node` shim.
 
+`hni` is still beta software and may have bugs.
+
 One install gives you:
 
 - `hni`
@@ -45,19 +47,24 @@ hni --version
 
 ### Script install (macOS / Linux)
 
+TODO: `https://happytoolin.com/hni/install.sh` is not live yet. Use the raw GitHub script for now:
+
 ```bash
-curl -fsSL https://happytoolin.com/hni/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/happytoolin/hni/main/install.sh | bash
 ```
 
 Optional environment variables:
 
-- `HNI_VERSION` - install a specific version, for example `v0.0.1-alpha-4`
+- `HNI_VERSION` - install a specific version, for example `v0.0.2`
 - `HNI_INSTALL_DIR` - install somewhere other than `~/.local/bin`
+- `HNI_NODE=off` - disable the `node` shim for the current environment
 
 ### Script install (PowerShell)
 
+TODO: `https://happytoolin.com/hni/install.ps1` is not live yet. Use the raw GitHub script for now:
+
 ```powershell
-irm https://happytoolin.com/hni/install.ps1 | iex
+irm https://raw.githubusercontent.com/happytoolin/hni/main/install.ps1 | iex
 ```
 
 Optional parameters:

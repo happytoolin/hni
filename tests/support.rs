@@ -42,7 +42,10 @@ where
 /// Run hni with the given arguments and extra environment variables.
 pub fn run_hni(args: Vec<&str>, extra_env: &[(&str, &str)]) -> std::process::Output {
     let mut cmd = Command::new(hni_executable_path());
-    cmd.args(args).env("HNI_AUTO_INSTALL", "false");
+    cmd.args(args)
+        .env("HNI_AUTO_INSTALL", "false")
+        .env_remove("HNI_REAL_NODE")
+        .env_remove("HNI_NODE_SHIM_ACTIVE");
 
     for (key, value) in extra_env {
         cmd.env(key, value);
