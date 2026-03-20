@@ -100,18 +100,20 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
     if has_if_present {
         args = exclude_flag(args, "--if-present");
     }
-    if args.get(1).is_some_and(|arg| arg == "--") {
-        args.remove(1);
+
+    let mut normalized_args = args.clone();
+    if normalized_args.get(1).is_some_and(|arg| arg == "--") {
+        normalized_args.remove(1);
     }
 
     if ctx.config.native_mode {
-        match native::attempt_nr(detected.pm, &args, ctx, has_if_present)? {
+        match native::attempt_nr(detected.pm, &normalized_args, ctx, has_if_present)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
             NativeAttempt::Ineligible(reason) => {
                 let mut resolved = build_exec(
                     detected.pm,
                     Intent::Run,
-                    args,
+                    normalized_args,
                     &ctx.cwd,
                     false,
                     detected.has_lock,
@@ -143,7 +145,7 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
     let mut resolved = build_exec(
         detected.pm,
         Intent::Run,
-        args,
+        normalized_args,
         &ctx.cwd,
         false,
         detected.has_lock,

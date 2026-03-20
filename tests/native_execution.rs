@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use std::fs;
 
 mod support;
@@ -6,10 +8,6 @@ use support::run_hni;
 
 #[test]
 fn native_nr_runs_hooks_from_nearest_package_and_forwards_args() {
-    if cfg!(windows) {
-        return;
-    }
-
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         let root = work.path().join("workspace");
@@ -51,10 +49,6 @@ fn native_nr_runs_hooks_from_nearest_package_and_forwards_args() {
 
 #[test]
 fn native_nlx_runs_local_bin_directly() {
-    if cfg!(windows) {
-        return;
-    }
-
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         let project = work.path().join("project");
@@ -89,10 +83,6 @@ fn native_nlx_runs_local_bin_directly() {
 
 #[test]
 fn native_explain_reports_fallback_reason() {
-    if cfg!(windows) {
-        return;
-    }
-
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         let project = work.path().join("project");
@@ -128,10 +118,6 @@ fn native_explain_reports_fallback_reason() {
 
 #[test]
 fn node_run_and_exec_inherit_native_resolution() {
-    if cfg!(windows) {
-        return;
-    }
-
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         let project = work.path().join("project");
@@ -187,7 +173,38 @@ fn node_run_and_exec_inherit_native_resolution() {
     });
 }
 
-#[cfg(unix)]
+#[test]
+fn node_run_agent_preserves_separator_for_forwarded_args() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("package-lock.json"), "lock").unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"name":"x","scripts":{"dev":"node -e \"require('fs').writeFileSync('args.txt', JSON.stringify(process.argv.slice(1)))\" "}}"#,
+        )
+        .unwrap();
+
+        let config = work.path().join(".hnirc");
+        fs::write(&config, "[default]\nrunAgent=node\n").unwrap();
+
+        let output = run_hni(
+            vec!["nr", "-C", project.to_str().unwrap(), "dev", "--", "alpha"],
+            &[
+                ("HNI_SKIP_PM_CHECK", "1"),
+                ("HNI_CONFIG_FILE", config.to_str().unwrap()),
+            ],
+        );
+
+        assert!(output.status.success(), "{output:?}");
+        assert_eq!(
+            fs::read_to_string(project.join("args.txt")).unwrap(),
+            "[\"alpha\"]"
+        );
+    });
+}
+
 fn make_executable(path: &std::path::Path) {
     use std::os::unix::fs::PermissionsExt;
 

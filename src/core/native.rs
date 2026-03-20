@@ -52,7 +52,7 @@ pub fn attempt_nr(
     let scripts = pkg.manifest.scripts.unwrap_or_default();
     let bin_paths = node_modules_bin_dirs(&ctx.cwd);
 
-    if pm == PackageManager::YarnBerry && bin_paths.is_empty() && has_yarn_pnp_loader(&pkg.root) {
+    if pm == PackageManager::YarnBerry && has_yarn_pnp_loader(&ctx.cwd) {
         return Ok(NativeAttempt::Ineligible(
             "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
                 .to_string(),
@@ -61,6 +61,29 @@ pub fn attempt_nr(
 
     let script_name = args.first().cloned().unwrap_or_else(|| "start".to_string());
     let forwarded_args = args.iter().skip(1).cloned().collect::<Vec<_>>();
+    let Some(script) = scripts.get(&script_name) else {
+        if has_if_present {
+            return Ok(NativeAttempt::Eligible(Box::new(
+                ResolvedExecution::native_script(
+                    script_name.clone(),
+                    ctx.cwd.clone(),
+                    NativeScriptExecution {
+                        package_root: pkg.root,
+                        package_json_path: pkg.package_json_path,
+                        script_name,
+                        steps: Vec::new(),
+                        forwarded_args,
+                        bin_paths,
+                    },
+                ),
+            )));
+        }
+
+        return Ok(NativeAttempt::Ineligible(format!(
+            "script '{script_name}' was not found in the nearest package.json"
+        )));
+    };
+
     let mut steps = Vec::new();
 
     if let Some(pre) = scripts.get(&format!("pre{script_name}")) {
@@ -74,35 +97,24 @@ pub fn attempt_nr(
         });
     }
 
-    match scripts.get(&script_name) {
-        Some(script) => {
-            if let Some(reason) = unsupported_script_reason(&script_name, script) {
-                return Ok(NativeAttempt::Ineligible(reason));
-            }
-            steps.push(NativeScriptStep {
-                event_name: script_name.clone(),
-                command: script.clone(),
-                forward_args: true,
-            });
+    if let Some(reason) = unsupported_script_reason(&script_name, script) {
+        return Ok(NativeAttempt::Ineligible(reason));
+    }
+    steps.push(NativeScriptStep {
+        event_name: script_name.clone(),
+        command: script.clone(),
+        forward_args: true,
+    });
 
-            if let Some(post) = scripts.get(&format!("post{script_name}")) {
-                if let Some(reason) = unsupported_script_reason(&format!("post{script_name}"), post)
-                {
-                    return Ok(NativeAttempt::Ineligible(reason));
-                }
-                steps.push(NativeScriptStep {
-                    event_name: format!("post{script_name}"),
-                    command: post.clone(),
-                    forward_args: false,
-                });
-            }
+    if let Some(post) = scripts.get(&format!("post{script_name}")) {
+        if let Some(reason) = unsupported_script_reason(&format!("post{script_name}"), post) {
+            return Ok(NativeAttempt::Ineligible(reason));
         }
-        None if has_if_present => {}
-        None => {
-            return Ok(NativeAttempt::Ineligible(format!(
-                "script '{script_name}' was not found in the nearest package.json"
-            )));
-        }
+        steps.push(NativeScriptStep {
+            event_name: format!("post{script_name}"),
+            command: post.clone(),
+            forward_args: false,
+        });
     }
 
     let exec = NativeScriptExecution {
@@ -135,6 +147,12 @@ pub fn attempt_nlx(
             "native local bin execution requires a command".to_string(),
         ));
     };
+    if pm == PackageManager::YarnBerry && has_yarn_pnp_loader(&ctx.cwd) {
+        return Ok(NativeAttempt::Ineligible(
+            "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
+                .to_string(),
+        ));
+    }
     let bin_paths = node_modules_bin_dirs(&ctx.cwd);
     let bin_path = resolve_local_bin(bin_name, &bin_paths).or_else(|| {
         resolve_declared_package_bin(&ctx.cwd, bin_name)
@@ -270,8 +288,10 @@ fn unsupported_script_reason(event_name: &str, script: &str) -> Option<String> {
     None
 }
 
-fn has_yarn_pnp_loader(package_root: &Path) -> bool {
-    package_root.join(".pnp.cjs").exists() || package_root.join(".pnp.js").exists()
+fn has_yarn_pnp_loader(start: &Path) -> bool {
+    start
+        .ancestors()
+        .any(|dir| dir.join(".pnp.cjs").exists() || dir.join(".pnp.js").exists())
 }
 
 fn native_script_env(

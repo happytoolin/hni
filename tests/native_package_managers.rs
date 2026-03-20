@@ -108,7 +108,9 @@ fn native_mode_matrix_covers_supported_and_fallback_package_managers() {
             if case.local_bins {
                 let bin_dir = project.join("node_modules").join(".bin");
                 fs::create_dir_all(&bin_dir).unwrap();
-                fs::write(bin_dir.join("hello"), "#!/bin/sh\n").unwrap();
+                let bin = bin_dir.join("hello");
+                fs::write(&bin, "#!/bin/sh\n").unwrap();
+                make_executable(&bin);
             }
 
             let nr = run_hni(
@@ -155,3 +157,15 @@ fn native_mode_matrix_covers_supported_and_fallback_package_managers() {
         }
     });
 }
+
+#[cfg(unix)]
+fn make_executable(path: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut perms = fs::metadata(path).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(path, perms).unwrap();
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &std::path::Path) {}

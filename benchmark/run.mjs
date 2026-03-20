@@ -730,7 +730,7 @@ function trackMarkdown(payload, artifactPaths) {
   ].join('\n')
 }
 
-function combinedMarkdown(combined, combinedArtifacts, benchmarkDir) {
+function combinedMarkdown(combined, combinedArtifacts, fromDir) {
   const lines = [
     '# Benchmark Run',
     '',
@@ -738,7 +738,7 @@ function combinedMarkdown(combined, combinedArtifacts, benchmarkDir) {
     '',
     `Combined JSON: ${markdownLink(
       path.basename(combinedArtifacts.jsonPath),
-      relativePath(benchmarkDir, combinedArtifacts.jsonPath),
+      relativePath(fromDir, combinedArtifacts.jsonPath),
     )}`,
     '',
     '## Tracks',
@@ -754,8 +754,8 @@ function combinedMarkdown(combined, combinedArtifacts, benchmarkDir) {
     lines.push(
       `Artifacts: ${markdownLink(
         path.basename(artifacts.jsonPath),
-        relativePath(benchmarkDir, artifacts.jsonPath),
-      )} · ${markdownLink(path.basename(artifacts.markdownPath), relativePath(benchmarkDir, artifacts.markdownPath))}`,
+        relativePath(fromDir, artifacts.jsonPath),
+      )} · ${markdownLink(path.basename(artifacts.markdownPath), relativePath(fromDir, artifacts.markdownPath))}`,
     )
     lines.push('')
   }
@@ -973,7 +973,11 @@ function writeCombinedMarkdown(resultsDir, combined, combinedArtifacts, benchmar
     .replace(/^benchmark-/, '')
     .replace(/\.json$/, '')
   const output = path.join(resultsDir, `benchmark-${stamp}.md`)
-  fs.writeFileSync(output, combinedMarkdown(combined, combinedArtifacts, benchmarkDir), 'utf8')
+  fs.writeFileSync(
+    output,
+    combinedMarkdown(combined, combinedArtifacts, path.dirname(output)),
+    'utf8',
+  )
   return output
 }
 

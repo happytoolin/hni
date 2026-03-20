@@ -379,6 +379,32 @@ fn nr_native_mode_if_present_missing_script_is_native_noop() {
 }
 
 #[test]
+fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"packageManager":"npm@10.0.0","scripts":{"premissing":"echo pre"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved =
+            resolve::resolve_nr(vec!["missing".into(), "--if-present".into()], &ctx).unwrap();
+
+        match &resolved.strategy {
+            ExecutionStrategy::Native(NativeExecution::RunScript(exec)) => {
+                assert!(exec.steps.is_empty());
+            }
+            other => panic!("expected native script execution, got {other:?}"),
+        }
+    });
+}
+
+#[test]
 fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
@@ -404,6 +430,31 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
                 "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
             )
         );
+    });
+}
+
+#[test]
+fn nr_native_mode_falls_back_for_yarn_berry_pnp_workspace() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("workspace");
+        let app = root.join("packages").join("app");
+        fs::create_dir_all(&app).unwrap();
+        fs::write(root.join("yarn.lock"), "lock").unwrap();
+        fs::write(root.join(".pnp.cjs"), "module.exports = {};\n").unwrap();
+        write_package_json(root.as_path(), r#"{"packageManager":"yarn@4.0.0"}"#);
+        write_package_json(app.as_path(), r#"{"name":"app","scripts":{"dev":"vite"}}"#);
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(app, cfg);
+        let resolved = resolve::resolve_nr(vec!["dev".into()], &ctx).unwrap();
+
+        assert!(matches!(resolved.strategy, ExecutionStrategy::External));
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["run", "dev"]);
     });
 }
 
@@ -512,11 +563,9 @@ fn nlx_native_mode_uses_local_bin_when_present() {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
         fs::create_dir_all(dir.path().join("node_modules").join(".bin")).unwrap();
-        fs::write(
-            dir.path().join("node_modules").join(".bin").join("vitest"),
-            "",
-        )
-        .unwrap();
+        let local_bin = dir.path().join("node_modules").join(".bin").join("vitest");
+        fs::write(&local_bin, "").unwrap();
+        make_executable(&local_bin);
 
         let cfg = HniConfig {
             native_mode: true,
@@ -610,6 +659,9 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
             "",
         )
         .unwrap();
+        if cfg!(unix) {
+            make_executable(&bin_dir.join("vitest"));
+        }
 
         let cfg = HniConfig {
             native_mode: true,
@@ -628,6 +680,31 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
+    });
+}
+
+#[test]
+fn nlx_native_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("bin")).unwrap();
+        fs::write(dir.path().join("bin").join("hello.js"), "console.log('hi')").unwrap();
+        fs::write(dir.path().join(".pnp.cjs"), "module.exports = {};\n").unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"name":"tooling","packageManager":"yarn@4.0.0","bin":{"hello":"bin/hello.js"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nlx(vec!["hello".into()], &ctx).unwrap();
+
+        assert!(matches!(resolved.strategy, ExecutionStrategy::External));
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["dlx", "hello"]);
     });
 }
 
@@ -870,3 +947,15 @@ fn resolves_from_default_agent_when_no_project_hints_exist() {
         assert_eq!(resolved.args, vec!["add", "vite"]);
     });
 }
+
+#[cfg(unix)]
+fn make_executable(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut perms = fs::metadata(path).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(path, perms).unwrap();
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) {}

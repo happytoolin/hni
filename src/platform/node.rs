@@ -12,28 +12,37 @@ pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
 pub const NODE_SHIM_ENV: &str = "HNI_NODE";
 
-static REAL_NODE_PATH: OnceLock<Option<PathBuf>> = OnceLock::new();
+static REAL_NODE_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 pub fn resolve_real_node_path() -> Result<PathBuf> {
-    REAL_NODE_PATH
-        .get_or_init(|| resolve_real_node_path_uncached().ok().flatten())
-        .clone()
-        .ok_or_else(|| {
-            anyhow!(
-                "unable to locate real node binary. Set {}=/absolute/path/to/node",
-                REAL_NODE_ENV
-            )
-        })
-}
-
-fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
     if let Some(from_env) = env::var_os(REAL_NODE_ENV) {
         let path = PathBuf::from(from_env);
         if path.exists() {
-            return Ok(Some(path));
+            return Ok(path);
         }
+
+        return Err(anyhow!(
+            "{} points to a missing path: {}",
+            REAL_NODE_ENV,
+            path.display()
+        ));
     }
 
+    if let Some(cached) = REAL_NODE_PATH.get() {
+        return Ok(cached.clone());
+    }
+
+    let resolved = resolve_real_node_path_uncached()?.ok_or_else(|| {
+        anyhow!(
+            "unable to locate real node binary. Set {}=/absolute/path/to/node",
+            REAL_NODE_ENV
+        )
+    })?;
+    let _ = REAL_NODE_PATH.set(resolved.clone());
+    Ok(resolved)
+}
+
+fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
     if let Some(recorded) = read_recorded_real_node_path()?
         && recorded.exists()
     {
@@ -137,8 +146,10 @@ fn paths_equal(a: &Path, b: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::{fs, sync::Mutex};
     use tempfile::tempdir;
+
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     #[test]
     fn path_with_real_node_priority_prepends_real_node_dir_once() {
@@ -184,5 +195,27 @@ mod tests {
             Some(&debug_hni),
             Some(&debug_dir),
         ));
+    }
+
+    #[test]
+    fn env_override_takes_effect_even_after_cache_is_initialized() {
+        let _guard = ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock poisoned");
+        let original = env::var_os(REAL_NODE_ENV);
+        let dir = tempdir().unwrap();
+        let fake_node = dir.path().join("node");
+        fs::write(&fake_node, b"node").unwrap();
+
+        let _ = resolve_real_node_path();
+
+        unsafe { env::set_var(REAL_NODE_ENV, &fake_node) };
+        assert_eq!(resolve_real_node_path().unwrap(), fake_node);
+
+        match original {
+            Some(value) => unsafe { env::set_var(REAL_NODE_ENV, value) },
+            None => unsafe { env::remove_var(REAL_NODE_ENV) },
+        }
     }
 }
