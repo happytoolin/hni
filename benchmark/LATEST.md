@@ -1,0 +1,33 @@
+# Latest Benchmark Snapshot
+
+Updated: 2026-03-20T00:08:06.117Z
+
+This file is the small release-friendly benchmark snapshot. Raw JSON stays in `benchmark/results/`.
+
+Combined report: [benchmark-2026-03-20T00-08-06-117Z.md](results/benchmark-2026-03-20T00-08-06-117Z.md)
+
+## Native
+
+Relative to `delegated`, `native` averaged `5.02x`.
+
+Artifacts: [native-2026-03-20T00-08-06-117Z.md](results/native-2026-03-20T00-08-06-117Z.md) · [native-2026-03-20T00-08-06-117Z.json](results/native-2026-03-20T00-08-06-117Z.json)
+
+| Case | delegated | native | Relative |
+| --- | ---: | ---: | ---: |
+| nr noop (npm) | 288.24 ms | 37.58 ms | 7.67x |
+| nr hooks (npm) | 706.04 ms | 111.80 ms | 6.32x |
+| node run noop (npm) | 309.96 ms | 36.74 ms | 8.44x |
+| nr noop (pnpm) | 547.16 ms | 35.06 ms | 15.61x |
+| nr hooks (pnpm) | 732.49 ms | 92.89 ms | 7.89x |
+| node run noop (pnpm) | 458.88 ms | 37.51 ms | 12.23x |
+| nr noop (yarn) | 624.46 ms | 43.50 ms | 14.35x |
+| nr hooks (yarn) | 399.49 ms | 98.94 ms | 4.04x |
+| node run noop (yarn) | 290.24 ms | 46.55 ms | 6.23x |
+| nr noop (bun) | 50.24 ms | 40.31 ms | 1.25x |
+| nr hooks (bun) | 148.73 ms | 111.20 ms | 1.34x |
+| node run noop (bun) | 44.59 ms | 36.89 ms | 1.21x |
+| nr noop (deno) | 211.49 ms | 39.21 ms | 5.39x |
+| nr hooks (deno) | 37.92 ms | 37.10 ms | 1.02x |
+| node run noop (deno) | 38.35 ms | 38.48 ms | 1.00x |
+| nlx hello --flag (npm local bin) | 909.45 ms | 13.84 ms | 65.70x |
+

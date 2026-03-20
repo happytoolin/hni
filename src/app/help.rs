@@ -49,6 +49,7 @@ pub fn help_command(topic: HelpTopic) -> Command {
              \n\
              nr                   Run 'start'\n\
              nr dev               Run dev script\n\
+             nr --native dev      Force native execution when eligible\n\
              nr test -- --watch   Pass extra args to script\n\
              nr --if-present lint Skip failure if script is missing\n\
              nr --repeat-last      Re-run last script",
@@ -59,6 +60,7 @@ pub fn help_command(topic: HelpTopic) -> Command {
             "Runs package binaries without permanently installing them (npx / pnpm dlx / yarn dlx / bun x).",
             "Examples:\n\
              \n\
+             nlx --native eslint .\n\
              nlx vite@latest\n\
              nlx eslint .\n\
              nlx degit user/repo app",
@@ -193,6 +195,7 @@ fn top_level_help() -> Command {
                  \n\
                  ni vite\n\
                  ni --explain react -D\n\
+                 nr --native dev\n\
                  nr dev -- --port=3000\n\
                  nlx create-vite@latest\n\
                  nu --interactive\n\
@@ -237,6 +240,20 @@ fn with_global_flags(cmd: Command) -> Command {
             Arg::new("explain")
                 .long("explain")
                 .help("print detection + resolution details and exit")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("native")
+                .long("native")
+                .help("prefer native execution for eligible run/exec commands")
+                .conflicts_with("no-native")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-native")
+                .long("no-native")
+                .help("disable native execution for this invocation")
+                .conflicts_with("native")
                 .action(ArgAction::SetTrue),
         )
         .arg(

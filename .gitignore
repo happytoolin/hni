@@ -153,9 +153,12 @@ dist
 .pnp.*
 
 # Benchmark artifacts
-benchmarks/results/*.json
-benchmarks/results/*.md
-benchmarks/results/raw/*.json
+benchmark/.cache/
+benchmark/results/*.json
+benchmark/results/raw/
+benchmark/profiles/*.svg
+!benchmark/results/.gitkeep
+!benchmark/profiles/.gitkeep
 
 # hni npm/jsr publish artifacts
 npm/platforms/*/bin/hni

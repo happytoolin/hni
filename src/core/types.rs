@@ -34,6 +34,120 @@ pub struct ResolvedExecution {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub passthrough: bool,
+    pub strategy: ExecutionStrategy,
+    pub native_requested: bool,
+    pub native_fallback_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecutionStrategy {
+    External,
+    Native(NativeExecution),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NativeExecution {
+    RunScript(NativeScriptExecution),
+    RunLocalBin(NativeLocalBinExecution),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeScriptExecution {
+    pub package_root: PathBuf,
+    pub package_json_path: PathBuf,
+    pub script_name: String,
+    pub steps: Vec<NativeScriptStep>,
+    pub forwarded_args: Vec<String>,
+    pub bin_paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeScriptStep {
+    pub event_name: String,
+    pub command: String,
+    pub forward_args: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeLocalBinExecution {
+    pub bin_name: String,
+    pub bin_path: PathBuf,
+    pub bin_paths: Vec<PathBuf>,
+}
+
+impl ResolvedExecution {
+    pub fn external(
+        program: impl Into<String>,
+        args: Vec<String>,
+        cwd: PathBuf,
+        passthrough: bool,
+    ) -> Self {
+        Self {
+            program: program.into(),
+            args,
+            cwd,
+            passthrough,
+            strategy: ExecutionStrategy::External,
+            native_requested: false,
+            native_fallback_reason: None,
+        }
+    }
+
+    pub fn external_with_native_fallback(
+        program: impl Into<String>,
+        args: Vec<String>,
+        cwd: PathBuf,
+        passthrough: bool,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self {
+            program: program.into(),
+            args,
+            cwd,
+            passthrough,
+            strategy: ExecutionStrategy::External,
+            native_requested: true,
+            native_fallback_reason: Some(reason.into()),
+        }
+    }
+
+    pub fn native_script(
+        script_name: impl Into<String>,
+        cwd: PathBuf,
+        exec: NativeScriptExecution,
+    ) -> Self {
+        let script_name = script_name.into();
+        Self {
+            program: script_name.clone(),
+            args: exec.forwarded_args.clone(),
+            cwd,
+            passthrough: false,
+            strategy: ExecutionStrategy::Native(NativeExecution::RunScript(exec)),
+            native_requested: true,
+            native_fallback_reason: None,
+        }
+    }
+
+    pub fn native_local_bin(
+        bin_name: impl Into<String>,
+        args: Vec<String>,
+        cwd: PathBuf,
+        exec: NativeLocalBinExecution,
+    ) -> Self {
+        Self {
+            program: bin_name.into(),
+            args,
+            cwd,
+            passthrough: false,
+            strategy: ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)),
+            native_requested: true,
+            native_fallback_reason: None,
+        }
+    }
+
+    pub fn is_native(&self) -> bool {
+        matches!(self.strategy, ExecutionStrategy::Native(_))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

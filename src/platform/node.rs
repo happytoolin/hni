@@ -3,6 +3,7 @@ use std::{
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 use anyhow::{Result, anyhow};
@@ -11,26 +12,35 @@ pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
 pub const NODE_SHIM_ENV: &str = "HNI_NODE";
 
+static REAL_NODE_PATH: OnceLock<Option<PathBuf>> = OnceLock::new();
+
 pub fn resolve_real_node_path() -> Result<PathBuf> {
+    REAL_NODE_PATH
+        .get_or_init(|| resolve_real_node_path_uncached().ok().flatten())
+        .clone()
+        .ok_or_else(|| {
+            anyhow!(
+                "unable to locate real node binary. Set {}=/absolute/path/to/node",
+                REAL_NODE_ENV
+            )
+        })
+}
+
+fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
     if let Some(from_env) = env::var_os(REAL_NODE_ENV) {
         let path = PathBuf::from(from_env);
         if path.exists() {
-            return Ok(path);
+            return Ok(Some(path));
         }
     }
 
     if let Some(recorded) = read_recorded_real_node_path()?
         && recorded.exists()
     {
-        return Ok(recorded);
+        return Ok(Some(recorded));
     }
 
-    scan_path_for_real_node().ok_or_else(|| {
-        anyhow!(
-            "unable to locate real node binary. Set {}=/absolute/path/to/node",
-            REAL_NODE_ENV
-        )
-    })
+    Ok(scan_path_for_real_node())
 }
 
 pub fn recorded_real_node_path_file() -> Option<PathBuf> {

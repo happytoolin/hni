@@ -2,6 +2,8 @@ pub mod batch;
 pub mod config;
 pub mod detect;
 pub mod error;
+pub mod native;
+pub mod package;
 pub mod pkg_json;
 pub mod resolve;
 pub mod runner;

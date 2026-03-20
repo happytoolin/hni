@@ -15,23 +15,26 @@ fn config_loads_and_env_overrides() {
         let cfg_path = dir.path().join("nirc");
         fs::write(
             &cfg_path,
-            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\n",
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nnativeMode=true\nuseSfw=true\n",
         )
         .unwrap();
 
         support::set_var("HNI_CONFIG_FILE", &cfg_path);
         support::set_var("HNI_GLOBAL_AGENT", "npm");
+        support::set_var("HNI_NATIVE", "false");
         support::set_var("HNI_AUTO_INSTALL", "true");
 
         let cfg = HniConfig::load().unwrap();
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::Node);
+        assert!(!cfg.native_mode);
         assert!(cfg.use_sfw);
         assert!(cfg.auto_install);
 
         support::remove_var("HNI_CONFIG_FILE");
         support::remove_var("HNI_GLOBAL_AGENT");
+        support::remove_var("HNI_NATIVE");
         support::remove_var("HNI_AUTO_INSTALL");
     });
 }
@@ -99,6 +102,7 @@ fn ignores_legacy_ni_environment_variables() {
         assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::PackageManager);
+        assert!(!cfg.native_mode);
         assert!(!cfg.use_sfw);
         assert!(!cfg.auto_install);
     });
@@ -112,7 +116,7 @@ fn ignores_legacy_nirc_fallback() {
         fs::create_dir_all(&home).unwrap();
         fs::write(
             home.join(".nirc"),
-            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nuseSfw=true\n",
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nnativeMode=true\nuseSfw=true\n",
         )
         .unwrap();
 
@@ -123,6 +127,7 @@ fn ignores_legacy_nirc_fallback() {
         assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::PackageManager);
+        assert!(!cfg.native_mode);
         assert!(!cfg.use_sfw);
     });
 }

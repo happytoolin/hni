@@ -42,12 +42,12 @@ impl BatchMode {
 }
 
 pub fn make_execution(mode: BatchMode, commands: Vec<String>, cwd: &Path) -> ResolvedExecution {
-    ResolvedExecution {
-        program: mode.internal_program().to_string(),
-        args: commands,
-        cwd: cwd.to_path_buf(),
-        passthrough: false,
-    }
+    ResolvedExecution::external(
+        mode.internal_program().to_string(),
+        commands,
+        cwd.to_path_buf(),
+        false,
+    )
 }
 
 pub fn run_batch(mode: BatchMode, commands: &[String], cwd: &Path) -> Result<ExitCode> {

@@ -28,12 +28,8 @@ fn passthrough_uses_explicit_real_node_env() {
 
         support::set_var(REAL_NODE_ENV, &real_node);
 
-        let exec = ResolvedExecution {
-            program: "node".into(),
-            args: vec!["-v".into()],
-            cwd: dir.path().to_path_buf(),
-            passthrough: true,
-        };
+        let exec =
+            ResolvedExecution::external("node", vec!["-v".into()], dir.path().to_path_buf(), true);
 
         let rendered = runner::format_debug(&exec, false).unwrap();
         assert!(rendered.contains(real_node.to_string_lossy().as_ref()));

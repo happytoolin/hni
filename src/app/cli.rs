@@ -17,6 +17,7 @@ pub struct ParsedInvocation {
     pub cwd: PathBuf,
     pub debug: bool,
     pub explain: bool,
+    pub native_override: Option<bool>,
     pub command: ParsedCommand,
     pub deprecated_debug_alias_used: bool,
 }
@@ -45,6 +46,7 @@ struct SharedFlags {
     cwd: Vec<PathBuf>,
     debug: bool,
     explain: bool,
+    native_override: Option<bool>,
     help: bool,
     version: bool,
 }
@@ -109,6 +111,7 @@ fn parse_hni(
             cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
             debug: shared_flags.debug,
             explain: shared_flags.explain,
+            native_override: shared_flags.native_override,
             command,
             deprecated_debug_alias_used,
         });
@@ -166,6 +169,7 @@ fn parse_hni(
         cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
         debug: shared_flags.debug,
         explain: shared_flags.explain,
+        native_override: shared_flags.native_override,
         command,
         deprecated_debug_alias_used,
     })
@@ -208,6 +212,7 @@ fn parse_alias(
         cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
         debug: shared_flags.debug,
         explain: shared_flags.explain,
+        native_override: shared_flags.native_override,
         command,
         deprecated_debug_alias_used,
     })
@@ -225,8 +230,19 @@ fn shared_flags_from_matches(matches: &ArgMatches) -> SharedFlags {
         cwd: values_from(matches.get_many::<PathBuf>("cwd")),
         debug: matches.get_flag("debug"),
         explain: matches.get_flag("explain"),
+        native_override: native_override_from_matches(matches),
         help: matches.get_flag("help"),
         version: matches.get_flag("version"),
+    }
+}
+
+fn native_override_from_matches(matches: &ArgMatches) -> Option<bool> {
+    if matches.get_flag("native") {
+        Some(true)
+    } else if matches.get_flag("no-native") {
+        Some(false)
+    } else {
+        None
     }
 }
 
@@ -377,6 +393,18 @@ fn shared_flags_parser() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("native")
+                .long("native")
+                .conflicts_with("no-native")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-native")
+                .long("no-native")
+                .conflicts_with("native")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("version")
                 .short('v')
                 .long("version")
@@ -481,6 +509,14 @@ fn extract_shared_flag_tokens(args: &[String]) -> HniResult<(Vec<String>, Vec<St
                 flags.push("--explain".to_string());
                 idx += 1;
             }
+            "--native" => {
+                flags.push("--native".to_string());
+                idx += 1;
+            }
+            "--no-native" => {
+                flags.push("--no-native".to_string());
+                idx += 1;
+            }
             "-h" | "--help" => {
                 flags.push("--help".to_string());
                 idx += 1;
@@ -581,6 +617,7 @@ mod tests {
             cwd: vec![],
             debug: false,
             explain: false,
+            native_override: None,
             help: true,
             version: false,
         };
@@ -608,6 +645,7 @@ mod tests {
             cwd: vec![],
             debug: false,
             explain: false,
+            native_override: None,
             help: true,
             version: false,
         };

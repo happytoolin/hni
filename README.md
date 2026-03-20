@@ -329,3 +329,62 @@ ni vite --debug-resolved
 nr dev --explain
 hni doctor
 ```
+
+## Benchmarking
+
+The active benchmark suite lives in [`benchmark/`](benchmark/).
+
+Run the main tracks with:
+
+```bash
+./benchmark/run.sh --track=compare
+./benchmark/run.sh --track=native
+./benchmark/run.sh --track=runtime
+```
+
+Generate flamegraphs with:
+
+```bash
+./benchmark/profile.sh
+```
+
+Tracked benchmark docs:
+
+- current snapshot: [`benchmark/LATEST.md`](benchmark/LATEST.md)
+- lightweight history: [`benchmark/HISTORY.md`](benchmark/HISTORY.md)
+- native compatibility: [`docs/native-compat.md`](docs/native-compat.md)
+
+### Representative Results
+
+The benchmark runner generates per-run Markdown and JSON under `benchmark/results/`, but those raw artifacts are treated as local output rather than long-lived repo data.
+
+For commits and releases, use the tracked summary files above instead of linking directly to generated result files.
+
+Native mode is where `hni` shows the clearest gains in the current snapshot:
+
+| Case | Delegated | Native | Gain |
+| --- | ---: | ---: | ---: |
+| `nr noop (npm)` | 372.01 ms | 44.28 ms | 8.40x |
+| `nr noop (pnpm)` | 438.42 ms | 36.04 ms | 12.16x |
+| `node run noop (pnpm)` | 594.08 ms | 34.30 ms | 17.32x |
+| `nlx hello --flag (npm local bin)` | 276.90 ms | 6.78 ms | 40.87x |
+
+Overall native-mode geometric mean in the current tracked snapshot: `5.02x`.
+
+The runtime track keeps `bun` and `deno` separate from the Antfu comparison and focuses on a small fair set of task-style commands:
+
+| Case | `hni` | `bun` | `deno` |
+| --- | ---: | ---: | ---: |
+| `task noop` | 35.50 ms | 42.98 ms | 33.00 ms |
+| `task hooks` | 102.40 ms | 120.64 ms | 40.49 ms |
+
+For CLI/startup-oriented comparisons against Antfu's `ni`, the results are closer and depend heavily on the exact command shape. The `compare` track is intentionally small and should be read as a lightweight sanity check, not a broad claim about every workflow.
+
+### Methodology
+
+- All CLI timing uses `hyperfine`.
+- `hni` is measured with the release binary from `target/release/hni`.
+- `compare` benchmarks `@antfu/ni` against `hni` on a very small CLI-focused set.
+- `native` benchmarks `HNI_NATIVE=false` vs `HNI_NATIVE=true`.
+- `runtime` benchmarks `hni`, `bun`, and `deno` separately from the Antfu comparison to keep the chart fair.
+- Raw benchmark outputs are generated locally in `benchmark/results/`; the repo keeps the curated Markdown snapshots instead of storing every generated result file.
