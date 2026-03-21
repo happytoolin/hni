@@ -54,6 +54,16 @@ pub fn run_hni(args: Vec<&str>, extra_env: &[(&str, &str)]) -> std::process::Out
     cmd.output().expect("failed to run hni")
 }
 
+pub fn real_node_supports_run() -> bool {
+    let output = match Command::new("node").arg("--help").output() {
+        Ok(output) => output,
+        Err(_) => return false,
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.contains("--run")
+}
+
 /// Get the path to the hni executable.
 pub fn hni_executable_path() -> PathBuf {
     if let Ok(path) = std::env::var("CARGO_BIN_EXE_hni") {

@@ -176,6 +176,10 @@ fn node_run_and_exec_inherit_native_resolution() {
 #[test]
 fn node_run_agent_preserves_separator_for_forwarded_args() {
     support::with_env_lock(|| {
+        if !support::real_node_supports_run() {
+            return;
+        }
+
         let work = tempfile::tempdir().unwrap();
         let project = work.path().join("project");
         fs::create_dir_all(&project).unwrap();
