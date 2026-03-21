@@ -165,3 +165,4 @@ npm/platforms/*/bin/hni
 npm/platforms/*/bin/hni.exe
 npm/platforms/*/LICENSE
 deno.lock
+.desloppify/

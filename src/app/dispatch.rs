@@ -21,6 +21,15 @@ use crate::{
     platform::node::resolve_real_node_path,
 };
 
+/// Run the application based on command-line arguments.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Argument parsing fails
+/// - Working directory does not exist
+/// - Configuration loading fails
+/// - Command execution fails
 pub fn run_from_env() -> HniResult<ExitCode> {
     let parsed = parse_from_env()?;
     if parsed.deprecated_debug_alias_used {

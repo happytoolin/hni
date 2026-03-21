@@ -42,6 +42,7 @@ pub enum ParsedCommand {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 struct SharedFlags {
     cwd: Vec<PathBuf>,
     debug: bool,
@@ -51,6 +52,14 @@ struct SharedFlags {
     version: bool,
 }
 
+/// Parse command-line arguments from environment.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - `argv[0]` is missing
+/// - Current directory cannot be read
+/// - Argument parsing fails
 pub fn parse_from_env() -> HniResult<ParsedInvocation> {
     let argv = env::args().collect::<Vec<_>>();
     let Some(argv0) = argv.first() else {
@@ -69,25 +78,25 @@ pub fn parse_from_env() -> HniResult<ParsedInvocation> {
         parse_hni(
             argv0,
             &base_cwd,
-            command_args,
+            &command_args,
             shared_flags,
             deprecated_debug_alias_used,
         )
     } else {
-        parse_alias(
+        Ok(parse_alias(
             invocation,
             &base_cwd,
-            command_args,
+            &command_args,
             shared_flags,
             deprecated_debug_alias_used,
-        )
+        ))
     }
 }
 
 fn parse_hni(
     argv0: &str,
     base_cwd: &Path,
-    args: Vec<String>,
+    args: &[String],
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
 ) -> HniResult<ParsedInvocation> {
@@ -120,7 +129,7 @@ fn parse_hni(
     let program = normalized_program_name(argv0);
     let mut clap_args = Vec::with_capacity(args.len() + 1);
     clap_args.push(program.clone());
-    clap_args.extend(args);
+    clap_args.extend(args.iter().cloned());
 
     let matches = hni_parser()
         .try_get_matches_from(clap_args)
@@ -178,11 +187,11 @@ fn parse_hni(
 fn parse_alias(
     invocation: InvocationKind,
     base_cwd: &Path,
-    args: Vec<String>,
+    args: &[String],
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
-) -> HniResult<ParsedInvocation> {
-    let mut forwarded_args = args;
+) -> ParsedInvocation {
+    let mut forwarded_args = args.to_vec();
     let has_forwarded_args = !forwarded_args.is_empty();
 
     // In alias mode, treat --help/--version as passthrough flags when a target command exists.
@@ -208,14 +217,14 @@ fn parse_alias(
         }
     }
 
-    Ok(ParsedInvocation {
+    ParsedInvocation {
         cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
         debug: shared_flags.debug,
         explain: shared_flags.explain,
         native_override: shared_flags.native_override,
         command,
         deprecated_debug_alias_used,
-    })
+    }
 }
 
 fn execute_from_subcommand(invocation: InvocationKind, sub_matches: &ArgMatches) -> ParsedCommand {
@@ -276,6 +285,7 @@ fn help_target(command: Option<String>) -> HniResult<HelpTopic> {
     };
 
     let normalized = command.to_ascii_lowercase();
+    #[allow(clippy::match_same_arms)]
     let target = match normalized.as_str() {
         "hni" => HelpTopic::Hni,
         "ni" => HelpTopic::Ni,
@@ -625,11 +635,10 @@ mod tests {
         let parsed = parse_alias(
             InvocationKind::Nlx,
             Path::new("/tmp"),
-            vec!["vitest".to_string()],
+            &["vitest".to_string()],
             shared_flags,
             false,
-        )
-        .unwrap();
+        );
 
         match parsed.command {
             ParsedCommand::Execute { args, .. } => {
@@ -653,11 +662,10 @@ mod tests {
         let parsed = parse_alias(
             InvocationKind::Nlx,
             Path::new("/tmp"),
-            vec![],
+            &[],
             shared_flags,
             false,
-        )
-        .unwrap();
+        );
 
         match parsed.command {
             ParsedCommand::PrintHelp(HelpTopic::Nlx) => {}

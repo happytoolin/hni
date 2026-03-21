@@ -117,7 +117,7 @@ fn shim_precedence_active(current_hni: Option<&Path>, path_node: Option<&Path>) 
 
     matches!(
         path_node.file_name().and_then(OsStr::to_str),
-        Some("node") | Some("node.exe")
+        Some("node" | "node.exe")
     )
 }
 
