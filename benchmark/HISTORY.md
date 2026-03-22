@@ -4,4 +4,5 @@ Recent combined benchmark reports. Keep this lightweight and use `benchmark/LATE
 
 | Run | Report | JSON |
 | --- | --- | --- |
+| 2026-03-22T00-32-35-442Z | [benchmark-2026-03-22T00-32-35-442Z.md](results/benchmark-2026-03-22T00-32-35-442Z.md) | [benchmark-2026-03-22T00-32-35-442Z.json](results/benchmark-2026-03-22T00-32-35-442Z.json) |
 | 2026-03-20T00-08-06-117Z | [benchmark-2026-03-20T00-08-06-117Z.md](results/benchmark-2026-03-20T00-08-06-117Z.md) | [benchmark-2026-03-20T00-08-06-117Z.json](results/benchmark-2026-03-20T00-08-06-117Z.json) |

@@ -334,9 +334,30 @@ hni doctor
 
 The active benchmark suite lives in [`benchmark/`](benchmark/).
 
-Run the main tracks with:
+If you use [`just`](https://github.com/casey/just), the common local commands are wrapped in [`justfile`](justfile):
 
 ```bash
+just build-release
+just test
+just test-native
+just ci
+just bench
+```
+
+Run all benchmark tracks with:
+
+```bash
+./benchmark/run.sh
+just bench
+```
+
+Run individual tracks with:
+
+```bash
+just bench-compare
+just bench-native
+just bench-runtime
+
 ./benchmark/run.sh --track=compare
 ./benchmark/run.sh --track=native
 ./benchmark/run.sh --track=runtime
@@ -354,31 +375,53 @@ Tracked benchmark docs:
 - lightweight history: [`benchmark/HISTORY.md`](benchmark/HISTORY.md)
 - native compatibility: [`docs/native-compat.md`](docs/native-compat.md)
 
+Same-repo pull requests also run the benchmark workflow on GitHub Actions and update a sticky PR comment with the latest summary.
+
 ### Representative Results
 
 The benchmark runner generates per-run Markdown and JSON under `benchmark/results/`, but those raw artifacts are treated as local output rather than long-lived repo data.
 
 For commits and releases, use the tracked summary files above instead of linking directly to generated result files.
 
+The current tracked snapshot is from March 22, 2026. It uses `5` warmups and `20` measured runs per case. The previous March 20, 2026 tracked snapshot only covered the native track with a single measured run, so the delta callouts below are useful directionally but not as a controlled apples-to-apples regression study.
+
 Native mode is where `hni` shows the clearest gains in the current snapshot:
 
 | Case | Delegated | Native | Gain |
 | --- | ---: | ---: | ---: |
-| `nr noop (npm)` | 372.01 ms | 44.28 ms | 8.40x |
-| `nr noop (pnpm)` | 438.42 ms | 36.04 ms | 12.16x |
-| `node run noop (pnpm)` | 594.08 ms | 34.30 ms | 17.32x |
-| `nlx hello --flag (npm local bin)` | 276.90 ms | 6.78 ms | 40.87x |
+| `nr noop (npm)` | 399.19 ms | 55.25 ms | 7.23x |
+| `nr noop (pnpm)` | 922.51 ms | 77.18 ms | 11.95x |
+| `node run noop (pnpm)` | 741.88 ms | 70.09 ms | 10.58x |
+| `nlx hello --flag (npm local bin)` | 363.95 ms | 7.55 ms | 48.21x |
 
-Overall native-mode geometric mean in the current tracked snapshot: `5.02x`.
+Overall native-mode geometric mean in the current tracked snapshot: `3.65x` on March 22, 2026, versus `5.02x` on March 20, 2026.
 
-The runtime track keeps `bun` and `deno` separate from the Antfu comparison and focuses on a small fair set of task-style commands:
+Representative March 20 -> March 22 native deltas:
+
+| Case | March 20 | March 22 |
+| --- | ---: | ---: |
+| `nr noop (npm)` | 7.67x | 7.23x |
+| `nr noop (pnpm)` | 15.61x | 11.95x |
+| `node run noop (pnpm)` | 12.23x | 10.58x |
+| `nlx hello --flag (npm local bin)` | 65.70x | 48.21x |
+
+The March 22 snapshot also adds tracked `compare` and `runtime` runs. The runtime track keeps `bun` and `deno` separate from the Antfu comparison and focuses on a small fair set of task-style commands:
 
 | Case | `hni` | `bun` | `deno` |
 | --- | ---: | ---: | ---: |
-| `task noop` | 35.50 ms | 42.98 ms | 33.00 ms |
-| `task hooks` | 102.40 ms | 120.64 ms | 40.49 ms |
+| `task noop` | 43.51 ms | 50.80 ms | 39.68 ms |
+| `task hooks` | 107.08 ms | 203.35 ms | 69.51 ms |
 
-For CLI/startup-oriented comparisons against Antfu's `ni`, the results are closer and depend heavily on the exact command shape. The `compare` track is intentionally small and should be read as a lightweight sanity check, not a broad claim about every workflow.
+For CLI/startup-oriented comparisons against Antfu's `ni`, the March 22 `compare` track averaged `1.46x` in `hni`'s favor overall, but the results remain command-shaped and intentionally small:
+
+| Case | `antfu` | `hni` | Relative |
+| --- | ---: | ---: | ---: |
+| `ni --version` | 451.62 ms | 336.74 ms | 1.34x |
+| `ni vite ? (npm)` | 6.91 ms | 11.60 ms | 0.60x |
+| `nr build ? (pnpm)` | 9.26 ms | 2.46 ms | 3.77x |
+| `nlx vitest ? (npm)` | 6.74 ms | 4.48 ms | 1.51x |
+
+The `compare` track is intentionally small and should be read as a lightweight sanity check, not a broad claim about every workflow.
 
 ### Methodology
 
