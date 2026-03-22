@@ -21,6 +21,15 @@ use crate::{
     platform::node::resolve_real_node_path,
 };
 
+/// Run the application based on command-line arguments.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Argument parsing fails
+/// - Working directory does not exist
+/// - Configuration loading fails
+/// - Command execution fails
 pub fn run_from_env() -> HniResult<ExitCode> {
     let parsed = parse_from_env()?;
     if parsed.deprecated_debug_alias_used {
@@ -36,7 +45,10 @@ pub fn run_from_env() -> HniResult<ExitCode> {
         )));
     }
 
-    let config = HniConfig::load()?;
+    let mut config = HniConfig::load()?;
+    if let Some(native_override) = parsed.native_override {
+        config.native_mode = native_override;
+    }
     let resolve_ctx = ResolveContext::new(parsed.cwd.clone(), config.clone());
 
     match parsed.command {
@@ -99,6 +111,28 @@ fn print_explain(
     println!("hni explain");
     println!("invocation: {}", invocation_name(invocation));
     println!("cwd: {}", ctx.cwd.display());
+    println!("native_mode: {}", config.native_mode);
+    println!(
+        "execution_mode: {}",
+        if resolved.is_native() {
+            "native"
+        } else {
+            "delegated"
+        }
+    );
+    if config.native_mode {
+        println!(
+            "native_status: {}",
+            if resolved.is_native() {
+                "eligible"
+            } else {
+                "fallback"
+            }
+        );
+        if let Some(reason) = &resolved.native_fallback_reason {
+            println!("native_fallback_reason: {reason}");
+        }
+    }
     println!(
         "resolved: {}",
         runner::format_debug(resolved, config.use_sfw)

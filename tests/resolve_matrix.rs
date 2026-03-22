@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use hni::core::{
     config::{DefaultAgent, HniConfig, RunAgent},
     resolve::{self, ResolveContext},
-    types::PackageManager,
+    types::{ExecutionStrategy, NativeExecution, PackageManager},
 };
 
 mod support;
@@ -301,6 +301,164 @@ fn nr_run_agent_node_uses_node_passthrough_run() {
 }
 
 #[test]
+fn nr_native_mode_uses_native_script_execution() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"packageManager":"npm@10.0.0","scripts":{"dev":"vite"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nr(vec!["dev".into(), "--port=3000".into()], &ctx).unwrap();
+
+        assert!(matches!(
+            resolved.strategy,
+            ExecutionStrategy::Native(NativeExecution::RunScript(_))
+        ));
+        assert_eq!(resolved.program, "dev");
+        assert_eq!(resolved.args, vec!["--port=3000"]);
+    });
+}
+
+#[test]
+fn nr_native_mode_is_available_on_windows_too() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"packageManager":"npm@10.0.0","scripts":{"dev":"echo ok"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nr(vec!["dev".into()], &ctx).unwrap();
+
+        assert!(matches!(
+            resolved.strategy,
+            ExecutionStrategy::Native(NativeExecution::RunScript(_))
+        ));
+    });
+}
+
+#[test]
+fn nr_native_mode_if_present_missing_script_is_native_noop() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"packageManager":"npm@10.0.0","scripts":{}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nr(
+            vec!["missing".into(), "--if-present".into(), "--watch".into()],
+            &ctx,
+        )
+        .unwrap();
+
+        match &resolved.strategy {
+            ExecutionStrategy::Native(NativeExecution::RunScript(exec)) => {
+                assert!(exec.steps.is_empty());
+                assert_eq!(exec.forwarded_args, vec!["--watch"]);
+            }
+            other => panic!("expected native script execution, got {other:?}"),
+        }
+    });
+}
+
+#[test]
+fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"packageManager":"npm@10.0.0","scripts":{"premissing":"echo pre"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved =
+            resolve::resolve_nr(vec!["missing".into(), "--if-present".into()], &ctx).unwrap();
+
+        match &resolved.strategy {
+            ExecutionStrategy::Native(NativeExecution::RunScript(exec)) => {
+                assert!(exec.steps.is_empty());
+            }
+            other => panic!("expected native script execution, got {other:?}"),
+        }
+    });
+}
+
+#[test]
+fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"packageManager":"yarn@4.0.0","scripts":{"dev":"vite"}}"#,
+        );
+        fs::write(dir.path().join(".pnp.cjs"), "module.exports = {};\n").unwrap();
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nr(vec!["dev".into()], &ctx).unwrap();
+
+        assert!(matches!(resolved.strategy, ExecutionStrategy::External));
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["run", "dev"]);
+        assert_eq!(
+            resolved.native_fallback_reason.as_deref(),
+            Some(
+                "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
+            )
+        );
+    });
+}
+
+#[test]
+fn nr_native_mode_falls_back_for_yarn_berry_pnp_workspace() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("workspace");
+        let app = root.join("packages").join("app");
+        fs::create_dir_all(&app).unwrap();
+        fs::write(root.join("yarn.lock"), "lock").unwrap();
+        fs::write(root.join(".pnp.cjs"), "module.exports = {};\n").unwrap();
+        write_package_json(root.as_path(), r#"{"packageManager":"yarn@4.0.0"}"#);
+        write_package_json(app.as_path(), r#"{"name":"app","scripts":{"dev":"vite"}}"#);
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(app, cfg);
+        let resolved = resolve::resolve_nr(vec!["dev".into()], &ctx).unwrap();
+
+        assert!(matches!(resolved.strategy, ExecutionStrategy::External));
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["run", "dev"]);
+    });
+}
+
+#[test]
 fn nci_uses_immutable_for_yarn_berry() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
@@ -396,6 +554,157 @@ fn nlx_npm_uses_npx() {
 
         assert_eq!(resolved.program, "npx");
         assert_eq!(resolved.args, vec!["vitest"]);
+    });
+}
+
+#[test]
+fn nlx_native_mode_uses_local_bin_when_present() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+        fs::create_dir_all(dir.path().join("node_modules").join(".bin")).unwrap();
+        let local_bin = dir.path().join("node_modules").join(".bin").join("vitest");
+        fs::write(&local_bin, "").unwrap();
+        make_executable(&local_bin);
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nlx(vec!["vitest".into(), "--help".into()], &ctx).unwrap();
+
+        match &resolved.strategy {
+            ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
+                assert_eq!(exec.bin_name, "vitest");
+                assert!(exec.bin_path.ends_with("node_modules/.bin/vitest"));
+            }
+            other => panic!("expected native local bin execution, got {other:?}"),
+        }
+        assert_eq!(resolved.args, vec!["--help"]);
+    });
+}
+
+#[test]
+fn nlx_native_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nlx(vec!["vitest".into()], &ctx).unwrap();
+
+        assert!(matches!(resolved.strategy, ExecutionStrategy::External));
+        assert_eq!(resolved.program, "npx");
+        assert_eq!(
+            resolved.native_fallback_reason.as_deref(),
+            Some(
+                "local binary not found in node_modules/.bin or package.json bin entries; falling back to package-manager exec"
+            )
+        );
+    });
+}
+
+#[test]
+fn nlx_native_mode_uses_declared_package_bin_when_present() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("bin")).unwrap();
+        fs::write(dir.path().join("bin").join("hello.js"), "console.log('hi')").unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"name":"tooling","packageManager":"npm@10.0.0","bin":{"hello":"bin/hello.js"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nlx(vec!["hello".into(), "--flag".into()], &ctx).unwrap();
+
+        match &resolved.strategy {
+            ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
+                assert_eq!(exec.bin_name, "hello");
+                assert!(exec.bin_path.ends_with("bin/hello.js"));
+            }
+            other => panic!("expected native local bin execution, got {other:?}"),
+        }
+        assert_eq!(resolved.args, vec!["--flag"]);
+    });
+}
+
+#[test]
+fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
+        let bin_dir = dir
+            .path()
+            .join("node_modules")
+            .join(".pnpm")
+            .join("node_modules")
+            .join(".bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+        fs::write(
+            bin_dir.join(if cfg!(windows) {
+                "vitest.cmd"
+            } else {
+                "vitest"
+            }),
+            "",
+        )
+        .unwrap();
+        if cfg!(unix) {
+            make_executable(&bin_dir.join("vitest"));
+        }
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nlx(vec!["vitest".into()], &ctx).unwrap();
+
+        match &resolved.strategy {
+            ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
+                assert!(
+                    exec.bin_path
+                        .to_string_lossy()
+                        .contains("node_modules/.pnpm/node_modules/.bin")
+                );
+            }
+            other => panic!("expected native local bin execution, got {other:?}"),
+        }
+    });
+}
+
+#[test]
+fn nlx_native_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
+    with_skip_pm_check(|| {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("bin")).unwrap();
+        fs::write(dir.path().join("bin").join("hello.js"), "console.log('hi')").unwrap();
+        fs::write(dir.path().join(".pnp.cjs"), "module.exports = {};\n").unwrap();
+        write_package_json(
+            dir.path(),
+            r#"{"name":"tooling","packageManager":"yarn@4.0.0","bin":{"hello":"bin/hello.js"}}"#,
+        );
+
+        let cfg = HniConfig {
+            native_mode: true,
+            ..HniConfig::default()
+        };
+        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
+        let resolved = resolve::resolve_nlx(vec!["hello".into()], &ctx).unwrap();
+
+        assert!(matches!(resolved.strategy, ExecutionStrategy::External));
+        assert_eq!(resolved.program, "yarn");
+        assert_eq!(resolved.args, vec!["dlx", "hello"]);
     });
 }
 
@@ -638,3 +947,15 @@ fn resolves_from_default_agent_when_no_project_hints_exist() {
         assert_eq!(resolved.args, vec!["add", "vite"]);
     });
 }
+
+#[cfg(unix)]
+fn make_executable(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut perms = fs::metadata(path).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(path, perms).unwrap();
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) {}

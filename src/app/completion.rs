@@ -9,6 +9,13 @@ use crate::core::error::{HniError, HniResult};
 
 use super::help::{HelpTopic, help_command};
 
+/// Print shell completion script.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Shell is not provided and cannot be detected from environment
+/// - Shell is not one of: bash, zsh, fish
 pub fn print_completion(shell: Option<&str>, program: &str) -> HniResult<()> {
     let shell = shell
         .map(str::to_owned)

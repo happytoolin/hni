@@ -49,7 +49,14 @@ fn multicall_aliases_resolve_expected_commands() {
         let nr_out = run_alias(
             &bin_dir,
             "nr",
-            vec!["-C", npm_proj.to_str().unwrap(), "dev", "--port=3000", "?"],
+            vec![
+                "-C",
+                npm_proj.to_str().unwrap(),
+                "--no-native",
+                "dev",
+                "--port=3000",
+                "?",
+            ],
             &[],
         );
         assert_eq!(nr_out.trim(), "npm run dev -- --port=3000");
@@ -60,6 +67,7 @@ fn multicall_aliases_resolve_expected_commands() {
             vec![
                 "-C",
                 npm_proj.to_str().unwrap(),
+                "--no-native",
                 "--if-present",
                 "missing-script",
                 "?",
@@ -90,7 +98,14 @@ fn multicall_aliases_resolve_expected_commands() {
         let node_out = run_alias(
             &bin_dir,
             "node",
-            vec!["-C", npm_proj.to_str().unwrap(), "run", "dev", "?"],
+            vec![
+                "-C",
+                npm_proj.to_str().unwrap(),
+                "--no-native",
+                "run",
+                "dev",
+                "?",
+            ],
             &[],
         );
         assert_eq!(node_out.trim(), "npm run dev");
@@ -101,6 +116,7 @@ fn multicall_aliases_resolve_expected_commands() {
             vec![
                 "-C",
                 npm_proj.to_str().unwrap(),
+                "--no-native",
                 "--debug-resolved",
                 "vitest",
                 "--",

@@ -94,3 +94,53 @@ fn deprecated_question_mark_debug_alias_still_works_with_warning() {
         assert!(String::from_utf8_lossy(&output.stderr).contains("deprecated"));
     });
 }
+
+#[test]
+fn native_cli_flags_override_environment_setting() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("npm");
+        fs::create_dir_all(project.join("node_modules").join(".bin")).unwrap();
+        fs::write(project.join("package-lock.json"), "lock").unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"name":"x","scripts":{"dev":"vite"}}"#,
+        )
+        .unwrap();
+        fs::write(project.join("node_modules").join(".bin").join("vite"), "").unwrap();
+
+        let force_native = run_hni(
+            vec![
+                "nr",
+                "-C",
+                project.to_str().unwrap(),
+                "--native",
+                "--debug-resolved",
+                "dev",
+            ],
+            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_NATIVE", "false")],
+        );
+        assert!(force_native.status.success());
+        assert_eq!(
+            String::from_utf8_lossy(&force_native.stdout).trim(),
+            "hni native:run-script dev"
+        );
+
+        let disable_native = run_hni(
+            vec![
+                "nr",
+                "-C",
+                project.to_str().unwrap(),
+                "--no-native",
+                "--debug-resolved",
+                "dev",
+            ],
+            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_NATIVE", "true")],
+        );
+        assert!(disable_native.status.success());
+        assert_eq!(
+            String::from_utf8_lossy(&disable_native.stdout).trim(),
+            "npm run dev"
+        );
+    });
+}

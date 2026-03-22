@@ -3,6 +3,7 @@ use std::{
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 use anyhow::{Result, anyhow};
@@ -11,26 +12,44 @@ pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
 pub const NODE_SHIM_ENV: &str = "HNI_NODE";
 
+static REAL_NODE_PATH: OnceLock<PathBuf> = OnceLock::new();
+
 pub fn resolve_real_node_path() -> Result<PathBuf> {
     if let Some(from_env) = env::var_os(REAL_NODE_ENV) {
         let path = PathBuf::from(from_env);
         if path.exists() {
             return Ok(path);
         }
+
+        return Err(anyhow!(
+            "{} points to a missing path: {}",
+            REAL_NODE_ENV,
+            path.display()
+        ));
     }
 
-    if let Some(recorded) = read_recorded_real_node_path()?
-        && recorded.exists()
-    {
-        return Ok(recorded);
+    if let Some(cached) = REAL_NODE_PATH.get() {
+        return Ok(cached.clone());
     }
 
-    scan_path_for_real_node().ok_or_else(|| {
+    let resolved = resolve_real_node_path_uncached()?.ok_or_else(|| {
         anyhow!(
             "unable to locate real node binary. Set {}=/absolute/path/to/node",
             REAL_NODE_ENV
         )
-    })
+    })?;
+    let _ = REAL_NODE_PATH.set(resolved.clone());
+    Ok(resolved)
+}
+
+fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
+    if let Some(recorded) = read_recorded_real_node_path()?
+        && recorded.exists()
+    {
+        return Ok(Some(recorded));
+    }
+
+    Ok(scan_path_for_real_node())
 }
 
 pub fn recorded_real_node_path_file() -> Option<PathBuf> {
@@ -76,13 +95,14 @@ pub fn path_with_real_node_priority(
     current_path: Option<OsString>,
 ) -> Option<OsString> {
     let real_node_dir = real_node.parent()?;
+    let canonical_real_node_dir = real_node_dir.canonicalize().ok();
     let mut ordered = Vec::new();
     ordered.push(real_node_dir.to_path_buf());
 
     if let Some(current_path) = current_path {
-        ordered.extend(
-            env::split_paths(&current_path).filter(|entry| !paths_equal(entry, real_node_dir)),
-        );
+        ordered.extend(env::split_paths(&current_path).filter(|entry| {
+            !path_matches_real_node_dir(entry, real_node_dir, canonical_real_node_dir.as_deref())
+        }));
     }
 
     env::join_paths(ordered).ok()
@@ -117,18 +137,37 @@ fn should_skip_node_candidate(
     )
 }
 
+fn path_matches_real_node_dir(
+    candidate: &Path,
+    real_node_dir: &Path,
+    canonical_real_node_dir: Option<&Path>,
+) -> bool {
+    candidate == real_node_dir
+        || canonical_real_node_dir
+            .and_then(|canonical_real_node_dir| {
+                candidate
+                    .canonicalize()
+                    .ok()
+                    .map(|path| path == canonical_real_node_dir)
+            })
+            .unwrap_or(false)
+}
+
 fn paths_equal(a: &Path, b: &Path) -> bool {
-    match (a.canonicalize(), b.canonicalize()) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => a == b,
-    }
+    a == b
+        || a.canonicalize()
+            .ok()
+            .zip(b.canonicalize().ok())
+            .is_some_and(|(a, b)| a == b)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::{fs, sync::Mutex};
     use tempfile::tempdir;
+
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     #[test]
     fn path_with_real_node_priority_prepends_real_node_dir_once() {
@@ -174,5 +213,27 @@ mod tests {
             Some(&debug_hni),
             Some(&debug_dir),
         ));
+    }
+
+    #[test]
+    fn env_override_takes_effect_even_after_cache_is_initialized() {
+        let _guard = ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock poisoned");
+        let original = env::var_os(REAL_NODE_ENV);
+        let dir = tempdir().unwrap();
+        let fake_node = dir.path().join("node");
+        fs::write(&fake_node, b"node").unwrap();
+
+        let _ = resolve_real_node_path();
+
+        unsafe { env::set_var(REAL_NODE_ENV, &fake_node) };
+        assert_eq!(resolve_real_node_path().unwrap(), fake_node);
+
+        match original {
+            Some(value) => unsafe { env::set_var(REAL_NODE_ENV, value) },
+            None => unsafe { env::remove_var(REAL_NODE_ENV) },
+        }
     }
 }

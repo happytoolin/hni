@@ -37,22 +37,23 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<R
         args.push(choose_script_interactive(&ctx.cwd)?);
     }
 
-    let mut storage = match load_storage() {
-        Ok(storage) => storage,
-        Err(err) => {
-            eprintln!("[hni] warning: failed to load stored command history: {err}");
-            Storage::default()
-        }
-    };
-
     if needs_last {
+        let storage = match load_storage() {
+            Ok(storage) => storage,
+            Err(err) => {
+                eprintln!("[hni] warning: failed to load stored command history: {err}");
+                Storage::default()
+            }
+        };
         let last = storage
             .last_run_command
             .ok_or_else(|| HniError::interactive("no last command found"))?;
         args[0] = last;
     }
 
-    storage.last_run_command = args.first().cloned();
+    let storage = Storage {
+        last_run_command: args.first().cloned(),
+    };
     if let Err(err) = save_storage(&storage) {
         eprintln!("[hni] warning: failed to persist last command: {err}");
     }

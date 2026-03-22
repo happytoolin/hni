@@ -2,7 +2,7 @@
 
 use std::{
     ffi::OsStr,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::{Mutex, OnceLock},
 };
@@ -41,6 +41,14 @@ where
 
 /// Run hni with the given arguments and extra environment variables.
 pub fn run_hni(args: Vec<&str>, extra_env: &[(&str, &str)]) -> std::process::Output {
+    let owned_args = args
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    run_hni_owned(&owned_args, extra_env)
+}
+
+pub fn run_hni_owned(args: &[String], extra_env: &[(&str, &str)]) -> std::process::Output {
     let mut cmd = Command::new(hni_executable_path());
     cmd.args(args)
         .env("HNI_AUTO_INSTALL", "false")
@@ -52,6 +60,37 @@ pub fn run_hni(args: Vec<&str>, extra_env: &[(&str, &str)]) -> std::process::Out
     }
 
     cmd.output().expect("failed to run hni")
+}
+
+pub fn run_command(
+    program: &str,
+    args: &[String],
+    cwd: &Path,
+    extra_env: &[(&str, &str)],
+) -> std::process::Output {
+    let mut cmd = Command::new(program);
+    cmd.args(args).current_dir(cwd);
+
+    for (key, value) in extra_env {
+        cmd.env(key, value);
+    }
+
+    cmd.output()
+        .unwrap_or_else(|error| panic!("failed to run {program}: {error}"))
+}
+
+pub fn command_exists(program: &str) -> bool {
+    which::which(program).is_ok()
+}
+
+pub fn real_node_supports_run() -> bool {
+    let output = match Command::new("node").arg("--help").output() {
+        Ok(output) => output,
+        Err(_) => return false,
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.contains("--run")
 }
 
 /// Get the path to the hni executable.

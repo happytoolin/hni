@@ -4,16 +4,16 @@ use dialoguer::{FuzzySelect, theme::ColorfulTheme};
 
 use crate::core::{
     error::{HniError, HniResult},
-    pkg_json::read_package_json,
+    package::find_nearest_package,
 };
 
 pub fn read_scripts(cwd: &Path) -> HniResult<Vec<ScriptEntry>> {
-    let Some(pkg) = read_package_json(cwd)? else {
+    let Some(pkg) = find_nearest_package(cwd)? else {
         return Ok(Vec::new());
     };
 
-    let scripts = pkg.scripts.unwrap_or_default();
-    let scripts_info = pkg.scripts_info.unwrap_or_default();
+    let scripts = pkg.manifest.scripts.unwrap_or_default();
+    let scripts_info = pkg.manifest.scripts_info.unwrap_or_default();
 
     Ok(build_script_entries(&scripts, &scripts_info))
 }

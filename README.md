@@ -329,3 +329,89 @@ ni vite --debug-resolved
 nr dev --explain
 hni doctor
 ```
+
+## Benchmarking
+
+The active benchmark suite lives in [`benchmark/`](benchmark/).
+
+If you use [`just`](https://github.com/casey/just), the common local commands are wrapped in [`justfile`](justfile):
+
+```bash
+just build-release
+just test
+just test-native
+just ci
+just bench
+```
+
+Run all benchmark tracks with:
+
+```bash
+./benchmark/run.sh
+just bench
+```
+
+Run individual tracks with:
+
+```bash
+just bench-compare
+just bench-native
+just bench-runtime
+just bench-direct
+
+./benchmark/run.sh --track=compare
+./benchmark/run.sh --track=native
+./benchmark/run.sh --track=runtime
+./benchmark/run.sh --track=direct
+```
+
+Generate flamegraphs with:
+
+```bash
+./benchmark/profile.sh
+```
+
+Tracked benchmark docs:
+
+- current snapshot: [`benchmark/LATEST.md`](benchmark/LATEST.md)
+- lightweight history: [`benchmark/HISTORY.md`](benchmark/HISTORY.md)
+- native compatibility: [`docs/native-compat.md`](docs/native-compat.md)
+
+Same-repo pull requests also run the benchmark workflow on GitHub Actions and update a sticky PR comment with the latest summary.
+
+### Representative Results
+
+The current tracked snapshot is from March 22, 2026 and was generated with `50` warmups and `500` measured runs per case.
+
+If you only want the headline, it is this: `hni --native` is meaningfully faster than normal package-manager usage on npm, pnpm, and yarn, still ahead on bun, and much less dramatic on deno.
+
+The clearest story is the `direct` track, which compares what people normally type against `hni --native`. In the current snapshot, `hni` averages `4.90x` faster overall there.
+
+A few representative wins:
+
+| Case | Direct | `hni` native | Relative |
+| --- | ---: | ---: | ---: |
+| `task noop (npm)` | 207.83 ms | 36.63 ms | 5.67x |
+| `task noop (pnpm)` | 418.28 ms | 32.26 ms | 12.97x |
+| `task noop (yarn)` | 279.87 ms | 32.17 ms | 8.70x |
+| `exec hello --flag (npm)` | 249.48 ms | 10.25 ms | 24.35x |
+| `exec hello --flag (pnpm)` | 311.16 ms | 7.30 ms | 42.65x |
+| `exec hello --flag (yarn)` | 104.92 ms | 7.48 ms | 14.02x |
+| `exec hello --flag (bun)` | 15.07 ms | 7.46 ms | 2.02x |
+
+The internal `native` track tells the same story from another angle: native mode averages `4.38x` faster than delegated mode inside `hni`. The local-bin case is especially strong in the current snapshot: `nlx hello --flag (npm local bin)` lands at `7.75 ms` natively versus `334.43 ms` in delegated mode.
+
+The Antfu comparison is smaller and more lightweight, but still points the same way. On that track, `hni` averages `1.66x` faster overall, with `ni --version` coming in at `129.05 ms` for `hni` versus `334.60 ms` for Antfu's `ni`.
+
+The main caveat is still Deno. In the direct task-style cases, `hni` is basically at parity there rather than dramatically ahead. In the separate runtime-style comparison, `hni` beats bun on both cases, while deno still wins the hooked-task case.
+
+### Methodology
+
+All timing uses `hyperfine` against the release binary. The suite looks at four angles:
+
+- `direct`: normal package-manager usage versus `hni --native`
+- `native`: delegated mode versus native mode inside `hni`
+- `compare`: a small CLI-focused comparison against Antfu's `ni`
+- `runtime`: a side-by-side look at `hni`, bun, and deno on a couple of task-style cases
+
+The repo keeps the curated snapshot files rather than every intermediate result. For the full current matrix, use [`benchmark/LATEST.md`](benchmark/LATEST.md).

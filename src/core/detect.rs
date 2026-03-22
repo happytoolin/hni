@@ -26,33 +26,43 @@ const LOCKFILES: &[(&str, PackageManager)] = &[
 ];
 
 pub fn detect(cwd: &Path, config: &HniConfig) -> HniResult<DetectionResult> {
-    let ancestors = cwd.ancestors().collect::<Vec<_>>();
-    let has_lock = ancestors
-        .iter()
-        .any(|dir| detect_lockfile_in_dir(dir).is_some());
+    let mut has_lock = false;
+    let mut resolved = None;
 
-    for dir in ancestors {
-        let package_manager_hint = read_package_json(dir)?
-            .and_then(|package_json| package_json.package_manager)
-            .and_then(|raw| parse_package_manager_field(&raw));
+    for dir in cwd.ancestors() {
+        let lockfile_pm = detect_lockfile_in_dir(dir);
+        has_lock |= lockfile_pm.is_some();
 
-        if let Some((pm, version_hint)) = package_manager_hint {
-            return Ok(DetectionResult {
-                agent: Some(pm),
-                has_lock,
-                version_hint,
-                source: DetectionSource::PackageManagerField,
-            });
+        if resolved.is_none() {
+            let package_manager_hint = read_package_json(dir)?
+                .and_then(|package_json| package_json.package_manager)
+                .and_then(|raw| parse_package_manager_field(&raw));
+
+            if let Some((pm, version_hint)) = package_manager_hint {
+                resolved = Some(DetectionResult {
+                    agent: Some(pm),
+                    has_lock,
+                    version_hint,
+                    source: DetectionSource::PackageManagerField,
+                });
+            } else if let Some(pm) = lockfile_pm {
+                resolved = Some(DetectionResult {
+                    agent: Some(pm),
+                    has_lock,
+                    version_hint: None,
+                    source: DetectionSource::Lockfile,
+                });
+            }
         }
 
-        if let Some(pm) = detect_lockfile_in_dir(dir) {
-            return Ok(DetectionResult {
-                agent: Some(pm),
-                has_lock,
-                version_hint: None,
-                source: DetectionSource::Lockfile,
-            });
+        if resolved.is_some() && has_lock {
+            break;
         }
+    }
+
+    if let Some(mut resolved) = resolved {
+        resolved.has_lock = has_lock;
+        return Ok(resolved);
     }
 
     if let DefaultAgent::Agent(agent) = config.default_agent {

@@ -27,6 +27,7 @@ pub struct HniConfig {
     pub default_agent: DefaultAgent,
     pub global_agent: PackageManager,
     pub run_agent: RunAgent,
+    pub native_mode: bool,
     pub use_sfw: bool,
     pub auto_install: bool,
     pub config_path: Option<PathBuf>,
@@ -38,6 +39,7 @@ impl Default for HniConfig {
             default_agent: DefaultAgent::Prompt,
             global_agent: PackageManager::Npm,
             run_agent: RunAgent::PackageManager,
+            native_mode: false,
             use_sfw: false,
             auto_install: false,
             config_path: None,
@@ -77,6 +79,10 @@ impl HniConfig {
 
         if let Ok(v) = env::var("HNI_USE_SFW") {
             cfg.use_sfw = parse_bool(&v)?;
+        }
+
+        if let Ok(v) = env::var("HNI_NATIVE") {
+            cfg.native_mode = parse_bool(&v)?;
         }
 
         if let Ok(v) = env::var("HNI_AUTO_INSTALL") {
@@ -124,6 +130,9 @@ fn parse_hnirc_file(path: &Path, config: &mut HniConfig, required: bool) -> HniR
     }
     if let Some(v) = ini.get("default", "runagent") {
         config.run_agent = parse_run_agent(v.trim())?;
+    }
+    if let Some(v) = ini.get("default", "nativemode") {
+        config.native_mode = parse_bool(v.trim())?;
     }
     if let Some(v) = ini.get("default", "usesfw") {
         config.use_sfw = parse_bool(v.trim())?;
@@ -188,6 +197,7 @@ mod tests {
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
         assert_eq!(cfg.global_agent, PackageManager::Yarn);
         assert_eq!(cfg.run_agent, RunAgent::Node);
+        assert!(!cfg.native_mode);
         assert!(cfg.use_sfw);
         assert!(!cfg.auto_install);
     }

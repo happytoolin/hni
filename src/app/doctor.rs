@@ -55,6 +55,7 @@ pub fn print_doctor(cwd: &Path, config: &HniConfig) {
     );
     println!("globalAgent: {}", config.global_agent.display_name());
     println!("runAgent: {}", format_run_agent(config.run_agent));
+    println!("nativeMode: {}", config.native_mode);
     println!("useSfw: {}", config.use_sfw);
     println!("autoInstall(env): {}", config.auto_install);
     println!();
@@ -116,7 +117,7 @@ fn shim_precedence_active(current_hni: Option<&Path>, path_node: Option<&Path>) 
 
     matches!(
         path_node.file_name().and_then(OsStr::to_str),
-        Some("node") | Some("node.exe")
+        Some("node" | "node.exe")
     )
 }
 

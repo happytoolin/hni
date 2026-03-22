@@ -1,8 +1,4 @@
-use std::{
-    env,
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::{env, ffi::OsStr, path::PathBuf};
 
 use clap::{Arg, ArgAction, ArgMatches, Command, builder::PossibleValuesParser};
 
@@ -17,6 +13,7 @@ pub struct ParsedInvocation {
     pub cwd: PathBuf,
     pub debug: bool,
     pub explain: bool,
+    pub native_override: Option<bool>,
     pub command: ParsedCommand,
     pub deprecated_debug_alias_used: bool,
 }
@@ -41,41 +38,45 @@ pub enum ParsedCommand {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 struct SharedFlags {
     cwd: Vec<PathBuf>,
     debug: bool,
     explain: bool,
+    native_override: Option<bool>,
     help: bool,
     version: bool,
 }
 
+/// Parse command-line arguments from environment.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - `argv[0]` is missing
+/// - Current directory cannot be read
+/// - Argument parsing fails
 pub fn parse_from_env() -> HniResult<ParsedInvocation> {
     let argv = env::args().collect::<Vec<_>>();
     let Some(argv0) = argv.first() else {
         return Err(HniError::parse("missing argv[0]"));
     };
 
-    let base_cwd = env::current_dir().map_err(|error| {
-        HniError::execution(format!("failed to read current directory: {error}"))
-    })?;
     let invocation = invocation_from_argv0(argv0);
     let (normalized_args, deprecated_debug_alias_used) = normalize_debug_aliases(&argv[1..]);
-    let (shared_flag_tokens, command_args) = extract_shared_flag_tokens(&normalized_args)?;
-    let shared_flags = parse_shared_flags(&shared_flag_tokens)?;
+    let (shared_flags, command_args) = extract_shared_flags(&normalized_args)?;
 
     if invocation == InvocationKind::Hni {
         parse_hni(
             argv0,
-            &base_cwd,
-            command_args,
+            &command_args,
             shared_flags,
             deprecated_debug_alias_used,
         )
     } else {
         parse_alias(
             invocation,
-            &base_cwd,
-            command_args,
+            &command_args,
             shared_flags,
             deprecated_debug_alias_used,
         )
@@ -84,8 +85,7 @@ pub fn parse_from_env() -> HniResult<ParsedInvocation> {
 
 fn parse_hni(
     argv0: &str,
-    base_cwd: &Path,
-    args: Vec<String>,
+    args: &[String],
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
 ) -> HniResult<ParsedInvocation> {
@@ -106,9 +106,10 @@ fn parse_hni(
         }
 
         return Ok(ParsedInvocation {
-            cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
+            cwd: resolve_cwd(&shared_flags.cwd)?,
             debug: shared_flags.debug,
             explain: shared_flags.explain,
+            native_override: shared_flags.native_override,
             command,
             deprecated_debug_alias_used,
         });
@@ -117,7 +118,7 @@ fn parse_hni(
     let program = normalized_program_name(argv0);
     let mut clap_args = Vec::with_capacity(args.len() + 1);
     clap_args.push(program.clone());
-    clap_args.extend(args);
+    clap_args.extend(args.iter().cloned());
 
     let matches = hni_parser()
         .try_get_matches_from(clap_args)
@@ -163,9 +164,10 @@ fn parse_hni(
     }
 
     Ok(ParsedInvocation {
-        cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
+        cwd: resolve_cwd(&shared_flags.cwd)?,
         debug: shared_flags.debug,
         explain: shared_flags.explain,
+        native_override: shared_flags.native_override,
         command,
         deprecated_debug_alias_used,
     })
@@ -173,12 +175,11 @@ fn parse_hni(
 
 fn parse_alias(
     invocation: InvocationKind,
-    base_cwd: &Path,
-    args: Vec<String>,
+    args: &[String],
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
 ) -> HniResult<ParsedInvocation> {
-    let mut forwarded_args = args;
+    let mut forwarded_args = args.to_vec();
     let has_forwarded_args = !forwarded_args.is_empty();
 
     // In alias mode, treat --help/--version as passthrough flags when a target command exists.
@@ -205,9 +206,10 @@ fn parse_alias(
     }
 
     Ok(ParsedInvocation {
-        cwd: resolve_cwd(base_cwd.to_path_buf(), &shared_flags.cwd),
+        cwd: resolve_cwd(&shared_flags.cwd)?,
         debug: shared_flags.debug,
         explain: shared_flags.explain,
+        native_override: shared_flags.native_override,
         command,
         deprecated_debug_alias_used,
     })
@@ -220,38 +222,35 @@ fn execute_from_subcommand(invocation: InvocationKind, sub_matches: &ArgMatches)
     }
 }
 
-fn shared_flags_from_matches(matches: &ArgMatches) -> SharedFlags {
-    SharedFlags {
-        cwd: values_from(matches.get_many::<PathBuf>("cwd")),
-        debug: matches.get_flag("debug"),
-        explain: matches.get_flag("explain"),
-        help: matches.get_flag("help"),
-        version: matches.get_flag("version"),
-    }
-}
-
-fn parse_shared_flags(args: &[String]) -> HniResult<SharedFlags> {
-    let mut clap_args = Vec::with_capacity(args.len() + 1);
-    clap_args.push("hni-shared-flags".to_string());
-    clap_args.extend(args.iter().cloned());
-
-    let matches = shared_flags_parser()
-        .try_get_matches_from(clap_args)
-        .map_err(|error| HniError::parse(error.to_string()))?;
-    Ok(shared_flags_from_matches(&matches))
-}
-
 fn values_from<'a, T: Clone + 'a>(values: Option<clap::parser::ValuesRef<'a, T>>) -> Vec<T> {
     values
         .map(|entries| entries.cloned().collect::<Vec<_>>())
         .unwrap_or_default()
 }
 
-fn resolve_cwd(mut base_cwd: PathBuf, cwd_flags: &[PathBuf]) -> PathBuf {
-    for segment in cwd_flags {
-        base_cwd.push(segment);
+fn resolve_cwd(cwd_flags: &[PathBuf]) -> HniResult<PathBuf> {
+    if cwd_flags.is_empty() {
+        return env::current_dir().map_err(|error| {
+            HniError::execution(format!("failed to read current directory: {error}"))
+        });
     }
-    base_cwd
+
+    let absolute_index = cwd_flags.iter().rposition(|segment| segment.is_absolute());
+    let (mut cwd, start_index) = match absolute_index {
+        Some(index) => (cwd_flags[index].clone(), index + 1),
+        None => (
+            env::current_dir().map_err(|error| {
+                HniError::execution(format!("failed to read current directory: {error}"))
+            })?,
+            0,
+        ),
+    };
+
+    for segment in &cwd_flags[start_index..] {
+        cwd.push(segment);
+    }
+
+    Ok(cwd)
 }
 
 fn help_target(command: Option<String>) -> HniResult<HelpTopic> {
@@ -260,6 +259,7 @@ fn help_target(command: Option<String>) -> HniResult<HelpTopic> {
     };
 
     let normalized = command.to_ascii_lowercase();
+    #[allow(clippy::match_same_arms)]
     let target = match normalized.as_str() {
         "hni" => HelpTopic::Hni,
         "ni" => HelpTopic::Ni,
@@ -350,46 +350,6 @@ fn command_parser(name: &'static str) -> Command {
     Command::new(name).arg(forwarded_args_arg())
 }
 
-fn shared_flags_parser() -> Command {
-    Command::new("hni-shared-flags")
-        .disable_help_flag(true)
-        .disable_version_flag(true)
-        .arg(
-            Arg::new("cwd")
-                .short('C')
-                .long("cwd")
-                .value_name("DIR")
-                .global(true)
-                .value_parser(clap::value_parser!(PathBuf))
-                .action(ArgAction::Append),
-        )
-        .arg(
-            Arg::new("debug")
-                .short('?')
-                .long("debug-resolved")
-                .visible_alias("dry-run")
-                .visible_alias("print-command")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("explain")
-                .long("explain")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("version")
-                .short('v')
-                .long("version")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("help")
-                .short('h')
-                .long("help")
-                .action(ArgAction::SetTrue),
-        )
-}
-
 fn forwarded_args_arg() -> Arg {
     Arg::new("args")
         .num_args(0..)
@@ -451,8 +411,15 @@ fn normalize_debug_aliases(args: &[String]) -> (Vec<String>, bool) {
     (normalized, saw_deprecated)
 }
 
-fn extract_shared_flag_tokens(args: &[String]) -> HniResult<(Vec<String>, Vec<String>)> {
-    let mut flags = Vec::new();
+fn extract_shared_flags(args: &[String]) -> HniResult<(SharedFlags, Vec<String>)> {
+    let mut flags = SharedFlags {
+        cwd: Vec::new(),
+        debug: false,
+        explain: false,
+        native_override: None,
+        help: false,
+        version: false,
+    };
     let mut rest = Vec::new();
     let mut idx = 0;
     let mut passthrough = false;
@@ -474,36 +441,44 @@ fn extract_shared_flag_tokens(args: &[String]) -> HniResult<(Vec<String>, Vec<St
 
         match arg.as_str() {
             "--debug-resolved" | "--dry-run" | "--print-command" | "-?" => {
-                flags.push("--debug-resolved".to_string());
+                flags.debug = true;
                 idx += 1;
             }
             "--explain" => {
-                flags.push("--explain".to_string());
+                flags.explain = true;
+                idx += 1;
+            }
+            "--native" => {
+                set_native_override(&mut flags, true)?;
+                idx += 1;
+            }
+            "--no-native" => {
+                set_native_override(&mut flags, false)?;
                 idx += 1;
             }
             "-h" | "--help" => {
-                flags.push("--help".to_string());
+                flags.help = true;
                 idx += 1;
             }
             "-v" | "--version" => {
-                flags.push("--version".to_string());
+                flags.version = true;
                 idx += 1;
             }
             "-C" | "--cwd" => {
                 let Some(value) = args.get(idx + 1) else {
                     return Err(HniError::parse(format!("missing value for {arg}")));
                 };
-                flags.push("--cwd".to_string());
-                flags.push(value.clone());
+                flags.cwd.push(PathBuf::from(value));
                 idx += 2;
             }
             _ if arg.starts_with("-C") && arg.len() > 2 => {
-                flags.push("--cwd".to_string());
-                flags.push(arg[2..].to_string());
+                flags.cwd.push(PathBuf::from(&arg[2..]));
                 idx += 1;
             }
             _ if arg.starts_with("--cwd=") => {
-                flags.push(arg.clone());
+                flags
+                    .cwd
+                    .push(PathBuf::from(arg.trim_start_matches("--cwd=")));
                 idx += 1;
             }
             _ => {
@@ -514,6 +489,18 @@ fn extract_shared_flag_tokens(args: &[String]) -> HniResult<(Vec<String>, Vec<St
     }
 
     Ok((flags, rest))
+}
+
+fn set_native_override(flags: &mut SharedFlags, value: bool) -> HniResult<()> {
+    match flags.native_override {
+        Some(existing) if existing != value => {
+            Err(HniError::parse("--native conflicts with --no-native"))
+        }
+        _ => {
+            flags.native_override = Some(value);
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -535,7 +522,7 @@ mod tests {
 
     #[test]
     fn extracts_shared_flags_from_any_position_before_passthrough() {
-        let (flags, rest) = extract_shared_flag_tokens(&[
+        let (flags, rest) = extract_shared_flags(&[
             "ni".to_string(),
             "vite".to_string(),
             "--help".to_string(),
@@ -544,13 +531,13 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(flags, vec!["--help"]);
+        assert!(flags.help);
         assert_eq!(rest, vec!["ni", "vite", "--", "--version"]);
     }
 
     #[test]
     fn extracts_short_and_long_cwd_flag_forms() {
-        let (flags, rest) = extract_shared_flag_tokens(&[
+        let (flags, rest) = extract_shared_flags(&[
             "ni".to_string(),
             "-Ctmp".to_string(),
             "--cwd=project".to_string(),
@@ -558,14 +545,24 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(flags, vec!["--cwd", "tmp", "--cwd=project"]);
+        assert_eq!(
+            flags.cwd,
+            vec![PathBuf::from("tmp"), PathBuf::from("project")]
+        );
         assert_eq!(rest, vec!["ni", "vite"]);
     }
 
     #[test]
     fn missing_cwd_value_is_parse_error() {
-        let err = extract_shared_flag_tokens(&["ni".to_string(), "-C".to_string()]).unwrap_err();
+        let err = extract_shared_flags(&["ni".to_string(), "-C".to_string()]).unwrap_err();
         assert!(err.to_string().contains("missing value for -C"));
+    }
+
+    #[test]
+    fn conflicting_native_flags_are_rejected() {
+        let err =
+            extract_shared_flags(&["--native".to_string(), "--no-native".to_string()]).unwrap_err();
+        assert!(err.to_string().contains("conflicts"));
     }
 
     #[test]
@@ -581,14 +578,14 @@ mod tests {
             cwd: vec![],
             debug: false,
             explain: false,
+            native_override: None,
             help: true,
             version: false,
         };
 
         let parsed = parse_alias(
             InvocationKind::Nlx,
-            Path::new("/tmp"),
-            vec!["vitest".to_string()],
+            &["vitest".to_string()],
             shared_flags,
             false,
         )
@@ -608,18 +605,12 @@ mod tests {
             cwd: vec![],
             debug: false,
             explain: false,
+            native_override: None,
             help: true,
             version: false,
         };
 
-        let parsed = parse_alias(
-            InvocationKind::Nlx,
-            Path::new("/tmp"),
-            vec![],
-            shared_flags,
-            false,
-        )
-        .unwrap();
+        let parsed = parse_alias(InvocationKind::Nlx, &[], shared_flags, false).unwrap();
 
         match parsed.command {
             ParsedCommand::PrintHelp(HelpTopic::Nlx) => {}
