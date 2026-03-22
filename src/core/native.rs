@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     env, fs,
     path::{Path, PathBuf},
     process::{Command, ExitCode, Stdio},
@@ -191,22 +190,20 @@ pub fn run_script(exec: &NativeScriptExecution, invocation_cwd: &Path) -> Result
 
     for step in &exec.steps {
         let forwarded_args = if step.forward_args {
-            exec.forwarded_args
-                .iter()
-                .map(String::as_str)
-                .collect::<Vec<_>>()
+            exec.forwarded_args.as_slice()
         } else {
-            Vec::new()
+            &[]
         };
 
-        let status = shell_command(&step.command, &forwarded_args, &exec.package_root)
-            .envs(shared_env.clone())
-            .env("npm_lifecycle_event", &step.event_name)
-            .env("npm_lifecycle_script", &step.command)
-            .status()
-            .with_context(|| {
-                format!("failed to execute native script step '{}'", step.event_name)
-            })?;
+        let status =
+            prepare_script_step_command(&step.command, forwarded_args, &exec.package_root)?
+                .envs(shared_env.iter().map(|(key, value)| (key, value)))
+                .env("npm_lifecycle_event", &step.event_name)
+                .env("npm_lifecycle_script", &step.command)
+                .status()
+                .with_context(|| {
+                    format!("failed to execute native script step '{}'", step.event_name)
+                })?;
 
         if !status.success() {
             return Ok(exit_code_from_status(status.code()));
@@ -297,33 +294,33 @@ fn has_yarn_pnp_loader(start: &Path) -> bool {
 fn native_script_env(
     exec: &NativeScriptExecution,
     invocation_cwd: &Path,
-) -> Result<BTreeMap<String, String>> {
-    let mut envs = BTreeMap::new();
-    envs.insert(
+) -> Result<Vec<(String, String)>> {
+    let mut envs = Vec::with_capacity(4);
+    envs.push((
         "INIT_CWD".to_string(),
         invocation_cwd.to_string_lossy().to_string(),
-    );
-    envs.insert(
+    ));
+    envs.push((
         "npm_package_json".to_string(),
         exec.package_json_path.to_string_lossy().to_string(),
-    );
+    ));
 
     if let Ok(current_exe) = env::current_exe() {
-        envs.insert(
+        envs.push((
             "npm_execpath".to_string(),
             current_exe.to_string_lossy().to_string(),
-        );
+        ));
     }
 
     if let Ok(real_node) = resolve_real_node_path() {
-        envs.insert(
+        envs.push((
             "npm_node_execpath".to_string(),
             real_node.to_string_lossy().to_string(),
-        );
+        ));
     }
 
     let merged_path = merged_path_with_bins(&exec.bin_paths)?;
-    envs.insert("PATH".to_string(), merged_path);
+    envs.push(("PATH".to_string(), merged_path));
     Ok(envs)
 }
 
@@ -603,7 +600,47 @@ fn join_paths_string(paths: Vec<PathBuf>) -> Result<String> {
         .map_err(Into::into)
 }
 
-fn shell_command(command_string: &str, forwarded_args: &[&str], cwd: &Path) -> Command {
+fn prepare_script_step_command(
+    command_string: &str,
+    forwarded_args: &[String],
+    cwd: &Path,
+) -> Result<Command> {
+    if let Some(command) = spawn_direct_script_command(command_string, forwarded_args)? {
+        return Ok(configure_command(command, cwd));
+    }
+
+    Ok(shell_command(command_string, forwarded_args, cwd))
+}
+
+fn spawn_direct_script_command(
+    command_string: &str,
+    forwarded_args: &[String],
+) -> Result<Option<Command>> {
+    if cfg!(windows) || contains_shell_metacharacters(command_string) {
+        return Ok(None);
+    }
+
+    let Some(tokens) = shlex::split(command_string) else {
+        return Ok(None);
+    };
+    let Some((program, args)) = tokens.split_first() else {
+        return Ok(None);
+    };
+
+    if looks_like_env_assignment(program) {
+        return Ok(None);
+    }
+
+    let mut command = if is_node_program(program) {
+        Command::new(resolve_real_node_path()?)
+    } else {
+        Command::new(program)
+    };
+    command.args(args).args(forwarded_args);
+    Ok(Some(command))
+}
+
+fn shell_command(command_string: &str, forwarded_args: &[String], cwd: &Path) -> Command {
     let mut command = if cfg!(windows) {
         let mut command = Command::new("cmd");
         command.arg("/C").arg(command_string);
@@ -626,13 +663,42 @@ fn shell_command(command_string: &str, forwarded_args: &[&str], cwd: &Path) -> C
         command
     };
 
+    command.args(forwarded_args);
+    configure_command(command, cwd)
+}
+
+fn configure_command(mut command: Command, cwd: &Path) -> Command {
     command
-        .args(forwarded_args)
         .current_dir(cwd)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
     command
+}
+
+fn contains_shell_metacharacters(command_string: &str) -> bool {
+    command_string.chars().any(|ch| {
+        matches!(
+            ch,
+            '|' | '&'
+                | ';'
+                | '<'
+                | '>'
+                | '('
+                | ')'
+                | '$'
+                | '`'
+                | '*'
+                | '?'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | '~'
+                | '\n'
+                | '\r'
+        )
+    })
 }
 
 fn exit_code_from_status(code: Option<i32>) -> ExitCode {
@@ -710,6 +776,26 @@ fi
                 script_path: script.canonicalize().unwrap(),
                 node_args: Vec::new(),
             }
+        );
+    }
+
+    #[test]
+    fn glob_patterns_force_shell_fallback() {
+        assert!(contains_shell_metacharacters("printf \"%s\\n\" src/*.js"));
+        assert!(
+            spawn_direct_script_command("printf \"%s\\n\" src/*.js", &[])
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn direct_script_fast_path_is_disabled_on_windows() {
+        assert!(
+            spawn_direct_script_command(r"node .\\scripts\\build.js", &[])
+                .unwrap()
+                .is_none()
         );
     }
 }

@@ -95,13 +95,14 @@ pub fn path_with_real_node_priority(
     current_path: Option<OsString>,
 ) -> Option<OsString> {
     let real_node_dir = real_node.parent()?;
+    let canonical_real_node_dir = real_node_dir.canonicalize().ok();
     let mut ordered = Vec::new();
     ordered.push(real_node_dir.to_path_buf());
 
     if let Some(current_path) = current_path {
-        ordered.extend(
-            env::split_paths(&current_path).filter(|entry| !paths_equal(entry, real_node_dir)),
-        );
+        ordered.extend(env::split_paths(&current_path).filter(|entry| {
+            !path_matches_real_node_dir(entry, real_node_dir, canonical_real_node_dir.as_deref())
+        }));
     }
 
     env::join_paths(ordered).ok()
@@ -136,11 +137,28 @@ fn should_skip_node_candidate(
     )
 }
 
+fn path_matches_real_node_dir(
+    candidate: &Path,
+    real_node_dir: &Path,
+    canonical_real_node_dir: Option<&Path>,
+) -> bool {
+    candidate == real_node_dir
+        || canonical_real_node_dir
+            .and_then(|canonical_real_node_dir| {
+                candidate
+                    .canonicalize()
+                    .ok()
+                    .map(|path| path == canonical_real_node_dir)
+            })
+            .unwrap_or(false)
+}
+
 fn paths_equal(a: &Path, b: &Path) -> bool {
-    match (a.canonicalize(), b.canonicalize()) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => a == b,
-    }
+    a == b
+        || a.canonicalize()
+            .ok()
+            .zip(b.canonicalize().ok())
+            .is_some_and(|(a, b)| a == b)
 }
 
 #[cfg(test)]

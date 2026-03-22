@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    path::{Component, Path, PathBuf},
-};
+use std::path::{Component, Path, PathBuf};
 
 use super::{
     error::HniResult,
@@ -30,7 +27,6 @@ pub fn find_nearest_package(cwd: &Path) -> HniResult<Option<NearestPackage>> {
 }
 
 pub fn node_modules_bin_dirs(cwd: &Path) -> Vec<PathBuf> {
-    let mut seen = HashSet::new();
     let mut dirs = Vec::new();
 
     for dir in cwd.ancestors() {
@@ -41,7 +37,7 @@ pub fn node_modules_bin_dirs(cwd: &Path) -> Vec<PathBuf> {
                 .join("node_modules")
                 .join(".bin"),
         ] {
-            if candidate.exists() && seen.insert(candidate.clone()) {
+            if candidate.is_dir() {
                 dirs.push(candidate);
             }
         }

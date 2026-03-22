@@ -41,5 +41,8 @@ bench-native:
 bench-runtime:
     ./benchmark/run.sh --track=runtime
 
+bench-direct:
+    ./benchmark/run.sh --track=direct
+
 bench-profile:
     ./benchmark/profile.sh

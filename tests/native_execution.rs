@@ -122,6 +122,35 @@ fn native_explain_reports_fallback_reason() {
 }
 
 #[test]
+fn native_nr_preserves_shell_glob_expansion() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("project");
+        let src_dir = project.join("src");
+        fs::create_dir_all(&src_dir).unwrap();
+        fs::write(project.join("package-lock.json"), "lock").unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"name":"x","scripts":{"show":"printf \"%s\n\" src/*.js"}}"#,
+        )
+        .unwrap();
+        fs::write(src_dir.join("a.js"), "").unwrap();
+        fs::write(src_dir.join("b.js"), "").unwrap();
+
+        let output = run_hni(
+            vec!["nr", "-C", project.to_str().unwrap(), "--native", "show"],
+            &[("HNI_SKIP_PM_CHECK", "1")],
+        );
+
+        assert!(output.status.success(), "{output:?}");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "src/a.js\nsrc/b.js\n"
+        );
+    });
+}
+
+#[test]
 fn node_run_and_exec_inherit_native_resolution() {
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();

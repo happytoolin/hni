@@ -33,16 +33,21 @@ pub fn load_storage() -> HniResult<Storage> {
 
 pub fn save_storage(storage: &Storage) -> HniResult<()> {
     let path = storage_file()?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| HniError::storage(format!("failed to save hni storage: {error}")))?;
-    }
-
     let contents = storage
         .last_run_command
         .as_deref()
         .map(|value| format!("{value}\n"))
         .unwrap_or_default();
+
+    match fs::read_to_string(&path) {
+        Ok(existing) if existing == contents => return Ok(()),
+        Ok(_) | Err(_) => {}
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| HniError::storage(format!("failed to save hni storage: {error}")))?;
+    }
 
     fs::write(path, contents)
         .map_err(|error| HniError::storage(format!("failed to save hni storage: {error}")))

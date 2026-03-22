@@ -7,9 +7,9 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-const DEFAULT_RUNS = 20
-const DEFAULT_WARMUPS = 5
-const TRACKS = ['compare', 'native', 'runtime']
+const DEFAULT_RUNS = 500
+const DEFAULT_WARMUPS = 50
+const TRACKS = ['compare', 'native', 'runtime', 'direct']
 
 const PMS = [
   {
@@ -478,6 +478,139 @@ function runtimeCases(fixturePaths) {
   ]
 }
 
+function directCases(fixturePaths) {
+  return PMS.flatMap((pm) => {
+    const fixture = fixturePaths[pm.fixtureKey]
+    const cases = [
+      {
+        id: `${pm.id}_direct_noop`,
+        group: 'noop',
+        case: `task noop (${pm.label})`,
+        commands: [
+          directRunCommand(pm, fixture, 'noop'),
+          {
+            name: 'hni',
+            kind: 'exec',
+            bin: 'nr',
+            args: ['-C', fixture, 'noop'],
+            env: { HNI_NATIVE: 'true' },
+          },
+        ],
+        requiredBins: pm.requiredBins,
+      },
+      {
+        id: `${pm.id}_direct_hooks`,
+        group: 'hooks',
+        case: `task hooks (${pm.label})`,
+        commands: [
+          directRunCommand(pm, fixture, 'hooks'),
+          {
+            name: 'hni',
+            kind: 'exec',
+            bin: 'nr',
+            args: ['-C', fixture, 'hooks'],
+            env: { HNI_NATIVE: 'true' },
+          },
+        ],
+        requiredBins: pm.requiredBins,
+      },
+    ]
+
+    const localExec = directLocalExecCommand(pm, fixture, 'hello', ['--flag'])
+    if (localExec) {
+      cases.push({
+        id: `${pm.id}_direct_exec_hello`,
+        group: 'exec',
+        case: `exec hello --flag (${pm.label})`,
+        commands: [
+          localExec,
+          {
+            name: 'hni',
+            kind: 'exec',
+            bin: 'nlx',
+            args: ['-C', fixture, 'hello', '--flag'],
+            env: { HNI_NATIVE: 'true' },
+          },
+        ],
+        requiredBins: pm.requiredBins,
+      })
+    }
+
+    return cases
+  })
+}
+
+function directRunCommand(pm, fixturePath, scriptName) {
+  if (pm.id === 'deno') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `deno task --cwd ${shellQuote(fixturePath)} --quiet ${shellQuote(scriptName)}`,
+    }
+  }
+
+  if (pm.id === 'bun') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `cd ${shellQuote(fixturePath)} && bun run --silent ${shellQuote(scriptName)}`,
+    }
+  }
+
+  if (pm.id === 'yarn') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `cd ${shellQuote(fixturePath)} && yarn run --silent ${shellQuote(scriptName)}`,
+    }
+  }
+
+  return {
+    name: 'direct',
+    kind: 'shell',
+    command: `cd ${shellQuote(fixturePath)} && ${pm.id} run --silent ${shellQuote(scriptName)}`,
+  }
+}
+
+function directLocalExecCommand(pm, fixturePath, binName, args) {
+  const renderedArgs = args.map((arg) => shellQuote(arg)).join(' ')
+  const suffix = renderedArgs.length > 0 ? ` ${renderedArgs}` : ''
+
+  if (pm.id === 'npm') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `cd ${shellQuote(fixturePath)} && npx ${shellQuote(binName)}${suffix}`,
+    }
+  }
+
+  if (pm.id === 'pnpm') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `cd ${shellQuote(fixturePath)} && pnpm exec ${shellQuote(binName)}${suffix}`,
+    }
+  }
+
+  if (pm.id === 'yarn') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `cd ${shellQuote(fixturePath)} && yarn --silent ${shellQuote(binName)}${suffix}`,
+    }
+  }
+
+  if (pm.id === 'bun') {
+    return {
+      name: 'direct',
+      kind: 'shell',
+      command: `cd ${shellQuote(fixturePath)} && bun x ${shellQuote(binName)}${suffix}`,
+    }
+  }
+
+  return null
+}
+
 function runHyperfineCase({ repoRoot, caseDef, runs, warmups, rawOutputPath, commands }) {
   const cmdArgs = ['--runs', String(runs), '--warmup', String(warmups), '--style', 'none']
 
@@ -804,12 +937,12 @@ function historyMarkdown(resultsDir, benchmarkDir) {
     .filter((name) => name.startsWith('benchmark-') && name.endsWith('.md'))
     .sort()
     .reverse()
-    .slice(0, 20)
+    .slice(0, 1)
 
   const lines = [
     '# Benchmark History',
     '',
-    'Recent combined benchmark reports. Keep this lightweight and use `benchmark/LATEST.md` for the current release snapshot.',
+    'The repo intentionally keeps only the latest tracked combined benchmark report. Use `benchmark/LATEST.md` for the release-facing snapshot.',
     '',
     '| Run | Report | JSON |',
     '| --- | --- | --- |',
@@ -826,6 +959,20 @@ function historyMarkdown(resultsDir, benchmarkDir) {
   }
 
   return `${lines.join('\n')}\n`
+}
+
+function pruneTrackedBenchmarkArtifacts(resultsDir, keepPaths) {
+  const keep = new Set(
+    [...keepPaths, path.join(resultsDir, '.gitkeep')].map((entry) => path.resolve(entry)),
+  )
+
+  for (const entry of fs.readdirSync(resultsDir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue
+    const absolutePath = path.resolve(resultsDir, entry.name)
+    if (!keep.has(absolutePath)) {
+      fs.rmSync(absolutePath, { force: true })
+    }
+  }
 }
 
 function payloadForTrack({ track, args, repoRoot, fixtures, binaries, skipped, results }) {
@@ -877,6 +1024,7 @@ function resolveTrackCases(track, fixturePaths) {
   if (track === 'compare') return compareCases()
   if (track === 'native') return nativeCases(fixturePaths)
   if (track === 'runtime') return runtimeCases(fixturePaths)
+  if (track === 'direct') return directCases(fixturePaths)
   throw new Error(`unsupported track: ${track}`)
 }
 
@@ -1123,6 +1271,16 @@ function main() {
     combinedArtifacts.markdownPath = combinedMarkdownPath
     const latestPath = writeLatestSnapshot(benchmarkDir, combined, combinedArtifacts)
     const historyPath = writeHistorySnapshot(resultsDir, benchmarkDir)
+    if (args.track === 'all') {
+      pruneTrackedBenchmarkArtifacts(resultsDir, [
+        combinedPath,
+        combinedMarkdownPath,
+        ...Object.values(trackArtifacts).flatMap((artifact) => [
+          artifact.jsonPath,
+          artifact.markdownPath,
+        ]),
+      ])
+    }
     process.stdout.write(`Combined JSON written to ${combinedPath}\n`)
     process.stdout.write(`Combined markdown written to ${combinedMarkdownPath}\n`)
     process.stdout.write(`Latest snapshot written to ${latestPath}\n`)

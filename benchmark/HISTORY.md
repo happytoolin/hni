@@ -1,8 +1,7 @@
 # Benchmark History
 
-Recent combined benchmark reports. Keep this lightweight and use `benchmark/LATEST.md` for the current release snapshot.
+The repo intentionally keeps only the latest tracked combined benchmark report. Use `benchmark/LATEST.md` for the release-facing snapshot.
 
 | Run | Report | JSON |
 | --- | --- | --- |
-| 2026-03-22T00-32-35-442Z | [benchmark-2026-03-22T00-32-35-442Z.md](results/benchmark-2026-03-22T00-32-35-442Z.md) | [benchmark-2026-03-22T00-32-35-442Z.json](results/benchmark-2026-03-22T00-32-35-442Z.json) |
-| 2026-03-20T00-08-06-117Z | [benchmark-2026-03-20T00-08-06-117Z.md](results/benchmark-2026-03-20T00-08-06-117Z.md) | [benchmark-2026-03-20T00-08-06-117Z.json](results/benchmark-2026-03-20T00-08-06-117Z.json) |
+| 2026-03-22T03-12-28-644Z | [benchmark-2026-03-22T03-12-28-644Z.md](results/benchmark-2026-03-22T03-12-28-644Z.md) | [benchmark-2026-03-22T03-12-28-644Z.json](results/benchmark-2026-03-22T03-12-28-644Z.json) |

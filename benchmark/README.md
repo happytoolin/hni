@@ -9,8 +9,14 @@ It replaces the older benchmark trees, which are preserved under [`benchmark/old
 - `compare`: `@antfu/ni` vs `hni` for a very small CLI/startup-oriented set
 - `native`: `hni` delegated mode vs `hni` native mode
 - `runtime`: `hni` vs `bun` vs `deno` for a few comparable task-running cases
+- `direct`: package-manager-native commands (`npm run`, `pnpm run`, `yarn run`, `bun run`, `deno task`) plus local-bin exec flows (`npx`, `pnpm exec`, `yarn <bin>`, `bun x`) vs `hni` native mode
 
 All timing uses `hyperfine`.
+
+Defaults:
+
+- `500` measured runs per case
+- `50` warmups per case
 
 ## Requirements
 
@@ -48,6 +54,7 @@ Run one track:
 ./benchmark/run.sh --track=compare
 ./benchmark/run.sh --track=native
 ./benchmark/run.sh --track=runtime
+./benchmark/run.sh --track=direct
 ```
 
 Smaller local run:
@@ -88,3 +95,5 @@ This writes SVGs into [`benchmark/profiles/`](profiles/).
 - `compare` is intentionally tiny and presentational.
 - `native` is the engineering benchmark for native-mode wins and regressions.
 - `runtime` keeps `bun` and `deno` separate from the Antfu comparison so the story stays fair.
+- `direct` measures the end-user value prop directly: whether `hni --native` beats invoking the package manager the way most users normally would.
+- Full all-track runs prune older generated top-level result artifacts so the repo only keeps the current tracked snapshot instead of every intermediate run.

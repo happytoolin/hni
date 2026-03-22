@@ -357,10 +357,12 @@ Run individual tracks with:
 just bench-compare
 just bench-native
 just bench-runtime
+just bench-direct
 
 ./benchmark/run.sh --track=compare
 ./benchmark/run.sh --track=native
 ./benchmark/run.sh --track=runtime
+./benchmark/run.sh --track=direct
 ```
 
 Generate flamegraphs with:
@@ -379,55 +381,37 @@ Same-repo pull requests also run the benchmark workflow on GitHub Actions and up
 
 ### Representative Results
 
-The benchmark runner generates per-run Markdown and JSON under `benchmark/results/`, but those raw artifacts are treated as local output rather than long-lived repo data.
+The current tracked snapshot is from March 22, 2026 and was generated with `50` warmups and `500` measured runs per case.
 
-For commits and releases, use the tracked summary files above instead of linking directly to generated result files.
+If you only want the headline, it is this: `hni --native` is meaningfully faster than normal package-manager usage on npm, pnpm, and yarn, still ahead on bun, and much less dramatic on deno.
 
-The current tracked snapshot is from March 22, 2026. It uses `5` warmups and `20` measured runs per case. The previous March 20, 2026 tracked snapshot only covered the native track with a single measured run, so the delta callouts below are useful directionally but not as a controlled apples-to-apples regression study.
+The clearest story is the `direct` track, which compares what people normally type against `hni --native`. In the current snapshot, `hni` averages `4.90x` faster overall there.
 
-Native mode is where `hni` shows the clearest gains in the current snapshot:
+A few representative wins:
 
-| Case | Delegated | Native | Gain |
+| Case | Direct | `hni` native | Relative |
 | --- | ---: | ---: | ---: |
-| `nr noop (npm)` | 399.19 ms | 55.25 ms | 7.23x |
-| `nr noop (pnpm)` | 922.51 ms | 77.18 ms | 11.95x |
-| `node run noop (pnpm)` | 741.88 ms | 70.09 ms | 10.58x |
-| `nlx hello --flag (npm local bin)` | 363.95 ms | 7.55 ms | 48.21x |
+| `task noop (npm)` | 207.83 ms | 36.63 ms | 5.67x |
+| `task noop (pnpm)` | 418.28 ms | 32.26 ms | 12.97x |
+| `task noop (yarn)` | 279.87 ms | 32.17 ms | 8.70x |
+| `exec hello --flag (npm)` | 249.48 ms | 10.25 ms | 24.35x |
+| `exec hello --flag (pnpm)` | 311.16 ms | 7.30 ms | 42.65x |
+| `exec hello --flag (yarn)` | 104.92 ms | 7.48 ms | 14.02x |
+| `exec hello --flag (bun)` | 15.07 ms | 7.46 ms | 2.02x |
 
-Overall native-mode geometric mean in the current tracked snapshot: `3.65x` on March 22, 2026, versus `5.02x` on March 20, 2026.
+The internal `native` track tells the same story from another angle: native mode averages `4.38x` faster than delegated mode inside `hni`. The local-bin case is especially strong in the current snapshot: `nlx hello --flag (npm local bin)` lands at `7.75 ms` natively versus `334.43 ms` in delegated mode.
 
-Representative March 20 -> March 22 native deltas:
+The Antfu comparison is smaller and more lightweight, but still points the same way. On that track, `hni` averages `1.66x` faster overall, with `ni --version` coming in at `129.05 ms` for `hni` versus `334.60 ms` for Antfu's `ni`.
 
-| Case | March 20 | March 22 |
-| --- | ---: | ---: |
-| `nr noop (npm)` | 7.67x | 7.23x |
-| `nr noop (pnpm)` | 15.61x | 11.95x |
-| `node run noop (pnpm)` | 12.23x | 10.58x |
-| `nlx hello --flag (npm local bin)` | 65.70x | 48.21x |
-
-The March 22 snapshot also adds tracked `compare` and `runtime` runs. The runtime track keeps `bun` and `deno` separate from the Antfu comparison and focuses on a small fair set of task-style commands:
-
-| Case | `hni` | `bun` | `deno` |
-| --- | ---: | ---: | ---: |
-| `task noop` | 43.51 ms | 50.80 ms | 39.68 ms |
-| `task hooks` | 107.08 ms | 203.35 ms | 69.51 ms |
-
-For CLI/startup-oriented comparisons against Antfu's `ni`, the March 22 `compare` track averaged `1.46x` in `hni`'s favor overall, but the results remain command-shaped and intentionally small:
-
-| Case | `antfu` | `hni` | Relative |
-| --- | ---: | ---: | ---: |
-| `ni --version` | 451.62 ms | 336.74 ms | 1.34x |
-| `ni vite ? (npm)` | 6.91 ms | 11.60 ms | 0.60x |
-| `nr build ? (pnpm)` | 9.26 ms | 2.46 ms | 3.77x |
-| `nlx vitest ? (npm)` | 6.74 ms | 4.48 ms | 1.51x |
-
-The `compare` track is intentionally small and should be read as a lightweight sanity check, not a broad claim about every workflow.
+The main caveat is still Deno. In the direct task-style cases, `hni` is basically at parity there rather than dramatically ahead. In the separate runtime-style comparison, `hni` beats bun on both cases, while deno still wins the hooked-task case.
 
 ### Methodology
 
-- All CLI timing uses `hyperfine`.
-- `hni` is measured with the release binary from `target/release/hni`.
-- `compare` benchmarks `@antfu/ni` against `hni` on a very small CLI-focused set.
-- `native` benchmarks `HNI_NATIVE=false` vs `HNI_NATIVE=true`.
-- `runtime` benchmarks `hni`, `bun`, and `deno` separately from the Antfu comparison to keep the chart fair.
-- Raw benchmark outputs are generated locally in `benchmark/results/`; the repo keeps the curated Markdown snapshots instead of storing every generated result file.
+All timing uses `hyperfine` against the release binary. The suite looks at four angles:
+
+- `direct`: normal package-manager usage versus `hni --native`
+- `native`: delegated mode versus native mode inside `hni`
+- `compare`: a small CLI-focused comparison against Antfu's `ni`
+- `runtime`: a side-by-side look at `hni`, bun, and deno on a couple of task-style cases
+
+The repo keeps the curated snapshot files rather than every intermediate result. For the full current matrix, use [`benchmark/LATEST.md`](benchmark/LATEST.md).
