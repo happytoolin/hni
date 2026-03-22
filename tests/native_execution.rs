@@ -16,8 +16,13 @@ fn native_nr_runs_hooks_from_nearest_package_and_forwards_args() {
         fs::write(root.join("package-lock.json"), "lock").unwrap();
         fs::write(root.join("package.json"), r#"{"name":"workspace"}"#).unwrap();
         fs::write(
+            pkg.join("write-args.cjs"),
+            "const fs = require('fs'); fs.writeFileSync('args.txt', JSON.stringify(process.argv.slice(2))); fs.appendFileSync('order.txt', 'dev');\n",
+        )
+        .unwrap();
+        fs::write(
             pkg.join("package.json"),
-            r#"{"name":"app","scripts":{"predev":"printf 'pre' >> order.txt","dev":"printf '%s' \"$*\" > args.txt; printf 'dev' >> order.txt","postdev":"printf 'post' >> order.txt"}}"#,
+            r#"{"name":"app","scripts":{"predev":"printf 'pre' >> order.txt","dev":"node write-args.cjs","postdev":"printf 'post' >> order.txt"}}"#,
         )
         .unwrap();
 
@@ -42,7 +47,7 @@ fn native_nr_runs_hooks_from_nearest_package_and_forwards_args() {
         );
         assert_eq!(
             fs::read_to_string(pkg.join("args.txt")).unwrap(),
-            "alpha beta"
+            "[\"alpha\",\"beta\"]"
         );
     });
 }

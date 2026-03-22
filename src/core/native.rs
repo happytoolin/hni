@@ -609,11 +609,20 @@ fn shell_command(command_string: &str, forwarded_args: &[&str], cwd: &Path) -> C
         command.arg("/C").arg(command_string);
         command
     } else {
+        let combined = if forwarded_args.is_empty() {
+            command_string.to_string()
+        } else {
+            format!(
+                "{command_string} {}",
+                forwarded_args
+                    .iter()
+                    .map(|arg| shell_escape(arg))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        };
         let mut command = Command::new("sh");
-        command
-            .arg("-c")
-            .arg(format!("{command_string} \"$@\""))
-            .arg("sh");
+        command.arg("-c").arg(combined).arg("sh");
         command
     };
 
