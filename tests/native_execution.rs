@@ -114,7 +114,7 @@ fn native_explain_reports_fallback_reason() {
         assert!(output.status.success(), "{output:?}");
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("native_mode: true"));
-        assert!(stdout.contains("execution_mode: delegated"));
+        assert!(stdout.contains("execution_mode: package-manager"));
         assert!(stdout.contains("native_status: fallback"));
         assert!(stdout.contains("native_fallback_reason:"));
         assert!(stdout.contains("resolved: npm run dev"));
@@ -151,10 +151,11 @@ fn native_nr_preserves_shell_glob_expansion() {
 }
 
 #[test]
-fn node_run_and_exec_inherit_native_resolution() {
+fn node_run_prefers_builtin_node_run_when_supported() {
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         let project = work.path().join("project");
+        let fake_node = work.path().join("fake-node");
         let bin_dir = project.join("node_modules").join(".bin");
         fs::create_dir_all(&bin_dir).unwrap();
         fs::write(project.join("package-lock.json"), "lock").unwrap();
@@ -163,10 +164,12 @@ fn node_run_and_exec_inherit_native_resolution() {
             r#"{"name":"x","scripts":{"dev":"echo ok"}}"#,
         )
         .unwrap();
-
-        let bin = bin_dir.join("hello");
-        fs::write(&bin, "#!/bin/sh\nexit 0\n").unwrap();
-        make_executable(&bin);
+        fs::write(
+            &fake_node,
+            "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
+        )
+        .unwrap();
+        make_executable(&fake_node);
 
         let run_output = run_hni(
             vec![
@@ -178,13 +181,75 @@ fn node_run_and_exec_inherit_native_resolution() {
                 "run",
                 "dev",
             ],
-            &[("HNI_SKIP_PM_CHECK", "1")],
+            &[
+                ("HNI_SKIP_PM_CHECK", "1"),
+                ("HNI_REAL_NODE", fake_node.to_str().unwrap()),
+            ],
+        );
+        assert!(run_output.status.success(), "{run_output:?}");
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        let rendered = stdout.trim();
+        assert!(rendered.contains(fake_node.to_str().unwrap()), "{rendered}");
+        assert!(rendered.ends_with(" --run dev"), "{rendered}");
+    });
+}
+
+#[test]
+fn node_run_falls_back_to_native_when_node_run_is_unsafe() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("project");
+        let fake_node = work.path().join("fake-node");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("package-lock.json"), "lock").unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"name":"x","scripts":{"predev":"echo pre","dev":"echo ok"}}"#,
+        )
+        .unwrap();
+        fs::write(
+            &fake_node,
+            "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
+        )
+        .unwrap();
+        make_executable(&fake_node);
+
+        let run_output = run_hni(
+            vec![
+                "node",
+                "-C",
+                project.to_str().unwrap(),
+                "--native",
+                "--debug-resolved",
+                "run",
+                "dev",
+            ],
+            &[
+                ("HNI_SKIP_PM_CHECK", "1"),
+                ("HNI_REAL_NODE", fake_node.to_str().unwrap()),
+            ],
         );
         assert!(run_output.status.success(), "{run_output:?}");
         assert_eq!(
             String::from_utf8_lossy(&run_output.stdout).trim(),
             "hni native:run-script dev"
         );
+    });
+}
+
+#[test]
+fn node_exec_inherits_native_resolution() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("project");
+        let bin_dir = project.join("node_modules").join(".bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+        fs::write(project.join("package-lock.json"), "lock").unwrap();
+        fs::write(project.join("package.json"), r#"{"name":"x"}"#).unwrap();
+
+        let bin = bin_dir.join("hello");
+        fs::write(&bin, "#!/bin/sh\nexit 0\n").unwrap();
+        make_executable(&bin);
 
         let exec_output = run_hni(
             vec![

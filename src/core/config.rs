@@ -39,7 +39,7 @@ impl Default for HniConfig {
             default_agent: DefaultAgent::Prompt,
             global_agent: PackageManager::Npm,
             run_agent: RunAgent::PackageManager,
-            native_mode: false,
+            native_mode: true,
             use_sfw: false,
             auto_install: false,
             config_path: None,
@@ -197,7 +197,7 @@ mod tests {
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
         assert_eq!(cfg.global_agent, PackageManager::Yarn);
         assert_eq!(cfg.run_agent, RunAgent::Node);
-        assert!(!cfg.native_mode);
+        assert!(cfg.native_mode);
         assert!(cfg.use_sfw);
         assert!(!cfg.auto_install);
     }

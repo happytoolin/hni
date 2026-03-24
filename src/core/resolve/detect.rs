@@ -2,29 +2,31 @@ use std::path::Path;
 
 use crate::core::{
     config::HniConfig,
-    detect::{detect, ensure_package_manager_available},
+    detect::ensure_package_manager_available,
     error::{HniError, HniResult},
     types::{DetectionResult, DetectionSource, PackageManager},
 };
 
 use super::context::ResolveContext;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub(super) struct AgentResolution {
     pub pm: PackageManager,
     pub has_lock: bool,
+    pub version_hint: Option<String>,
 }
 
 pub fn detected_package_manager(ctx: &ResolveContext) -> HniResult<PackageManager> {
-    let detected = detect_for_action(&ctx.cwd, &ctx.config, false)?;
+    let detected = detect_for_action(ctx, false)?;
     Ok(detected.pm)
 }
 
 pub(super) fn detect_for_action(
-    cwd: &Path,
-    config: &HniConfig,
+    ctx: &ResolveContext,
     use_global: bool,
 ) -> HniResult<AgentResolution> {
+    let cwd = &ctx.cwd;
+    let config = &ctx.config;
     let detection = if use_global {
         DetectionResult {
             agent: Some(config.global_agent),
@@ -33,7 +35,8 @@ pub(super) fn detect_for_action(
             source: DetectionSource::Config,
         }
     } else {
-        detect(cwd, config).map_err(|error| HniError::detection(error.to_string()))?
+        ctx.detect()
+            .map_err(|error| HniError::detection(error.to_string()))?
     };
 
     let pm = detection.agent.ok_or_else(|| {
@@ -49,11 +52,18 @@ pub(super) fn detect_for_action(
         ));
     }
 
-    ensure_package_manager_available(pm, detection.version_hint.as_deref(), config, cwd)
-        .map_err(|error| HniError::detection(error.to_string()))?;
-
     Ok(AgentResolution {
         pm,
         has_lock: detection.has_lock,
+        version_hint: detection.version_hint,
     })
+}
+
+pub(super) fn ensure_detected_available(
+    resolution: &AgentResolution,
+    config: &HniConfig,
+    cwd: &Path,
+) -> HniResult<()> {
+    ensure_package_manager_available(resolution.pm, resolution.version_hint.as_deref(), config, cwd)
+        .map_err(|error| HniError::detection(error.to_string()))
 }

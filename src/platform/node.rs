@@ -3,6 +3,7 @@ use std::{
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
+    process::Command,
     sync::OnceLock,
 };
 
@@ -13,6 +14,7 @@ pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
 pub const NODE_SHIM_ENV: &str = "HNI_NODE";
 
 static REAL_NODE_PATH: OnceLock<PathBuf> = OnceLock::new();
+static REAL_NODE_SUPPORTS_RUN: OnceLock<bool> = OnceLock::new();
 
 pub fn resolve_real_node_path() -> Result<PathBuf> {
     if let Some(from_env) = env::var_os(REAL_NODE_ENV) {
@@ -42,6 +44,24 @@ pub fn resolve_real_node_path() -> Result<PathBuf> {
     Ok(resolved)
 }
 
+pub fn real_node_supports_run() -> bool {
+    if env::var_os(REAL_NODE_ENV).is_some() {
+        return resolve_real_node_path()
+            .ok()
+            .is_some_and(|path| probe_node_run_support(&path));
+    }
+
+    if let Some(cached) = REAL_NODE_SUPPORTS_RUN.get() {
+        return *cached;
+    }
+
+    let supported = resolve_real_node_path()
+        .ok()
+        .is_some_and(|path| probe_node_run_support(&path));
+    let _ = REAL_NODE_SUPPORTS_RUN.set(supported);
+    supported
+}
+
 fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
     if let Some(recorded) = read_recorded_real_node_path()?
         && recorded.exists()
@@ -50,6 +70,19 @@ fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
     }
 
     Ok(scan_path_for_real_node())
+}
+
+fn probe_node_run_support(node_path: &Path) -> bool {
+    let output = match Command::new(node_path).arg("--help").output() {
+        Ok(output) => output,
+        Err(_) => return false,
+    };
+
+    help_text_supports_run(&output.stdout) || help_text_supports_run(&output.stderr)
+}
+
+fn help_text_supports_run(output: &[u8]) -> bool {
+    String::from_utf8_lossy(output).contains("--run")
 }
 
 pub fn recorded_real_node_path_file() -> Option<PathBuf> {
@@ -230,6 +263,42 @@ mod tests {
 
         unsafe { env::set_var(REAL_NODE_ENV, &fake_node) };
         assert_eq!(resolve_real_node_path().unwrap(), fake_node);
+
+        match original {
+            Some(value) => unsafe { env::set_var(REAL_NODE_ENV, value) },
+            None => unsafe { env::remove_var(REAL_NODE_ENV) },
+        }
+    }
+
+    #[test]
+    fn help_text_supports_run_detects_run_flag() {
+        assert!(help_text_supports_run(b"  --run  Run a script from package.json\n"));
+        assert!(!help_text_supports_run(b"node help without task runner\n"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_node_supports_run_uses_env_override() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let _guard = ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock poisoned");
+        let original = env::var_os(REAL_NODE_ENV);
+        let dir = tempdir().unwrap();
+        let fake_node = dir.path().join("node");
+        fs::write(
+            &fake_node,
+            "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
+        )
+        .unwrap();
+        let mut perms = fs::metadata(&fake_node).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&fake_node, perms).unwrap();
+
+        unsafe { env::set_var(REAL_NODE_ENV, &fake_node) };
+        assert!(real_node_supports_run());
 
         match original {
             Some(value) => unsafe { env::set_var(REAL_NODE_ENV, value) },

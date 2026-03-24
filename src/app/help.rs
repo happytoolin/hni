@@ -44,12 +44,13 @@ pub fn help_command(topic: HelpTopic) -> Command {
         HelpTopic::Nr => command_help(
             "nr",
             "run package scripts",
-            "Runs scripts through the detected package manager and keeps npm '--' behavior consistent.",
+            "Runs scripts through the fast/native ladder by default, then falls back to node or the detected package manager when needed.",
             "Examples:\n\
              \n\
              nr                   Run 'start'\n\
              nr dev               Run dev script\n\
-             nr --native dev      Force native execution when eligible\n\
+             nr --fast dev        Force the fast/native ladder\n\
+             nr --no-native dev   Force package-manager execution\n\
              nr test -- --watch   Pass extra args to script\n\
              nr --if-present lint Skip failure if script is missing\n\
              nr --repeat-last      Re-run last script",
@@ -57,10 +58,10 @@ pub fn help_command(topic: HelpTopic) -> Command {
         HelpTopic::Nlx => command_help(
             "nlx",
             "execute package binaries",
-            "Runs package binaries without permanently installing them (npx / pnpm dlx / yarn dlx / bun x).",
+            "Runs local or declared package binaries directly by default, then falls back to package-manager exec when needed.",
             "Examples:\n\
              \n\
-             nlx --native eslint .\n\
+             nlx --fast eslint .\n\
              nlx vite@latest\n\
              nlx eslint .\n\
              nlx degit user/repo app",
@@ -175,7 +176,8 @@ fn top_level_help() -> Command {
             .about("use the right package manager")
             .long_about(
                 "hni is a multicall package-manager router.\n\
-                 It powers commands like ni, nr, nlx, nu, nun, nci, na, np, ns, and node.",
+                 It powers commands like ni, nr, nlx, nu, nun, nci, na, np, ns, and node.\n\
+                 Fast/native execution is the default for eligible nr and nlx commands.",
             )
             .subcommand(Command::new("ni").about("install or add dependencies"))
             .subcommand(Command::new("nr").about("run package scripts"))
@@ -195,7 +197,8 @@ fn top_level_help() -> Command {
                  \n\
                  ni vite\n\
                  ni --explain react -D\n\
-                 nr --native dev\n\
+                 nr dev\n\
+                 nr --no-native dev\n\
                  nr dev -- --port=3000\n\
                  nlx create-vite@latest\n\
                  nu --interactive\n\
@@ -245,7 +248,14 @@ fn with_global_flags(cmd: Command) -> Command {
         .arg(
             Arg::new("native")
                 .long("native")
-                .help("prefer native execution for eligible run/exec commands")
+                .help("prefer the fast/native execution ladder for eligible run/exec commands")
+                .conflicts_with("no-native")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("fast")
+                .long("fast")
+                .help("alias for --native")
                 .conflicts_with("no-native")
                 .action(ArgAction::SetTrue),
         )

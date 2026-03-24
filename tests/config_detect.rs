@@ -102,7 +102,7 @@ fn ignores_legacy_ni_environment_variables() {
         assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::PackageManager);
-        assert!(!cfg.native_mode);
+        assert!(cfg.native_mode);
         assert!(!cfg.use_sfw);
         assert!(!cfg.auto_install);
     });
@@ -127,7 +127,7 @@ fn ignores_legacy_nirc_fallback() {
         assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::PackageManager);
-        assert!(!cfg.native_mode);
+        assert!(cfg.native_mode);
         assert!(!cfg.use_sfw);
     });
 }

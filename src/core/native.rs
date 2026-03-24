@@ -9,10 +9,7 @@ use anyhow::{Context, Result};
 use crate::{
     core::{
         error::HniResult,
-        package::{
-            find_nearest_package, node_modules_bin_dirs, resolve_declared_package_bin,
-            resolve_local_bin,
-        },
+        package::resolve_local_bin,
         resolve::ResolveContext,
         shell::shell_escape,
         types::{
@@ -36,22 +33,24 @@ pub fn attempt_nr(
     ctx: &ResolveContext,
     has_if_present: bool,
 ) -> HniResult<NativeAttempt> {
+    let state = ctx.project_state()?;
+
     if pm == PackageManager::Deno {
         return Ok(NativeAttempt::Ineligible(
             "deno script execution stays delegated".to_string(),
         ));
     }
 
-    let Some(pkg) = find_nearest_package(&ctx.cwd)? else {
+    let Some(pkg) = state.nearest_package() else {
         return Ok(NativeAttempt::Ineligible(
             "native script execution requires a nearest package.json".to_string(),
         ));
     };
 
     let scripts = pkg.manifest.scripts.unwrap_or_default();
-    let bin_paths = node_modules_bin_dirs(&ctx.cwd);
+    let bin_paths = state.bin_dirs().to_vec();
 
-    if pm == PackageManager::YarnBerry && has_yarn_pnp_loader(&ctx.cwd) {
+    if pm == PackageManager::YarnBerry && state.has_yarn_pnp_loader() {
         return Ok(NativeAttempt::Ineligible(
             "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
                 .to_string(),
@@ -135,6 +134,8 @@ pub fn attempt_nlx(
     args: &[String],
     ctx: &ResolveContext,
 ) -> HniResult<NativeAttempt> {
+    let state = ctx.project_state()?;
+
     if pm == PackageManager::Deno {
         return Ok(NativeAttempt::Ineligible(
             "deno exec stays delegated".to_string(),
@@ -146,18 +147,15 @@ pub fn attempt_nlx(
             "native local bin execution requires a command".to_string(),
         ));
     };
-    if pm == PackageManager::YarnBerry && has_yarn_pnp_loader(&ctx.cwd) {
+    if pm == PackageManager::YarnBerry && state.has_yarn_pnp_loader() {
         return Ok(NativeAttempt::Ineligible(
             "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
                 .to_string(),
         ));
     }
-    let bin_paths = node_modules_bin_dirs(&ctx.cwd);
-    let bin_path = resolve_local_bin(bin_name, &bin_paths).or_else(|| {
-        resolve_declared_package_bin(&ctx.cwd, bin_name)
-            .ok()
-            .flatten()
-    });
+    let bin_paths = state.bin_dirs().to_vec();
+    let bin_path =
+        resolve_local_bin(bin_name, &bin_paths).or_else(|| state.resolve_declared_package_bin(bin_name));
     let Some(bin_path) = bin_path else {
         return Ok(NativeAttempt::Ineligible(
             "local binary not found in node_modules/.bin or package.json bin entries; falling back to package-manager exec"
@@ -283,12 +281,6 @@ fn unsupported_script_reason(event_name: &str, script: &str) -> Option<String> {
     }
 
     None
-}
-
-fn has_yarn_pnp_loader(start: &Path) -> bool {
-    start
-        .ancestors()
-        .any(|dir| dir.join(".pnp.cjs").exists() || dir.join(".pnp.js").exists())
 }
 
 fn native_script_env(

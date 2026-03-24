@@ -34,9 +34,18 @@ pub struct ResolvedExecution {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub passthrough: bool,
+    pub mode: ExecutionMode,
     pub strategy: ExecutionStrategy,
     pub native_requested: bool,
     pub native_fallback_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionMode {
+    PackageManager,
+    NodeRun,
+    Native,
+    Internal,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,11 +91,22 @@ impl ResolvedExecution {
         cwd: PathBuf,
         passthrough: bool,
     ) -> Self {
+        Self::external_with_mode(program, args, cwd, passthrough, ExecutionMode::PackageManager)
+    }
+
+    pub fn external_with_mode(
+        program: impl Into<String>,
+        args: Vec<String>,
+        cwd: PathBuf,
+        passthrough: bool,
+        mode: ExecutionMode,
+    ) -> Self {
         Self {
             program: program.into(),
             args,
             cwd,
             passthrough,
+            mode,
             strategy: ExecutionStrategy::External,
             native_requested: false,
             native_fallback_reason: None,
@@ -105,6 +125,7 @@ impl ResolvedExecution {
             args,
             cwd,
             passthrough,
+            mode: ExecutionMode::PackageManager,
             strategy: ExecutionStrategy::External,
             native_requested: true,
             native_fallback_reason: Some(reason.into()),
@@ -122,6 +143,7 @@ impl ResolvedExecution {
             args: exec.forwarded_args.clone(),
             cwd,
             passthrough: false,
+            mode: ExecutionMode::Native,
             strategy: ExecutionStrategy::Native(NativeExecution::RunScript(exec)),
             native_requested: true,
             native_fallback_reason: None,
@@ -139,6 +161,7 @@ impl ResolvedExecution {
             args,
             cwd,
             passthrough: false,
+            mode: ExecutionMode::Native,
             strategy: ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)),
             native_requested: true,
             native_fallback_reason: None,
@@ -147,6 +170,15 @@ impl ResolvedExecution {
 
     pub fn is_native(&self) -> bool {
         matches!(self.strategy, ExecutionStrategy::Native(_))
+    }
+
+    pub fn execution_mode_name(&self) -> &'static str {
+        match self.mode {
+            ExecutionMode::PackageManager => "package-manager",
+            ExecutionMode::NodeRun => "node-run",
+            ExecutionMode::Native => "native",
+            ExecutionMode::Internal => "internal",
+        }
     }
 }
 

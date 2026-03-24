@@ -91,7 +91,7 @@ pub fn detect(cwd: &Path, config: &HniConfig) -> HniResult<DetectionResult> {
     })
 }
 
-fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
+pub(crate) fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
     LOCKFILES
         .iter()
         .find_map(|(lockfile, pm)| dir.join(lockfile).exists().then_some(*pm))
@@ -176,7 +176,7 @@ pub fn ensure_package_manager_available(
     Ok(())
 }
 
-fn parse_package_manager_field(value: &str) -> Option<(PackageManager, Option<String>)> {
+pub(crate) fn parse_package_manager_field(value: &str) -> Option<(PackageManager, Option<String>)> {
     let (name, version) = value.split_once('@')?;
     let lower = name.to_ascii_lowercase();
 

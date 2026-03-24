@@ -377,8 +377,6 @@ Tracked benchmark docs:
 - lightweight history: [`benchmark/HISTORY.md`](benchmark/HISTORY.md)
 - native compatibility: [`docs/native-compat.md`](docs/native-compat.md)
 
-Same-repo pull requests also run the benchmark workflow on GitHub Actions and update a sticky PR comment with the latest summary.
-
 ### Representative Results
 
 The current tracked snapshot is from March 22, 2026 and was generated with `50` warmups and `500` measured runs per case.

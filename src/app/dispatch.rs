@@ -10,12 +10,12 @@ use crate::{
         version::print_versions,
     },
     core::{
-        config::HniConfig,
+        config::{HniConfig, RunAgent},
         detect::detect,
         error::{HniError, HniResult},
         resolve::ResolveContext,
         runner,
-        types::{InvocationKind, ResolvedExecution},
+        types::{ExecutionMode, InvocationKind, ResolvedExecution},
     },
     features,
     platform::node::resolve_real_node_path,
@@ -48,6 +48,9 @@ pub fn run_from_env() -> HniResult<ExitCode> {
     let mut config = HniConfig::load()?;
     if let Some(native_override) = parsed.native_override {
         config.native_mode = native_override;
+        if !native_override {
+            config.run_agent = RunAgent::PackageManager;
+        }
     }
     let resolve_ctx = ResolveContext::new(parsed.cwd.clone(), config.clone());
 
@@ -61,7 +64,7 @@ pub fn run_from_env() -> HniResult<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         ParsedCommand::Doctor => {
-            print_doctor(&resolve_ctx.cwd, &resolve_ctx.config);
+            print_doctor(&resolve_ctx);
             Ok(ExitCode::SUCCESS)
         }
         ParsedCommand::Completion { shell, program } => {
@@ -76,6 +79,14 @@ pub fn run_from_env() -> HniResult<ExitCode> {
             if let Ok(path) = resolve_real_node_path() {
                 println!("{}", path.display());
             }
+            Ok(ExitCode::SUCCESS)
+        }
+        ParsedCommand::InternalProfileLoop {
+            invocation,
+            args,
+            iterations,
+        } => {
+            run_profile_loop(invocation, args, iterations, &resolve_ctx, config.use_sfw)?;
             Ok(ExitCode::SUCCESS)
         }
         ParsedCommand::Execute { invocation, args } => {
@@ -114,20 +125,19 @@ fn print_explain(
     println!("native_mode: {}", config.native_mode);
     println!(
         "execution_mode: {}",
-        if resolved.is_native() {
-            "native"
-        } else {
-            "delegated"
-        }
+        resolved.execution_mode_name()
     );
     if config.native_mode {
+        let native_status = if resolved.native_fallback_reason.is_some() {
+            "fallback"
+        } else if matches!(resolved.mode, ExecutionMode::Native | ExecutionMode::NodeRun) {
+            "eligible"
+        } else {
+            "not-applicable"
+        };
         println!(
             "native_status: {}",
-            if resolved.is_native() {
-                "eligible"
-            } else {
-                "fallback"
-            }
+            native_status
         );
         if let Some(reason) = &resolved.native_fallback_reason {
             println!("native_fallback_reason: {reason}");
@@ -139,7 +149,7 @@ fn print_explain(
             .map_err(|error| HniError::execution(error.to_string()))?
     );
 
-    if let Ok(detection) = detect(&ctx.cwd, &ctx.config) {
+    if let Ok(detection) = ctx.detect().or_else(|_| detect(&ctx.cwd, &ctx.config)) {
         println!(
             "detected_agent: {}",
             detection
@@ -148,6 +158,26 @@ fn print_explain(
         );
         println!("detection_source: {:?}", detection.source);
         println!("has_lockfile: {}", detection.has_lock);
+    }
+
+    Ok(())
+}
+
+fn run_profile_loop(
+    invocation: InvocationKind,
+    args: Vec<String>,
+    iterations: usize,
+    ctx: &ResolveContext,
+    use_sfw: bool,
+) -> HniResult<()> {
+    for _ in 0..iterations {
+        let resolved = dispatch_invocation(invocation, args.clone(), ctx)?;
+        if let Some(resolved) = resolved {
+            std::hint::black_box(
+                runner::format_debug(&resolved, use_sfw)
+                    .map_err(|error| HniError::execution(error.to_string()))?,
+            );
+        }
     }
 
     Ok(())
