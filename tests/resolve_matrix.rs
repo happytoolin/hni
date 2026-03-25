@@ -312,7 +312,9 @@ fn nr_run_agent_node_uses_node_passthrough_run() {
 fn node_run_prefers_builtin_node_run_when_supported() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        let fake_node = dir.path().join(if cfg!(windows) { "node.exe" } else { "node" });
+        let fake_node = dir
+            .path()
+            .join(if cfg!(windows) { "node.exe" } else { "node" });
         fs::write(
             &fake_node,
             "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
@@ -340,7 +342,9 @@ fn node_run_prefers_builtin_node_run_when_supported() {
 fn node_run_falls_back_to_native_when_builtin_node_run_is_unsafe() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        let fake_node = dir.path().join(if cfg!(windows) { "node.exe" } else { "node" });
+        let fake_node = dir
+            .path()
+            .join(if cfg!(windows) { "node.exe" } else { "node" });
         fs::write(
             &fake_node,
             "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
@@ -369,7 +373,9 @@ fn node_run_falls_back_to_native_when_builtin_node_run_is_unsafe() {
 fn node_run_falls_back_to_package_manager_when_neither_fast_path_is_safe() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
-        let fake_node = dir.path().join(if cfg!(windows) { "node.exe" } else { "node" });
+        let fake_node = dir
+            .path()
+            .join(if cfg!(windows) { "node.exe" } else { "node" });
         fs::write(
             &fake_node,
             "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",

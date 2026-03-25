@@ -238,6 +238,49 @@ fn node_run_falls_back_to_native_when_node_run_is_unsafe() {
 }
 
 #[test]
+fn node_run_falls_back_to_native_when_script_uses_lifecycle_env() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("project");
+        let fake_node = work.path().join("fake-node");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("package-lock.json"), "lock").unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"name":"x","scripts":{"dev":"node -e \"console.log(process.env.npm_lifecycle_event, process.env.INIT_CWD, process.env.npm_execpath, process.env.npm_node_execpath)\""}} "#.trim(),
+        )
+        .unwrap();
+        fs::write(
+            &fake_node,
+            "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
+        )
+        .unwrap();
+        make_executable(&fake_node);
+
+        let run_output = run_hni(
+            vec![
+                "node",
+                "-C",
+                project.to_str().unwrap(),
+                "--native",
+                "--debug-resolved",
+                "run",
+                "dev",
+            ],
+            &[
+                ("HNI_SKIP_PM_CHECK", "1"),
+                ("HNI_REAL_NODE", fake_node.to_str().unwrap()),
+            ],
+        );
+        assert!(run_output.status.success(), "{run_output:?}");
+        assert_eq!(
+            String::from_utf8_lossy(&run_output.stdout).trim(),
+            "hni native:run-script dev"
+        );
+    });
+}
+
+#[test]
 fn node_exec_inherits_native_resolution() {
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();

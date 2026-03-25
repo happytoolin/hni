@@ -577,7 +577,8 @@ mod tests {
 
     #[test]
     fn extracts_fast_alias_as_native_override() {
-        let (flags, rest) = extract_shared_flags(&["--fast".to_string(), "dev".to_string()]).unwrap();
+        let (flags, rest) =
+            extract_shared_flags(&["--fast".to_string(), "dev".to_string()]).unwrap();
 
         assert_eq!(flags.native_override, Some(true));
         assert_eq!(rest, vec!["dev"]);

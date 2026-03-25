@@ -1,7 +1,4 @@
-use std::path::Path;
-
 use crate::core::{
-    config::HniConfig,
     detect::ensure_package_manager_available,
     error::{HniError, HniResult},
     types::{DetectionResult, DetectionSource, PackageManager},
@@ -61,9 +58,17 @@ pub(super) fn detect_for_action(
 
 pub(super) fn ensure_detected_available(
     resolution: &AgentResolution,
-    config: &HniConfig,
-    cwd: &Path,
+    ctx: &ResolveContext,
 ) -> HniResult<()> {
-    ensure_package_manager_available(resolution.pm, resolution.version_hint.as_deref(), config, cwd)
-        .map_err(|error| HniError::detection(error.to_string()))
+    if !ctx.should_verify_package_manager_availability() {
+        return Ok(());
+    }
+
+    ensure_package_manager_available(
+        resolution.pm,
+        resolution.version_hint.as_deref(),
+        &ctx.config,
+        &ctx.cwd,
+    )
+    .map_err(|error| HniError::detection(error.to_string()))
 }

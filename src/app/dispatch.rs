@@ -52,7 +52,13 @@ pub fn run_from_env() -> HniResult<ExitCode> {
             config.run_agent = RunAgent::PackageManager;
         }
     }
-    let resolve_ctx = ResolveContext::new(parsed.cwd.clone(), config.clone());
+    let verify_package_manager_availability =
+        matches!(parsed.command, ParsedCommand::Execute { .. }) && !parsed.debug && !parsed.explain;
+    let resolve_ctx = ResolveContext::with_package_manager_checks(
+        parsed.cwd.clone(),
+        config.clone(),
+        verify_package_manager_availability,
+    );
 
     match parsed.command {
         ParsedCommand::PrintVersions => {
@@ -123,22 +129,19 @@ fn print_explain(
     println!("invocation: {}", invocation_name(invocation));
     println!("cwd: {}", ctx.cwd.display());
     println!("native_mode: {}", config.native_mode);
-    println!(
-        "execution_mode: {}",
-        resolved.execution_mode_name()
-    );
+    println!("execution_mode: {}", resolved.execution_mode_name());
     if config.native_mode {
         let native_status = if resolved.native_fallback_reason.is_some() {
             "fallback"
-        } else if matches!(resolved.mode, ExecutionMode::Native | ExecutionMode::NodeRun) {
+        } else if matches!(
+            resolved.mode,
+            ExecutionMode::Native | ExecutionMode::NodeRun
+        ) {
             "eligible"
         } else {
             "not-applicable"
         };
-        println!(
-            "native_status: {}",
-            native_status
-        );
+        println!("native_status: {}", native_status);
         if let Some(reason) = &resolved.native_fallback_reason {
             println!("native_fallback_reason: {reason}");
         }

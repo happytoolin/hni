@@ -154,8 +154,8 @@ pub fn attempt_nlx(
         ));
     }
     let bin_paths = state.bin_dirs().to_vec();
-    let bin_path =
-        resolve_local_bin(bin_name, &bin_paths).or_else(|| state.resolve_declared_package_bin(bin_name));
+    let bin_path = resolve_local_bin(bin_name, &bin_paths)
+        .or_else(|| state.resolve_declared_package_bin(bin_name));
     let Some(bin_path) = bin_path else {
         return Ok(NativeAttempt::Ineligible(
             "local binary not found in node_modules/.bin or package.json bin entries; falling back to package-manager exec"

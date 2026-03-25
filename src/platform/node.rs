@@ -272,7 +272,9 @@ mod tests {
 
     #[test]
     fn help_text_supports_run_detects_run_flag() {
-        assert!(help_text_supports_run(b"  --run  Run a script from package.json\n"));
+        assert!(help_text_supports_run(
+            b"  --run  Run a script from package.json\n"
+        ));
         assert!(!help_text_supports_run(b"node help without task runner\n"));
     }
 

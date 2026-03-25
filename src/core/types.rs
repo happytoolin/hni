@@ -91,7 +91,13 @@ impl ResolvedExecution {
         cwd: PathBuf,
         passthrough: bool,
     ) -> Self {
-        Self::external_with_mode(program, args, cwd, passthrough, ExecutionMode::PackageManager)
+        Self::external_with_mode(
+            program,
+            args,
+            cwd,
+            passthrough,
+            ExecutionMode::PackageManager,
+        )
     }
 
     pub fn external_with_mode(

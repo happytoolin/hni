@@ -163,7 +163,13 @@ fn default_fast_mode_resolves_nr_and_nlx_natively() {
         make_executable(&bin_dir.join("hello"));
 
         let nr = run_hni(
-            vec!["nr", "-C", project.to_str().unwrap(), "--debug-resolved", "dev"],
+            vec![
+                "nr",
+                "-C",
+                project.to_str().unwrap(),
+                "--debug-resolved",
+                "dev",
+            ],
             &[("HNI_SKIP_PM_CHECK", "1")],
         );
         assert!(nr.status.success(), "{nr:?}");
@@ -253,6 +259,48 @@ fn internal_profile_loop_resolves_commands_without_running_them() {
         );
         assert!(output.status.success(), "{output:?}");
         assert!(String::from_utf8_lossy(&output.stdout).trim().is_empty());
+    });
+}
+
+#[test]
+fn debug_and_explain_skip_package_manager_availability_checks() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("pnpm");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("pnpm-lock.yaml"), "lock").unwrap();
+        fs::write(project.join("package.json"), r#"{"name":"x"}"#).unwrap();
+
+        let debug = run_hni(
+            vec![
+                "ni",
+                "-C",
+                project.to_str().unwrap(),
+                "--debug-resolved",
+                "react",
+            ],
+            &[
+                ("HNI_AUTO_INSTALL", "true"),
+                ("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
+            ],
+        );
+        assert!(debug.status.success(), "{debug:?}");
+        assert_eq!(
+            String::from_utf8_lossy(&debug.stdout).trim(),
+            "pnpm add react"
+        );
+
+        let explain = run_hni(
+            vec!["ni", "-C", project.to_str().unwrap(), "--explain", "react"],
+            &[
+                ("HNI_AUTO_INSTALL", "true"),
+                ("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
+            ],
+        );
+        assert!(explain.status.success(), "{explain:?}");
+        let stdout = String::from_utf8_lossy(&explain.stdout);
+        assert!(stdout.contains("hni explain"));
+        assert!(stdout.contains("resolved: pnpm add react"));
     });
 }
 
