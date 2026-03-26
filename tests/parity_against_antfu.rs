@@ -79,7 +79,11 @@ fn compare_delegated_mode_with_installed_antfu_when_available() {
                     &our_bin_path,
                     &fixture.path,
                     &case.args,
-                    &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_AUTO_INSTALL", "false")],
+                    &[
+                        ("HNI_SKIP_PM_CHECK", "1"),
+                        ("HNI_AUTO_INSTALL", "false"),
+                        ("HNI_NATIVE", "false"),
+                    ],
                 );
 
                 assert_eq!(

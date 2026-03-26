@@ -6,7 +6,7 @@ mod map;
 
 pub use build::{
     resolve_na, resolve_nci, resolve_ni, resolve_nlx, resolve_node_passthrough,
-    resolve_node_routed, resolve_nr, resolve_nu, resolve_nun,
+    resolve_node_routed, resolve_node_run, resolve_nr, resolve_nu, resolve_nun,
 };
 pub use context::ResolveContext;
 pub use detect::detected_package_manager;

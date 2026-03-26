@@ -2,14 +2,16 @@ use std::{ffi::OsStr, path::Path};
 
 use crate::{
     core::{
-        config::{DefaultAgent, HniConfig, RunAgent},
-        detect::detect,
+        config::{DefaultAgent, RunAgent},
+        resolve::ResolveContext,
         types::DetectionSource,
     },
-    platform::node::resolve_real_node_path,
+    platform::node::{real_node_supports_run, resolve_real_node_path},
 };
 
-pub fn print_doctor(cwd: &Path, config: &HniConfig) {
+pub fn print_doctor(ctx: &ResolveContext) {
+    let cwd = ctx.cwd();
+    let config = &ctx.config;
     let current_hni = std::env::current_exe()
         .ok()
         .map(|path| path.canonicalize().unwrap_or(path));
@@ -37,6 +39,7 @@ pub fn print_doctor(cwd: &Path, config: &HniConfig) {
             .as_ref()
             .map_or_else(|| "unavailable".to_string(), |p| p.display().to_string())
     );
+    println!("node_run_supported: {}", real_node_supports_run());
     println!(
         "shim_precedence_active: {}",
         shim_precedence_active(current_hni.as_deref(), path_node.as_deref())
@@ -60,7 +63,7 @@ pub fn print_doctor(cwd: &Path, config: &HniConfig) {
     println!("autoInstall(env): {}", config.auto_install);
     println!();
 
-    match detect(cwd, config) {
+    match ctx.detect() {
         Ok(detection) => {
             println!(
                 "detected_agent: {}",
@@ -138,7 +141,7 @@ fn format_default_agent(value: DefaultAgent) -> &'static str {
 fn format_run_agent(value: RunAgent) -> &'static str {
     match value {
         RunAgent::PackageManager => "package-manager",
-        RunAgent::Node => "node",
+        RunAgent::Node => "node (legacy compatibility)",
     }
 }
 

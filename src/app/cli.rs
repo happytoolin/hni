@@ -31,6 +31,11 @@ pub enum ParsedCommand {
         shell: String,
     },
     InternalRealNodePath,
+    InternalProfileLoop {
+        invocation: InvocationKind,
+        args: Vec<String>,
+        iterations: usize,
+    },
     Execute {
         invocation: InvocationKind,
         args: Vec<String>,
@@ -147,10 +152,7 @@ fn parse_hni(
                     .cloned()
                     .ok_or_else(|| HniError::parse("missing shell for init"))?,
             },
-            "internal" => match sub_matches.subcommand_name() {
-                Some("real-node-path") => ParsedCommand::InternalRealNodePath,
-                _ => ParsedCommand::PrintHelp(HelpTopic::Hni),
-            },
+            "internal" => parse_internal_command(sub_matches)?,
             _ => ParsedCommand::PrintHelp(HelpTopic::Hni),
         }
     } else {
@@ -219,6 +221,24 @@ fn execute_from_subcommand(invocation: InvocationKind, sub_matches: &ArgMatches)
     ParsedCommand::Execute {
         invocation,
         args: values_from(sub_matches.get_many::<String>("args")),
+    }
+}
+
+fn parse_internal_command(sub_matches: &ArgMatches) -> HniResult<ParsedCommand> {
+    match sub_matches.subcommand() {
+        Some(("real-node-path", _)) => Ok(ParsedCommand::InternalRealNodePath),
+        Some(("profile-loop", matches)) => Ok(ParsedCommand::InternalProfileLoop {
+            invocation: internal_invocation(
+                matches
+                    .get_one::<String>("invocation")
+                    .ok_or_else(|| HniError::parse("missing internal invocation"))?,
+            )?,
+            args: values_from(matches.get_many::<String>("args")),
+            iterations: *matches
+                .get_one::<usize>("iterations")
+                .ok_or_else(|| HniError::parse("missing iterations"))?,
+        }),
+        _ => Ok(ParsedCommand::PrintHelp(HelpTopic::Hni)),
     }
 }
 
@@ -291,6 +311,7 @@ fn help_target_from_command(command: &ParsedCommand) -> HelpTopic {
         ParsedCommand::Doctor
         | ParsedCommand::Completion { .. }
         | ParsedCommand::InternalRealNodePath
+        | ParsedCommand::InternalProfileLoop { .. }
         | ParsedCommand::PrintVersions => HelpTopic::Hni,
     }
 }
@@ -323,6 +344,24 @@ fn internal_parser() -> Command {
     Command::new("internal")
         .hide(true)
         .subcommand(Command::new("real-node-path").hide(true))
+        .subcommand(
+            Command::new("profile-loop")
+                .hide(true)
+                .arg(
+                    Arg::new("iterations")
+                        .long("iterations")
+                        .value_parser(clap::value_parser!(usize))
+                        .default_value("2000"),
+                )
+                .arg(
+                    Arg::new("invocation")
+                        .required(true)
+                        .value_parser(PossibleValuesParser::new([
+                            "ni", "nr", "nlx", "nu", "nun", "nci", "na", "np", "ns", "node",
+                        ])),
+                )
+                .arg(forwarded_args_arg()),
+        )
 }
 
 fn hni_parser() -> Command {
@@ -370,6 +409,24 @@ fn invocation_from_argv0(argv0: &str) -> InvocationKind {
         "ns" => InvocationKind::Ns,
         "node" => InvocationKind::NodeShim,
         _ => InvocationKind::Hni,
+    }
+}
+
+fn internal_invocation(name: &str) -> HniResult<InvocationKind> {
+    match name {
+        "ni" => Ok(InvocationKind::Ni),
+        "nr" => Ok(InvocationKind::Nr),
+        "nlx" => Ok(InvocationKind::Nlx),
+        "nu" => Ok(InvocationKind::Nu),
+        "nun" => Ok(InvocationKind::Nun),
+        "nci" => Ok(InvocationKind::Nci),
+        "na" => Ok(InvocationKind::Na),
+        "np" => Ok(InvocationKind::Np),
+        "ns" => Ok(InvocationKind::Ns),
+        "node" => Ok(InvocationKind::NodeShim),
+        _ => Err(HniError::parse(format!(
+            "unsupported internal invocation '{name}'"
+        ))),
     }
 }
 
@@ -448,7 +505,7 @@ fn extract_shared_flags(args: &[String]) -> HniResult<(SharedFlags, Vec<String>)
                 flags.explain = true;
                 idx += 1;
             }
-            "--native" => {
+            "--native" | "--fast" => {
                 set_native_override(&mut flags, true)?;
                 idx += 1;
             }
@@ -518,6 +575,15 @@ mod tests {
 
         assert!(deprecated);
         assert_eq!(args, vec!["--debug-resolved", "ni", "--", "?"]);
+    }
+
+    #[test]
+    fn extracts_fast_alias_as_native_override() {
+        let (flags, rest) =
+            extract_shared_flags(&["--fast".to_string(), "dev".to_string()]).unwrap();
+
+        assert_eq!(flags.native_override, Some(true));
+        assert_eq!(rest, vec!["dev"]);
     }
 
     #[test]

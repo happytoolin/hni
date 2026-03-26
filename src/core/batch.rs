@@ -6,7 +6,10 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use super::{shell::shell_escape, types::ResolvedExecution};
+use super::{
+    shell::shell_escape,
+    types::{ExecutionMode, ResolvedExecution},
+};
 
 pub const INTERNAL_BATCH_PARALLEL: &str = "__hni_internal_batch_parallel";
 pub const INTERNAL_BATCH_SEQUENTIAL: &str = "__hni_internal_batch_sequential";
@@ -42,11 +45,12 @@ impl BatchMode {
 }
 
 pub fn make_execution(mode: BatchMode, commands: Vec<String>, cwd: &Path) -> ResolvedExecution {
-    ResolvedExecution::external(
+    ResolvedExecution::external_with_mode(
         mode.internal_program().to_string(),
         commands,
         cwd.to_path_buf(),
         false,
+        ExecutionMode::Internal,
     )
 }
 
@@ -179,6 +183,7 @@ mod tests {
         assert_eq!(exec.program, INTERNAL_BATCH_PARALLEL);
         assert_eq!(exec.args, vec!["echo hi"]);
         assert_eq!(exec.cwd, cwd);
+        assert_eq!(exec.execution_mode_name(), "internal");
         assert!(!exec.passthrough);
     }
 

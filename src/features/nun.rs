@@ -8,7 +8,7 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<R
     args = normalized_args;
 
     if args.is_empty() || interactive_multi {
-        let selected = choose_dependencies_for_uninstall(&ctx.cwd)?;
+        let selected = choose_dependencies_for_uninstall(ctx.cwd())?;
         if selected.is_empty() {
             return Ok(None);
         }
