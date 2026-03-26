@@ -190,7 +190,10 @@ fn write_marker_command(path: &Path) -> String {
         script_extension()
     ));
     let contents = if cfg!(windows) {
-        format!("@echo off\r\necho ok > \"{}\"\r\n", path.display())
+        format!(
+            "Set-Content -LiteralPath {} -Value 'ok'\n",
+            shell_quote_powershell(path)
+        )
     } else {
         format!("#!/bin/sh\necho ok > {}\n", shell_quote_posix(path))
     };
@@ -207,11 +210,14 @@ fn delayed_write_marker_command(path: &Path) -> String {
     ));
     let contents = if cfg!(windows) {
         format!(
-            "@echo off\r\nping -n 2 127.0.0.1 >NUL\r\necho ok > \"{}\"\r\n",
-            path.display()
+            "Start-Sleep -Milliseconds 300\nSet-Content -LiteralPath {} -Value 'ok'\n",
+            shell_quote_powershell(path)
         )
     } else {
-        format!("#!/bin/sh\nsleep 0.2\necho ok > {}\n", shell_quote_posix(path))
+        format!(
+            "#!/bin/sh\nsleep 0.2\necho ok > {}\n",
+            shell_quote_posix(path)
+        )
     };
     fs::write(&script, contents).unwrap();
     make_executable(&script);
@@ -221,7 +227,7 @@ fn delayed_write_marker_command(path: &Path) -> String {
 fn failing_command(cwd: &Path, code: i32) -> String {
     let script = cwd.join(format!("fail-{code}{}", script_extension()));
     let contents = if cfg!(windows) {
-        format!("@echo off\r\nexit /B {code}\r\n")
+        format!("exit {code}\n")
     } else {
         format!("#!/bin/sh\nexit {code}\n")
     };
@@ -232,7 +238,10 @@ fn failing_command(cwd: &Path, code: i32) -> String {
 
 fn shell_command_path(path: &Path) -> String {
     if cfg!(windows) {
-        format!("\"{}\"", path.display())
+        format!(
+            "powershell -NoProfile -ExecutionPolicy Bypass -File \"{}\"",
+            path.display()
+        )
     } else {
         shell_quote_posix(path)
     }
@@ -242,8 +251,12 @@ fn shell_quote_posix(path: &Path) -> String {
     format!("'{}'", path.display().to_string().replace('\'', "'\"'\"'"))
 }
 
+fn shell_quote_powershell(path: &Path) -> String {
+    format!("'{}'", path.display().to_string().replace('\'', "''"))
+}
+
 fn script_extension() -> &'static str {
-    if cfg!(windows) { ".cmd" } else { ".sh" }
+    if cfg!(windows) { ".ps1" } else { ".sh" }
 }
 
 fn create_alias(target: &Path, dir: &Path, alias: &str) {
