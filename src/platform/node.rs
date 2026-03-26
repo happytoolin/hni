@@ -228,19 +228,22 @@ mod tests {
 
     #[test]
     fn path_with_real_node_priority_prepends_real_node_dir_once() {
-        let path = path_with_real_node_priority(
-            Path::new("/real/node"),
-            Some(OsString::from("/shim:/real:/other")),
-        )
+        let current_path = env::join_paths([
+            PathBuf::from("shim"),
+            PathBuf::from("real"),
+            PathBuf::from("other"),
+        ])
         .unwrap();
+        let path =
+            path_with_real_node_priority(Path::new("real/node"), Some(current_path)).unwrap();
         let entries = env::split_paths(&path).collect::<Vec<_>>();
 
         assert_eq!(
             entries,
             vec![
-                PathBuf::from("/real"),
-                PathBuf::from("/shim"),
-                PathBuf::from("/other"),
+                PathBuf::from("real"),
+                PathBuf::from("shim"),
+                PathBuf::from("other"),
             ]
         );
     }
