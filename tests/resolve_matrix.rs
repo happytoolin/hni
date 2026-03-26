@@ -29,6 +29,25 @@ fn write_package_json(dir: &Path, raw: &str) {
     fs::write(dir.join("package.json"), raw).unwrap();
 }
 
+fn with_path_override<T>(path: &str, f: impl FnOnce() -> T) -> T {
+    struct PathGuard(Option<std::ffi::OsString>);
+    impl Drop for PathGuard {
+        fn drop(&mut self) {
+            match &self.0 {
+                Some(value) => support::set_var("PATH", value),
+                None => support::remove_var("PATH"),
+            }
+        }
+    }
+
+    let original = std::env::var_os("PATH");
+    support::set_var("PATH", path);
+    let guard = PathGuard(original);
+    let out = f();
+    drop(guard);
+    out
+}
+
 #[test]
 fn ni_maps_npm_add_to_install() {
     with_skip_pm_check(|| {
@@ -307,6 +326,47 @@ fn nr_run_agent_node_uses_node_passthrough_run() {
     });
 }
 
+#[test]
+fn nr_native_mode_does_not_require_detected_package_manager() {
+    with_skip_pm_check(|| {
+        with_path_override("", || {
+            let dir = tempfile::tempdir().unwrap();
+            write_package_json(dir.path(), r#"{"name":"x","scripts":{"dev":"vite"}}"#);
+
+            let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+            let resolved = resolve::resolve_nr(vec!["dev".into()], &ctx).unwrap();
+
+            assert!(matches!(
+                resolved.strategy,
+                ExecutionStrategy::Native(NativeExecution::RunScript(_))
+            ));
+        });
+    });
+}
+
+#[test]
+fn nlx_native_mode_does_not_require_detected_package_manager() {
+    with_skip_pm_check(|| {
+        with_path_override("", || {
+            let dir = tempfile::tempdir().unwrap();
+            let bin_dir = dir.path().join("node_modules").join(".bin");
+            fs::create_dir_all(&bin_dir).unwrap();
+            write_package_json(dir.path(), r#"{"name":"x"}"#);
+            let bin = bin_dir.join("hello");
+            fs::write(&bin, "#!/bin/sh\nexit 0\n").unwrap();
+            make_executable(&bin);
+
+            let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+            let resolved = resolve::resolve_nlx(vec!["hello".into()], &ctx).unwrap();
+
+            assert!(matches!(
+                resolved.strategy,
+                ExecutionStrategy::Native(NativeExecution::RunLocalBin(_))
+            ));
+        });
+    });
+}
+
 #[cfg(unix)]
 #[test]
 fn node_run_prefers_builtin_node_run_when_supported() {
@@ -334,6 +394,35 @@ fn node_run_prefers_builtin_node_run_when_supported() {
         assert_eq!(resolved.program, "node");
         assert_eq!(resolved.args, vec!["--run", "dev"]);
         assert_eq!(resolved.execution_mode_name(), "node-run");
+    });
+}
+
+#[cfg(unix)]
+#[test]
+fn node_run_safe_path_does_not_require_detected_package_manager() {
+    with_skip_pm_check(|| {
+        with_path_override("", || {
+            let dir = tempfile::tempdir().unwrap();
+            let fake_node = dir
+                .path()
+                .join(if cfg!(windows) { "node.exe" } else { "node" });
+            fs::write(
+                &fake_node,
+                "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '  --run\\n'\n  exit 0\nfi\nexit 0\n",
+            )
+            .unwrap();
+            make_executable(&fake_node);
+            write_package_json(dir.path(), r#"{"name":"x","scripts":{"dev":"vite"}}"#);
+
+            support::set_var("HNI_REAL_NODE", &fake_node);
+            let ctx = ResolveContext::new(dir.path().to_path_buf(), HniConfig::default());
+            let resolved = resolve::resolve_node_run(vec!["dev".into()], &ctx).unwrap();
+            support::remove_var("HNI_REAL_NODE");
+
+            assert_eq!(resolved.program, "node");
+            assert_eq!(resolved.args, vec!["--run", "dev"]);
+            assert_eq!(resolved.execution_mode_name(), "node-run");
+        });
     });
 }
 

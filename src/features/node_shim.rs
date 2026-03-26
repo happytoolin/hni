@@ -12,15 +12,15 @@ pub fn handle(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<Resol
     let (decision, routed_args) = decide(&args);
 
     let resolved = match decision.mode {
-        NodeShimMode::PassthroughNode => resolve::resolve_node_passthrough(routed_args, &ctx.cwd),
+        NodeShimMode::PassthroughNode => resolve::resolve_node_passthrough(routed_args, ctx.cwd()),
         NodeShimMode::RouteToIntent(intent) => {
             resolve::resolve_node_routed(intent, routed_args, ctx)?
         }
         NodeShimMode::RunParallel => {
-            batch::make_execution(BatchMode::Parallel, routed_args, &ctx.cwd)
+            batch::make_execution(BatchMode::Parallel, routed_args, ctx.cwd())
         }
         NodeShimMode::RunSequential => {
-            batch::make_execution(BatchMode::Sequential, routed_args, &ctx.cwd)
+            batch::make_execution(BatchMode::Sequential, routed_args, ctx.cwd())
         }
     };
 

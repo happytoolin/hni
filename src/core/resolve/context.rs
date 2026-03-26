@@ -14,7 +14,7 @@ use crate::core::{
 
 #[derive(Debug)]
 pub struct ResolveContext {
-    pub cwd: PathBuf,
+    cwd: PathBuf,
     pub config: HniConfig,
     verify_package_manager_availability: bool,
     project_state: OnceLock<ProjectState>,
@@ -53,6 +53,10 @@ impl ResolveContext {
 
     pub fn detect(&self) -> HniResult<DetectionResult> {
         Ok(self.project_state()?.detect(&self.config))
+    }
+
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
     }
 
     pub(crate) fn should_verify_package_manager_availability(&self) -> bool {

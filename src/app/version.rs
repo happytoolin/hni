@@ -12,7 +12,7 @@ pub fn print_versions(ctx: &ResolveContext) {
     println!("hni       v{}", env!("CARGO_PKG_VERSION"));
 
     let real_node = resolve_real_node_path().ok();
-    let cwd = ctx.cwd.clone();
+    let cwd = ctx.cwd().to_path_buf();
     let detected_cwd = cwd.clone();
     let detected_config = ctx.config.clone();
     let global = ctx.config.global_agent;

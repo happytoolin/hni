@@ -53,7 +53,9 @@ pub fn run_from_env() -> HniResult<ExitCode> {
         }
     }
     let verify_package_manager_availability =
-        matches!(parsed.command, ParsedCommand::Execute { .. }) && !parsed.debug && !parsed.explain;
+        matches!(&parsed.command, ParsedCommand::Execute { .. })
+            && !parsed.debug
+            && !parsed.explain;
     let resolve_ctx = ResolveContext::with_package_manager_checks(
         parsed.cwd.clone(),
         config.clone(),
@@ -127,7 +129,7 @@ fn print_explain(
 ) -> HniResult<()> {
     println!("hni explain");
     println!("invocation: {}", invocation_name(invocation));
-    println!("cwd: {}", ctx.cwd.display());
+    println!("cwd: {}", ctx.cwd().display());
     println!("native_mode: {}", config.native_mode);
     println!("execution_mode: {}", resolved.execution_mode_name());
     if config.native_mode {
@@ -152,7 +154,7 @@ fn print_explain(
             .map_err(|error| HniError::execution(error.to_string()))?
     );
 
-    if let Ok(detection) = ctx.detect().or_else(|_| detect(&ctx.cwd, &ctx.config)) {
+    if let Ok(detection) = ctx.detect().or_else(|_| detect(ctx.cwd(), &ctx.config)) {
         println!(
             "detected_agent: {}",
             detection

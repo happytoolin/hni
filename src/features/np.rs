@@ -9,6 +9,6 @@ pub fn handle(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<Resol
     Ok(Some(batch::make_execution(
         BatchMode::Parallel,
         args,
-        &ctx.cwd,
+        ctx.cwd(),
     )))
 }

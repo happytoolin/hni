@@ -22,7 +22,7 @@ pub(super) fn detect_for_action(
     ctx: &ResolveContext,
     use_global: bool,
 ) -> HniResult<AgentResolution> {
-    let cwd = &ctx.cwd;
+    let cwd = ctx.cwd();
     let config = &ctx.config;
     let detection = if use_global {
         DetectionResult {
@@ -68,7 +68,7 @@ pub(super) fn ensure_detected_available(
         resolution.pm,
         resolution.version_hint.as_deref(),
         &ctx.config,
-        &ctx.cwd,
+        ctx.cwd(),
     )
     .map_err(|error| HniError::detection(error.to_string()))
 }

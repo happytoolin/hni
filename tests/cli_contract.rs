@@ -259,6 +259,32 @@ fn internal_profile_loop_resolves_commands_without_running_them() {
         );
         assert!(output.status.success(), "{output:?}");
         assert!(String::from_utf8_lossy(&output.stdout).trim().is_empty());
+
+        let np = run_hni(
+            vec![
+                "internal",
+                "profile-loop",
+                "--iterations",
+                "2",
+                "np",
+                "echo hi",
+            ],
+            &[("HNI_SKIP_PM_CHECK", "1")],
+        );
+        assert!(np.status.success(), "{np:?}");
+
+        let ns = run_hni(
+            vec![
+                "internal",
+                "profile-loop",
+                "--iterations",
+                "2",
+                "ns",
+                "echo hi",
+            ],
+            &[("HNI_SKIP_PM_CHECK", "1")],
+        );
+        assert!(ns.status.success(), "{ns:?}");
     });
 }
 
@@ -301,6 +327,30 @@ fn debug_and_explain_skip_package_manager_availability_checks() {
         let stdout = String::from_utf8_lossy(&explain.stdout);
         assert!(stdout.contains("hni explain"));
         assert!(stdout.contains("resolved: pnpm add react"));
+    });
+}
+
+#[test]
+fn passthrough_node_explain_reports_passthrough_mode() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let project = work.path().join("npm");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("package.json"), r#"{"name":"x"}"#).unwrap();
+
+        let output = run_hni(
+            vec![
+                "node",
+                "-C",
+                project.to_str().unwrap(),
+                "--explain",
+                "server.js",
+            ],
+            &[("HNI_SKIP_PM_CHECK", "1")],
+        );
+        assert!(output.status.success(), "{output:?}");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("execution_mode: passthrough-node"));
     });
 }
 

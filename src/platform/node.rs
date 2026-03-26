@@ -2,9 +2,12 @@ use std::{
     env,
     ffi::OsString,
     fs,
+    io::Read,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::OnceLock,
+    thread,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Result, anyhow};
@@ -15,6 +18,7 @@ pub const NODE_SHIM_ENV: &str = "HNI_NODE";
 
 static REAL_NODE_PATH: OnceLock<PathBuf> = OnceLock::new();
 static REAL_NODE_SUPPORTS_RUN: OnceLock<bool> = OnceLock::new();
+const NODE_RUN_PROBE_TIMEOUT: Duration = Duration::from_secs(1);
 
 pub fn resolve_real_node_path() -> Result<PathBuf> {
     if let Some(from_env) = env::var_os(REAL_NODE_ENV) {
@@ -73,12 +77,40 @@ fn resolve_real_node_path_uncached() -> Result<Option<PathBuf>> {
 }
 
 fn probe_node_run_support(node_path: &Path) -> bool {
-    let output = match Command::new(node_path).arg("--help").output() {
-        Ok(output) => output,
+    let mut child = match Command::new(node_path)
+        .arg("--help")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
         Err(_) => return false,
     };
 
-    help_text_supports_run(&output.stdout) || help_text_supports_run(&output.stderr)
+    let deadline = Instant::now() + NODE_RUN_PROBE_TIMEOUT;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+            Ok(None) | Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return false;
+            }
+        }
+    }
+
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    if let Some(mut pipe) = child.stdout.take() {
+        let _ = pipe.read_to_end(&mut stdout);
+    }
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = pipe.read_to_end(&mut stderr);
+    }
+    let _ = child.wait();
+
+    help_text_supports_run(&stdout) || help_text_supports_run(&stderr)
 }
 
 fn help_text_supports_run(output: &[u8]) -> bool {
@@ -301,6 +333,39 @@ mod tests {
 
         unsafe { env::set_var(REAL_NODE_ENV, &fake_node) };
         assert!(real_node_supports_run());
+
+        match original {
+            Some(value) => unsafe { env::set_var(REAL_NODE_ENV, value) },
+            None => unsafe { env::remove_var(REAL_NODE_ENV) },
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_node_supports_run_times_out_for_hanging_help() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::time::{Duration, Instant};
+
+        let _guard = ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock poisoned");
+        let original = env::var_os(REAL_NODE_ENV);
+        let dir = tempdir().unwrap();
+        let fake_node = dir.path().join("node");
+        fs::write(
+            &fake_node,
+            "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  sleep 5\n  exit 0\nfi\nexit 0\n",
+        )
+        .unwrap();
+        let mut perms = fs::metadata(&fake_node).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&fake_node, perms).unwrap();
+
+        unsafe { env::set_var(REAL_NODE_ENV, &fake_node) };
+        let start = Instant::now();
+        assert!(!real_node_supports_run());
+        assert!(start.elapsed() < Duration::from_secs(2));
 
         match original {
             Some(value) => unsafe { env::set_var(REAL_NODE_ENV, value) },

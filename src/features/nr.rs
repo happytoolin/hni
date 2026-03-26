@@ -24,7 +24,7 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<R
         }
 
         if first == "--completion" {
-            handle_completion_query(&args[1..], &ctx.cwd)?;
+            handle_completion_query(&args[1..], ctx.cwd())?;
             return Ok(None);
         }
     }
@@ -34,7 +34,7 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<R
         .is_some_and(|a| matches!(a.as_str(), "-" | "--repeat-last"));
 
     if args.is_empty() {
-        args.push(choose_script_interactive(&ctx.cwd)?);
+        args.push(choose_script_interactive(ctx.cwd())?);
     }
 
     if needs_last {

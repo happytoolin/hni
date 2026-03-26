@@ -43,7 +43,7 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
             detected.pm,
             Intent::Install,
             args,
-            &ctx.cwd,
+            ctx.cwd(),
             true,
             detected.has_lock,
         ));
@@ -56,7 +56,7 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
                 detected.pm,
                 Intent::CleanInstall,
                 args,
-                &ctx.cwd,
+                ctx.cwd(),
                 false,
                 true,
             ));
@@ -65,7 +65,7 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
             detected.pm,
             Intent::Install,
             args,
-            &ctx.cwd,
+            ctx.cwd(),
             false,
             false,
         ));
@@ -77,7 +77,7 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
             detected.pm,
             Intent::CleanInstall,
             args,
-            &ctx.cwd,
+            ctx.cwd(),
             false,
             true,
         ));
@@ -88,7 +88,7 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
             detected.pm,
             Intent::Install,
             args,
-            &ctx.cwd,
+            ctx.cwd(),
             false,
             detected.has_lock,
         ));
@@ -98,15 +98,13 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
         detected.pm,
         Intent::Add,
         args,
-        &ctx.cwd,
+        ctx.cwd(),
         false,
         detected.has_lock,
     ))
 }
 
 pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
-    let detected = detect_for_action(ctx, false)?;
-
     if args.is_empty() {
         args.push("start".to_string());
     }
@@ -122,12 +120,16 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
     }
 
     if ctx.config.native_mode {
-        match native::attempt_nr(detected.pm, &normalized_args, ctx, has_if_present)? {
+        let detected_hint = ctx.detect()?.agent;
+        match native::attempt_nr(detected_hint, &normalized_args, ctx, has_if_present)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
             NativeAttempt::Ineligible(reason) => {
-                if let Some(mut resolved) =
-                    build_node_run_exec_if_safe(detected.pm, &normalized_args, ctx, has_if_present)?
-                {
+                if let Some(mut resolved) = build_node_run_exec_if_safe(
+                    detected_hint,
+                    &normalized_args,
+                    ctx,
+                    has_if_present,
+                )? {
                     resolved.native_requested = true;
                     resolved.native_fallback_reason = Some(reason);
                     return Ok(resolved);
@@ -137,12 +139,13 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
                     return Ok(build_legacy_node_run_exec(args, ctx));
                 }
 
+                let detected = detect_for_action(ctx, false)?;
                 ensure_detected_available(&detected, ctx)?;
                 let mut resolved = build_exec(
                     detected.pm,
                     Intent::Run,
                     normalized_args,
-                    &ctx.cwd,
+                    ctx.cwd(),
                     false,
                     detected.has_lock,
                 );
@@ -162,13 +165,14 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
         return Ok(build_legacy_node_run_exec(args, ctx));
     }
 
+    let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
 
     let mut resolved = build_exec(
         detected.pm,
         Intent::Run,
         normalized_args,
-        &ctx.cwd,
+        ctx.cwd(),
         false,
         detected.has_lock,
     );
@@ -184,8 +188,6 @@ pub fn resolve_node_run(
     mut args: Vec<String>,
     ctx: &ResolveContext,
 ) -> HniResult<ResolvedExecution> {
-    let detected = detect_for_action(ctx, false)?;
-
     if args.is_empty() {
         args.push("start".to_string());
     }
@@ -201,22 +203,24 @@ pub fn resolve_node_run(
     }
 
     if ctx.config.native_mode {
+        let detected_hint = ctx.detect()?.agent;
         if let Some(mut resolved) =
-            build_node_run_exec_if_safe(detected.pm, &normalized_args, ctx, has_if_present)?
+            build_node_run_exec_if_safe(detected_hint, &normalized_args, ctx, has_if_present)?
         {
             resolved.native_requested = true;
             return Ok(resolved);
         }
 
-        match native::attempt_nr(detected.pm, &normalized_args, ctx, has_if_present)? {
+        match native::attempt_nr(detected_hint, &normalized_args, ctx, has_if_present)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
             NativeAttempt::Ineligible(reason) => {
+                let detected = detect_for_action(ctx, false)?;
                 ensure_detected_available(&detected, ctx)?;
                 let mut resolved = build_exec(
                     detected.pm,
                     Intent::Run,
                     normalized_args,
-                    &ctx.cwd,
+                    ctx.cwd(),
                     false,
                     detected.has_lock,
                 );
@@ -232,13 +236,14 @@ pub fn resolve_node_run(
         }
     }
 
+    let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
 
     let mut resolved = build_exec(
         detected.pm,
         Intent::Run,
         normalized_args,
-        &ctx.cwd,
+        ctx.cwd(),
         false,
         detected.has_lock,
     );
@@ -251,17 +256,18 @@ pub fn resolve_node_run(
 }
 
 pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
-    let detected = detect_for_action(ctx, false)?;
     if ctx.config.native_mode {
-        match native::attempt_nlx(detected.pm, &args, ctx)? {
+        let detected_hint = ctx.detect()?.agent;
+        match native::attempt_nlx(detected_hint, &args, ctx)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
             NativeAttempt::Ineligible(reason) => {
+                let detected = detect_for_action(ctx, false)?;
                 ensure_detected_available(&detected, ctx)?;
                 let mut resolved = build_exec(
                     detected.pm,
                     Intent::Execute,
                     args,
-                    &ctx.cwd,
+                    ctx.cwd(),
                     false,
                     detected.has_lock,
                 );
@@ -272,12 +278,13 @@ pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
         }
     }
 
+    let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
     Ok(build_exec(
         detected.pm,
         Intent::Execute,
         args,
-        &ctx.cwd,
+        ctx.cwd(),
         false,
         detected.has_lock,
     ))
@@ -294,7 +301,7 @@ pub fn resolve_nu(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
     }
 
     ensure_detected_available(&detected, ctx)?;
-    build_upgrade_exec(detected.pm, args, &ctx.cwd, interactive)
+    build_upgrade_exec(detected.pm, args, ctx.cwd(), interactive)
 }
 
 pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
@@ -317,7 +324,7 @@ pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
         detected.pm,
         Intent::Uninstall,
         args,
-        &ctx.cwd,
+        ctx.cwd(),
         use_global,
         detected.has_lock,
     ))
@@ -332,7 +339,7 @@ pub fn resolve_nci(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
             detected.pm,
             Intent::CleanInstall,
             args,
-            &ctx.cwd,
+            ctx.cwd(),
             false,
             true,
         ))
@@ -341,7 +348,7 @@ pub fn resolve_nci(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
             detected.pm,
             Intent::Install,
             args,
-            &ctx.cwd,
+            ctx.cwd(),
             false,
             false,
         ))
@@ -355,14 +362,20 @@ pub fn resolve_na(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
         detected.pm,
         Intent::AgentAlias,
         args,
-        &ctx.cwd,
+        ctx.cwd(),
         false,
         detected.has_lock,
     ))
 }
 
 pub fn resolve_node_passthrough(args: Vec<String>, cwd: &Path) -> ResolvedExecution {
-    ResolvedExecution::external("node", args, cwd.to_path_buf(), true)
+    ResolvedExecution::external_with_mode(
+        "node",
+        args,
+        cwd.to_path_buf(),
+        true,
+        ExecutionMode::PassthroughNode,
+    )
 }
 
 pub fn resolve_node_routed(
@@ -379,7 +392,7 @@ pub fn resolve_node_routed(
         Intent::Uninstall => resolve_nun(args, ctx),
         Intent::CleanInstall => resolve_nci(args, ctx),
         Intent::AgentAlias => resolve_na(args, ctx),
-        Intent::PassthroughNode => Ok(resolve_node_passthrough(args, &ctx.cwd)),
+        Intent::PassthroughNode => Ok(resolve_node_passthrough(args, ctx.cwd())),
     }
 }
 
@@ -394,7 +407,7 @@ fn resolve_detected_intent(
         detected.pm,
         intent,
         args,
-        &ctx.cwd,
+        ctx.cwd(),
         false,
         detected.has_lock,
     ))
@@ -470,7 +483,13 @@ fn build_exec(
         }
         Intent::AgentAlias => (pm.bin().to_string(), args),
         Intent::PassthroughNode => {
-            return ResolvedExecution::external("node", args, cwd.to_path_buf(), true);
+            return ResolvedExecution::external_with_mode(
+                "node",
+                args,
+                cwd.to_path_buf(),
+                true,
+                ExecutionMode::PassthroughNode,
+            );
         }
     };
 
@@ -478,12 +497,12 @@ fn build_exec(
 }
 
 fn build_node_run_exec_if_safe(
-    pm: PackageManager,
+    pm: Option<PackageManager>,
     args: &[String],
     ctx: &ResolveContext,
     has_if_present: bool,
 ) -> HniResult<Option<ResolvedExecution>> {
-    if pm == PackageManager::Deno {
+    if pm == Some(PackageManager::Deno) {
         return Ok(None);
     }
 
@@ -518,7 +537,7 @@ fn build_node_run_exec_if_safe(
     Ok(Some(ResolvedExecution::external_with_mode(
         "node",
         node_args,
-        ctx.cwd.clone(),
+        ctx.cwd().to_path_buf(),
         true,
         ExecutionMode::NodeRun,
     )))
@@ -530,7 +549,7 @@ fn build_legacy_node_run_exec(args: Vec<String>, ctx: &ResolveContext) -> Resolv
     ResolvedExecution::external_with_mode(
         "node",
         node_args,
-        ctx.cwd.clone(),
+        ctx.cwd().to_path_buf(),
         true,
         ExecutionMode::NodeRun,
     )

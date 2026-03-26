@@ -10,7 +10,7 @@ use crate::{
 };
 
 pub fn print_doctor(ctx: &ResolveContext) {
-    let cwd = &ctx.cwd;
+    let cwd = ctx.cwd();
     let config = &ctx.config;
     let current_hni = std::env::current_exe()
         .ok()

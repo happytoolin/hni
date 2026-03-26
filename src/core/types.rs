@@ -44,6 +44,7 @@ pub struct ResolvedExecution {
 pub enum ExecutionMode {
     PackageManager,
     NodeRun,
+    PassthroughNode,
     Native,
     Internal,
 }
@@ -182,6 +183,7 @@ impl ResolvedExecution {
         match self.mode {
             ExecutionMode::PackageManager => "package-manager",
             ExecutionMode::NodeRun => "node-run",
+            ExecutionMode::PassthroughNode => "passthrough-node",
             ExecutionMode::Native => "native",
             ExecutionMode::Internal => "internal",
         }

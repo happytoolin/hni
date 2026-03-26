@@ -357,7 +357,7 @@ fn internal_parser() -> Command {
                     Arg::new("invocation")
                         .required(true)
                         .value_parser(PossibleValuesParser::new([
-                            "ni", "nr", "nlx", "nu", "nun", "nci", "na", "node",
+                            "ni", "nr", "nlx", "nu", "nun", "nci", "na", "np", "ns", "node",
                         ])),
                 )
                 .arg(forwarded_args_arg()),
@@ -421,6 +421,8 @@ fn internal_invocation(name: &str) -> HniResult<InvocationKind> {
         "nun" => Ok(InvocationKind::Nun),
         "nci" => Ok(InvocationKind::Nci),
         "na" => Ok(InvocationKind::Na),
+        "np" => Ok(InvocationKind::Np),
+        "ns" => Ok(InvocationKind::Ns),
         "node" => Ok(InvocationKind::NodeShim),
         _ => Err(HniError::parse(format!(
             "unsupported internal invocation '{name}'"
