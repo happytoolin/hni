@@ -3,16 +3,22 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[cfg(windows)]
 pub fn shell_command(command_string: &str) -> Command {
-    if cfg!(windows) {
-        let mut cmd = Command::new("cmd");
-        cmd.args(["/C", command_string]);
-        cmd
-    } else {
-        let mut cmd = Command::new("sh");
-        cmd.args(["-c", command_string]);
-        cmd
-    }
+    use std::os::windows::process::CommandExt;
+
+    let mut cmd = Command::new("cmd");
+    // Pass the shell payload through without Rust's Windows argument quoting
+    // so cmd.exe can interpret redirection and control operators correctly.
+    cmd.raw_arg("/C").raw_arg(command_string);
+    cmd
+}
+
+#[cfg(not(windows))]
+pub fn shell_command(command_string: &str) -> Command {
+    let mut cmd = Command::new("sh");
+    cmd.args(["-c", command_string]);
+    cmd
 }
 
 pub fn configure_command(mut command: Command, cwd: &Path) -> Command {
