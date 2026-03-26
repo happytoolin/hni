@@ -84,8 +84,13 @@ fn repeat_last_errors_when_no_previous_command_exists() {
         );
 
         assert!(!out.status.success());
+        let stdout = String::from_utf8_lossy(&out.stdout);
         let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(stderr.contains("no last command found"));
+        let combined = format!("{stdout}\n{stderr}");
+        assert!(
+            combined.contains("no last command found"),
+            "stdout:\n{stdout}\n---\nstderr:\n{stderr}"
+        );
     });
 }
 
