@@ -13,14 +13,14 @@ fn ns_stops_on_first_failure() {
         let cwd = work.path();
         let marker = cwd.join("should-not-exist.txt");
 
-        let fail_cmd = if cfg!(windows) { "exit /B 7" } else { "false" };
+        let fail_cmd = failing_command(cwd, 7);
         let write_cmd = write_marker_command(&marker);
 
         let bin_dir = prepare_bin_dir(cwd);
         let output = run_alias_output(
             &bin_dir,
             "ns",
-            vec!["-C", cwd.to_str().unwrap(), fail_cmd, &write_cmd],
+            vec!["-C", cwd.to_str().unwrap(), &fail_cmd, &write_cmd],
             &[],
         );
 
@@ -36,14 +36,14 @@ fn np_waits_for_all_commands_then_fails() {
         let cwd = work.path();
         let marker = cwd.join("parallel-finished.txt");
 
-        let fail_cmd = if cfg!(windows) { "exit /B 5" } else { "false" };
+        let fail_cmd = failing_command(cwd, 5);
         let delayed_write = delayed_write_marker_command(&marker);
 
         let bin_dir = prepare_bin_dir(cwd);
         let output = run_alias_output(
             &bin_dir,
             "np",
-            vec!["-C", cwd.to_str().unwrap(), fail_cmd, &delayed_write],
+            vec!["-C", cwd.to_str().unwrap(), &fail_cmd, &delayed_write],
             &[],
         );
 
@@ -184,22 +184,66 @@ fn run_alias_output(
 }
 
 fn write_marker_command(path: &Path) -> String {
-    if cfg!(windows) {
-        format!("echo ok > \"{}\"", path.display())
+    let script = path.with_file_name(format!(
+        "{}-write{}",
+        path.file_stem().unwrap().to_string_lossy(),
+        script_extension()
+    ));
+    let contents = if cfg!(windows) {
+        format!("@echo off\r\necho ok > \"{}\"\r\n", path.display())
     } else {
-        format!("echo ok > '{}'", path.display())
-    }
+        format!("#!/bin/sh\necho ok > {}\n", shell_quote_posix(path))
+    };
+    fs::write(&script, contents).unwrap();
+    make_executable(&script);
+    shell_command_path(&script)
 }
 
 fn delayed_write_marker_command(path: &Path) -> String {
-    if cfg!(windows) {
+    let script = path.with_file_name(format!(
+        "{}-delayed{}",
+        path.file_stem().unwrap().to_string_lossy(),
+        script_extension()
+    ));
+    let contents = if cfg!(windows) {
         format!(
-            "timeout /T 1 /NOBREAK >NUL & echo ok > \"{}\"",
+            "@echo off\r\nping -n 2 127.0.0.1 >NUL\r\necho ok > \"{}\"\r\n",
             path.display()
         )
     } else {
-        format!("sleep 0.2; echo ok > '{}'", path.display())
+        format!("#!/bin/sh\nsleep 0.2\necho ok > {}\n", shell_quote_posix(path))
+    };
+    fs::write(&script, contents).unwrap();
+    make_executable(&script);
+    shell_command_path(&script)
+}
+
+fn failing_command(cwd: &Path, code: i32) -> String {
+    let script = cwd.join(format!("fail-{code}{}", script_extension()));
+    let contents = if cfg!(windows) {
+        format!("@echo off\r\nexit /B {code}\r\n")
+    } else {
+        format!("#!/bin/sh\nexit {code}\n")
+    };
+    fs::write(&script, contents).unwrap();
+    make_executable(&script);
+    shell_command_path(&script)
+}
+
+fn shell_command_path(path: &Path) -> String {
+    if cfg!(windows) {
+        format!("\"{}\"", path.display())
+    } else {
+        shell_quote_posix(path)
     }
+}
+
+fn shell_quote_posix(path: &Path) -> String {
+    format!("'{}'", path.display().to_string().replace('\'', "'\"'\"'"))
+}
+
+fn script_extension() -> &'static str {
+    if cfg!(windows) { ".cmd" } else { ".sh" }
 }
 
 fn create_alias(target: &Path, dir: &Path, alias: &str) {
@@ -223,3 +267,15 @@ fn create_alias(target: &Path, dir: &Path, alias: &str) {
         fs::copy(target, alias_path).unwrap();
     }
 }
+
+#[cfg(unix)]
+fn make_executable(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut perms = fs::metadata(path).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(path, perms).unwrap();
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) {}
