@@ -768,7 +768,7 @@ fn nlx_native_mode_uses_local_bin_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert_eq!(exec.bin_name, "vitest");
-                assert!(exec.bin_path.ends_with("node_modules/.bin/vitest"));
+                assert!(exec.resolved_path().ends_with("node_modules/.bin/vitest"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -821,7 +821,7 @@ fn nlx_native_mode_uses_declared_package_bin_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert_eq!(exec.bin_name, "hello");
-                assert!(exec.bin_path.ends_with("bin/hello.js"));
+                assert!(exec.resolved_path().ends_with("bin/hello.js"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -864,7 +864,7 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert!(
-                    exec.bin_path
+                    exec.resolved_path()
                         .to_string_lossy()
                         .contains("node_modules/.pnpm/node_modules/.bin")
                 );

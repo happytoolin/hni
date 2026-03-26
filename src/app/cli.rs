@@ -1,12 +1,17 @@
 use std::{env, ffi::OsStr, path::PathBuf};
 
-use clap::{Arg, ArgAction, ArgMatches, Command, builder::PossibleValuesParser};
+use anyhow::{Result, anyhow};
+use clap::{Arg, ArgMatches, Command, builder::PossibleValuesParser};
 
-use crate::app::{help::HelpTopic, init::SUPPORTED_SHELL_NAMES};
-use crate::core::{
-    error::{HniError, HniResult},
-    types::InvocationKind,
+use crate::app::{
+    command_registry::{
+        HelpTopic, command_spec_by_name, command_specs, help_topic_by_name,
+        help_topic_for_invocation, invocation_from_name,
+    },
+    help::command_args_arg,
+    init::SUPPORTED_SHELL_NAMES,
 };
+use crate::core::types::InvocationKind;
 
 #[derive(Debug, Clone)]
 pub struct ParsedInvocation {
@@ -53,18 +58,10 @@ struct SharedFlags {
     version: bool,
 }
 
-/// Parse command-line arguments from environment.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - `argv[0]` is missing
-/// - Current directory cannot be read
-/// - Argument parsing fails
-pub fn parse_from_env() -> HniResult<ParsedInvocation> {
+pub fn parse_from_env() -> Result<ParsedInvocation> {
     let argv = env::args().collect::<Vec<_>>();
     let Some(argv0) = argv.first() else {
-        return Err(HniError::parse("missing argv[0]"));
+        return Err(anyhow!("parse error: missing argv[0]"));
     };
 
     let invocation = invocation_from_argv0(argv0);
@@ -93,14 +90,14 @@ fn parse_hni(
     args: &[String],
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
-) -> HniResult<ParsedInvocation> {
+) -> Result<ParsedInvocation> {
     if args.first().is_some_and(|token| token == "help") {
         let requested_topic = args.get(1).cloned();
         if args.len() > 2 {
-            return Err(HniError::parse(format!(
-                "unexpected arguments for help: {}",
+            return Err(anyhow!(
+                "parse error: unexpected arguments for help: {}",
                 args[2..].join(" ")
-            )));
+            ));
         }
 
         let mut command = ParsedCommand::PrintHelp(help_target(requested_topic)?);
@@ -127,33 +124,27 @@ fn parse_hni(
 
     let matches = hni_parser()
         .try_get_matches_from(clap_args)
-        .map_err(|error| HniError::parse(error.to_string()))?;
+        .map_err(|error| anyhow!("parse error: {error}"))?;
 
     let mut command = if let Some((name, sub_matches)) = matches.subcommand() {
-        match name {
-            "ni" => execute_from_subcommand(InvocationKind::Ni, sub_matches),
-            "nr" => execute_from_subcommand(InvocationKind::Nr, sub_matches),
-            "nlx" => execute_from_subcommand(InvocationKind::Nlx, sub_matches),
-            "nu" => execute_from_subcommand(InvocationKind::Nu, sub_matches),
-            "nun" => execute_from_subcommand(InvocationKind::Nun, sub_matches),
-            "nci" => execute_from_subcommand(InvocationKind::Nci, sub_matches),
-            "na" => execute_from_subcommand(InvocationKind::Na, sub_matches),
-            "np" => execute_from_subcommand(InvocationKind::Np, sub_matches),
-            "ns" => execute_from_subcommand(InvocationKind::Ns, sub_matches),
-            "node" => execute_from_subcommand(InvocationKind::NodeShim, sub_matches),
-            "doctor" => ParsedCommand::Doctor,
-            "completion" => ParsedCommand::Completion {
-                shell: sub_matches.get_one::<String>("shell").cloned(),
-                program: program.clone(),
-            },
-            "init" => ParsedCommand::Init {
-                shell: sub_matches
-                    .get_one::<String>("shell")
-                    .cloned()
-                    .ok_or_else(|| HniError::parse("missing shell for init"))?,
-            },
-            "internal" => parse_internal_command(sub_matches)?,
-            _ => ParsedCommand::PrintHelp(HelpTopic::Hni),
+        if let Some(spec) = command_spec_by_name(name) {
+            execute_from_subcommand(spec.invocation, sub_matches)
+        } else {
+            match name {
+                "doctor" => ParsedCommand::Doctor,
+                "completion" => ParsedCommand::Completion {
+                    shell: sub_matches.get_one::<String>("shell").cloned(),
+                    program: program.clone(),
+                },
+                "init" => ParsedCommand::Init {
+                    shell: sub_matches
+                        .get_one::<String>("shell")
+                        .cloned()
+                        .ok_or_else(|| anyhow!("parse error: missing shell for init"))?,
+                },
+                "internal" => parse_internal_command(sub_matches)?,
+                _ => ParsedCommand::PrintHelp(HelpTopic::Hni),
+            }
         }
     } else {
         ParsedCommand::PrintHelp(HelpTopic::Hni)
@@ -180,11 +171,10 @@ fn parse_alias(
     args: &[String],
     shared_flags: SharedFlags,
     deprecated_debug_alias_used: bool,
-) -> HniResult<ParsedInvocation> {
+) -> Result<ParsedInvocation> {
     let mut forwarded_args = args.to_vec();
     let has_forwarded_args = !forwarded_args.is_empty();
 
-    // In alias mode, treat --help/--version as passthrough flags when a target command exists.
     if has_forwarded_args {
         if shared_flags.help {
             forwarded_args.push("--help".to_string());
@@ -224,19 +214,19 @@ fn execute_from_subcommand(invocation: InvocationKind, sub_matches: &ArgMatches)
     }
 }
 
-fn parse_internal_command(sub_matches: &ArgMatches) -> HniResult<ParsedCommand> {
+fn parse_internal_command(sub_matches: &ArgMatches) -> Result<ParsedCommand> {
     match sub_matches.subcommand() {
         Some(("real-node-path", _)) => Ok(ParsedCommand::InternalRealNodePath),
         Some(("profile-loop", matches)) => Ok(ParsedCommand::InternalProfileLoop {
             invocation: internal_invocation(
                 matches
                     .get_one::<String>("invocation")
-                    .ok_or_else(|| HniError::parse("missing internal invocation"))?,
+                    .ok_or_else(|| anyhow!("parse error: missing internal invocation"))?,
             )?,
             args: values_from(matches.get_many::<String>("args")),
             iterations: *matches
                 .get_one::<usize>("iterations")
-                .ok_or_else(|| HniError::parse("missing iterations"))?,
+                .ok_or_else(|| anyhow!("parse error: missing iterations"))?,
         }),
         _ => Ok(ParsedCommand::PrintHelp(HelpTopic::Hni)),
     }
@@ -248,19 +238,19 @@ fn values_from<'a, T: Clone + 'a>(values: Option<clap::parser::ValuesRef<'a, T>>
         .unwrap_or_default()
 }
 
-fn resolve_cwd(cwd_flags: &[PathBuf]) -> HniResult<PathBuf> {
+fn resolve_cwd(cwd_flags: &[PathBuf]) -> Result<PathBuf> {
     if cwd_flags.is_empty() {
         return env::current_dir().map_err(|error| {
-            HniError::execution(format!("failed to read current directory: {error}"))
+            anyhow!("execution error: failed to read current directory: {error}")
         });
     }
 
     let absolute_index = cwd_flags.iter().rposition(|segment| segment.is_absolute());
-    let (mut cwd, start_index) = match absolute_index {
+    let (mut cwd, start_index): (PathBuf, usize) = match absolute_index {
         Some(index) => (cwd_flags[index].clone(), index + 1),
         None => (
             env::current_dir().map_err(|error| {
-                HniError::execution(format!("failed to read current directory: {error}"))
+                anyhow!("execution error: failed to read current directory: {error}")
             })?,
             0,
         ),
@@ -273,34 +263,14 @@ fn resolve_cwd(cwd_flags: &[PathBuf]) -> HniResult<PathBuf> {
     Ok(cwd)
 }
 
-fn help_target(command: Option<String>) -> HniResult<HelpTopic> {
+fn help_target(command: Option<String>) -> Result<HelpTopic> {
     let Some(command) = command else {
         return Ok(HelpTopic::Hni);
     };
 
     let normalized = command.to_ascii_lowercase();
-    #[allow(clippy::match_same_arms)]
-    let target = match normalized.as_str() {
-        "hni" => HelpTopic::Hni,
-        "ni" => HelpTopic::Ni,
-        "nr" => HelpTopic::Nr,
-        "nlx" => HelpTopic::Nlx,
-        "nu" => HelpTopic::Nu,
-        "nun" => HelpTopic::Nun,
-        "nci" => HelpTopic::Nci,
-        "na" => HelpTopic::Na,
-        "np" => HelpTopic::Np,
-        "ns" => HelpTopic::Ns,
-        "node" => HelpTopic::Node,
-        "init" => HelpTopic::Init,
-        "doctor" | "completion" | "help" => HelpTopic::Hni,
-        _ => {
-            return Err(HniError::parse(format!(
-                "unknown help topic '{command}'. Try: hni help"
-            )));
-        }
-    };
-    Ok(target)
+    help_topic_by_name(&normalized)
+        .ok_or_else(|| anyhow!("parse error: unknown help topic '{command}'. Try: hni help"))
 }
 
 fn help_target_from_command(command: &ParsedCommand) -> HelpTopic {
@@ -313,22 +283,6 @@ fn help_target_from_command(command: &ParsedCommand) -> HelpTopic {
         | ParsedCommand::InternalRealNodePath
         | ParsedCommand::InternalProfileLoop { .. }
         | ParsedCommand::PrintVersions => HelpTopic::Hni,
-    }
-}
-
-fn help_topic_for_invocation(invocation: InvocationKind) -> HelpTopic {
-    match invocation {
-        InvocationKind::Hni => HelpTopic::Hni,
-        InvocationKind::Ni => HelpTopic::Ni,
-        InvocationKind::Nr => HelpTopic::Nr,
-        InvocationKind::Nlx => HelpTopic::Nlx,
-        InvocationKind::Nu => HelpTopic::Nu,
-        InvocationKind::Nun => HelpTopic::Nun,
-        InvocationKind::Nci => HelpTopic::Nci,
-        InvocationKind::Na => HelpTopic::Na,
-        InvocationKind::Np => HelpTopic::Np,
-        InvocationKind::Ns => HelpTopic::Ns,
-        InvocationKind::NodeShim => HelpTopic::Node,
     }
 }
 
@@ -356,78 +310,42 @@ fn internal_parser() -> Command {
                 .arg(
                     Arg::new("invocation")
                         .required(true)
-                        .value_parser(PossibleValuesParser::new([
-                            "ni", "nr", "nlx", "nu", "nun", "nci", "na", "np", "ns", "node",
-                        ])),
+                        .value_parser(PossibleValuesParser::new(
+                            command_specs().iter().map(|spec| spec.name),
+                        )),
                 )
-                .arg(forwarded_args_arg()),
+                .arg(command_args_arg()),
         )
 }
 
 fn hni_parser() -> Command {
-    Command::new("hni")
+    let mut cmd = Command::new("hni")
         .disable_help_flag(true)
         .disable_version_flag(true)
         .disable_help_subcommand(true)
-        .subcommand(command_parser("ni"))
-        .subcommand(command_parser("nr"))
-        .subcommand(command_parser("nlx"))
-        .subcommand(command_parser("nu"))
-        .subcommand(command_parser("nun"))
-        .subcommand(command_parser("nci"))
-        .subcommand(command_parser("na"))
-        .subcommand(command_parser("np"))
-        .subcommand(command_parser("ns"))
-        .subcommand(command_parser("node"))
         .subcommand(Command::new("doctor"))
         .subcommand(Command::new("completion").arg(Arg::new("shell").num_args(0..=1)))
         .subcommand(init_parser())
-        .subcommand(internal_parser())
+        .subcommand(internal_parser());
+
+    for spec in command_specs() {
+        cmd = cmd.subcommand(command_parser(spec.name));
+    }
+
+    cmd
 }
 
-fn command_parser(name: &'static str) -> Command {
-    Command::new(name).arg(forwarded_args_arg())
-}
-
-fn forwarded_args_arg() -> Arg {
-    Arg::new("args")
-        .num_args(0..)
-        .allow_hyphen_values(true)
-        .action(ArgAction::Append)
+pub fn command_parser(name: &'static str) -> Command {
+    Command::new(name).arg(command_args_arg())
 }
 
 fn invocation_from_argv0(argv0: &str) -> InvocationKind {
-    match normalized_program_name(argv0).as_str() {
-        "ni" => InvocationKind::Ni,
-        "nr" => InvocationKind::Nr,
-        "nlx" => InvocationKind::Nlx,
-        "nu" => InvocationKind::Nu,
-        "nun" => InvocationKind::Nun,
-        "nci" => InvocationKind::Nci,
-        "na" => InvocationKind::Na,
-        "np" => InvocationKind::Np,
-        "ns" => InvocationKind::Ns,
-        "node" => InvocationKind::NodeShim,
-        _ => InvocationKind::Hni,
-    }
+    invocation_from_name(normalized_program_name(argv0).as_str()).unwrap_or(InvocationKind::Hni)
 }
 
-fn internal_invocation(name: &str) -> HniResult<InvocationKind> {
-    match name {
-        "ni" => Ok(InvocationKind::Ni),
-        "nr" => Ok(InvocationKind::Nr),
-        "nlx" => Ok(InvocationKind::Nlx),
-        "nu" => Ok(InvocationKind::Nu),
-        "nun" => Ok(InvocationKind::Nun),
-        "nci" => Ok(InvocationKind::Nci),
-        "na" => Ok(InvocationKind::Na),
-        "np" => Ok(InvocationKind::Np),
-        "ns" => Ok(InvocationKind::Ns),
-        "node" => Ok(InvocationKind::NodeShim),
-        _ => Err(HniError::parse(format!(
-            "unsupported internal invocation '{name}'"
-        ))),
-    }
+fn internal_invocation(name: &str) -> Result<InvocationKind> {
+    invocation_from_name(name)
+        .ok_or_else(|| anyhow!("parse error: unsupported internal invocation '{name}'"))
 }
 
 fn normalized_program_name(argv0: &str) -> String {
@@ -468,7 +386,7 @@ fn normalize_debug_aliases(args: &[String]) -> (Vec<String>, bool) {
     (normalized, saw_deprecated)
 }
 
-fn extract_shared_flags(args: &[String]) -> HniResult<(SharedFlags, Vec<String>)> {
+fn extract_shared_flags(args: &[String]) -> Result<(SharedFlags, Vec<String>)> {
     let mut flags = SharedFlags {
         cwd: Vec::new(),
         debug: false,
@@ -523,7 +441,7 @@ fn extract_shared_flags(args: &[String]) -> HniResult<(SharedFlags, Vec<String>)
             }
             "-C" | "--cwd" => {
                 let Some(value) = args.get(idx + 1) else {
-                    return Err(HniError::parse(format!("missing value for {arg}")));
+                    return Err(anyhow!("parse error: missing value for {arg}"));
                 };
                 flags.cwd.push(PathBuf::from(value));
                 idx += 2;
@@ -548,10 +466,10 @@ fn extract_shared_flags(args: &[String]) -> HniResult<(SharedFlags, Vec<String>)
     Ok((flags, rest))
 }
 
-fn set_native_override(flags: &mut SharedFlags, value: bool) -> HniResult<()> {
+fn set_native_override(flags: &mut SharedFlags, value: bool) -> Result<()> {
     match flags.native_override {
         Some(existing) if existing != value => {
-            Err(HniError::parse("--native conflicts with --no-native"))
+            Err(anyhow!("parse error: --native conflicts with --no-native"))
         }
         _ => {
             flags.native_override = Some(value);

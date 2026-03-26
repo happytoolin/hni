@@ -1,8 +1,11 @@
 use std::process::ExitCode;
 
+use anyhow::{Result, anyhow};
+
 use crate::{
     app::{
         cli::{ParsedCommand, parse_from_env},
+        command_registry::command_spec_by_invocation,
         completion::print_completion,
         doctor::print_doctor,
         help::print_help,
@@ -12,25 +15,14 @@ use crate::{
     core::{
         config::{HniConfig, RunAgent},
         detect::detect,
-        error::{HniError, HniResult},
         resolve::ResolveContext,
         runner,
         types::{ExecutionMode, InvocationKind, ResolvedExecution},
     },
-    features,
     platform::node::resolve_real_node_path,
 };
 
-/// Run the application based on command-line arguments.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Argument parsing fails
-/// - Working directory does not exist
-/// - Configuration loading fails
-/// - Command execution fails
-pub fn run_from_env() -> HniResult<ExitCode> {
+pub fn run_from_env() -> Result<ExitCode> {
     let parsed = parse_from_env()?;
     if parsed.deprecated_debug_alias_used {
         eprintln!(
@@ -39,10 +31,10 @@ pub fn run_from_env() -> HniResult<ExitCode> {
     }
 
     if !parsed.cwd.exists() {
-        return Err(HniError::execution(format!(
-            "working directory does not exist: {}",
+        return Err(anyhow!(
+            "execution error: working directory does not exist: {}",
             parsed.cwd.display()
-        )));
+        ));
     }
 
     let mut config = HniConfig::load()?;
@@ -67,8 +59,8 @@ pub fn run_from_env() -> HniResult<ExitCode> {
             print_versions(&resolve_ctx);
             Ok(ExitCode::SUCCESS)
         }
-        ParsedCommand::PrintHelp(invocation) => {
-            print_help(invocation);
+        ParsedCommand::PrintHelp(topic) => {
+            print_help(topic);
             Ok(ExitCode::SUCCESS)
         }
         ParsedCommand::Doctor => {
@@ -110,13 +102,13 @@ pub fn run_from_env() -> HniResult<ExitCode> {
 
             if parsed.debug {
                 let debug_rendered = runner::format_debug(&resolved, config.use_sfw)
-                    .map_err(|error| HniError::execution(error.to_string()))?;
+                    .map_err(|error| anyhow!("execution error: {error}"))?;
                 println!("{debug_rendered}");
                 return Ok(ExitCode::SUCCESS);
             }
 
             runner::run(&resolved, config.use_sfw)
-                .map_err(|error| HniError::execution(error.to_string()))
+                .map_err(|error| anyhow!("execution error: {error}"))
         }
     }
 }
@@ -126,7 +118,7 @@ fn print_explain(
     resolved: &ResolvedExecution,
     ctx: &ResolveContext,
     config: &HniConfig,
-) -> HniResult<()> {
+) -> Result<()> {
     println!("hni explain");
     println!("invocation: {}", invocation_name(invocation));
     println!("cwd: {}", ctx.cwd().display());
@@ -151,7 +143,7 @@ fn print_explain(
     println!(
         "resolved: {}",
         runner::format_debug(resolved, config.use_sfw)
-            .map_err(|error| HniError::execution(error.to_string()))?
+            .map_err(|error| anyhow!("execution error: {error}"))?
     );
 
     if let Ok(detection) = ctx.detect().or_else(|_| detect(ctx.cwd(), &ctx.config)) {
@@ -174,13 +166,13 @@ fn run_profile_loop(
     iterations: usize,
     ctx: &ResolveContext,
     use_sfw: bool,
-) -> HniResult<()> {
+) -> Result<()> {
     for _ in 0..iterations {
         let resolved = dispatch_invocation(invocation, args.clone(), ctx)?;
         if let Some(resolved) = resolved {
             std::hint::black_box(
                 runner::format_debug(&resolved, use_sfw)
-                    .map_err(|error| HniError::execution(error.to_string()))?,
+                    .map_err(|error| anyhow!("execution error: {error}"))?,
             );
         }
     }
@@ -189,37 +181,19 @@ fn run_profile_loop(
 }
 
 fn invocation_name(invocation: InvocationKind) -> &'static str {
-    match invocation {
-        InvocationKind::Hni => "hni",
-        InvocationKind::Ni => "ni",
-        InvocationKind::Nr => "nr",
-        InvocationKind::Nlx => "nlx",
-        InvocationKind::Nu => "nu",
-        InvocationKind::Nun => "nun",
-        InvocationKind::Nci => "nci",
-        InvocationKind::Na => "na",
-        InvocationKind::Np => "np",
-        InvocationKind::Ns => "ns",
-        InvocationKind::NodeShim => "node",
-    }
+    command_spec_by_invocation(invocation)
+        .map(|spec| spec.name)
+        .unwrap_or("hni")
 }
 
 fn dispatch_invocation(
     invocation: InvocationKind,
     args: Vec<String>,
     ctx: &ResolveContext,
-) -> HniResult<Option<ResolvedExecution>> {
-    match invocation {
-        InvocationKind::Ni => features::ni::handle(args, ctx),
-        InvocationKind::Nr => features::nr::handle(args, ctx),
-        InvocationKind::Nlx => features::nlx::handle(args, ctx),
-        InvocationKind::Nu => features::nu::handle(args, ctx),
-        InvocationKind::Nun => features::nun::handle(args, ctx),
-        InvocationKind::Nci => features::nci::handle(args, ctx),
-        InvocationKind::Na => features::na::handle(args, ctx),
-        InvocationKind::Np => features::np::handle(args, ctx),
-        InvocationKind::Ns => features::ns::handle(args, ctx),
-        InvocationKind::NodeShim => features::node_shim::handle(args, ctx),
-        InvocationKind::Hni => Err(HniError::execution("missing command")),
-    }
+) -> Result<Option<ResolvedExecution>> {
+    let Some(spec) = command_spec_by_invocation(invocation) else {
+        return Err(anyhow!("execution error: missing command"));
+    };
+
+    (spec.handler)(args, ctx)
 }

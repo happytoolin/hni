@@ -14,7 +14,7 @@ pub fn print_doctor(ctx: &ResolveContext) {
     let config = &ctx.config;
     let current_hni = std::env::current_exe()
         .ok()
-        .map(|path| path.canonicalize().unwrap_or(path));
+        .map(|path| dunce::canonicalize(&path).unwrap_or(path));
     let path_node = which::which("node").ok();
     let resolved_real_node = resolve_real_node_path().ok();
 
@@ -125,7 +125,7 @@ fn shim_precedence_active(current_hni: Option<&Path>, path_node: Option<&Path>) 
 }
 
 fn paths_equal(a: &Path, b: &Path) -> bool {
-    match (a.canonicalize(), b.canonicalize()) {
+    match (dunce::canonicalize(a), dunce::canonicalize(b)) {
         (Ok(a), Ok(b)) => a == b,
         _ => a == b,
     }

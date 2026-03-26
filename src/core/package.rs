@@ -1,9 +1,8 @@
 use std::path::{Component, Path, PathBuf};
 
-use super::{
-    error::HniResult,
-    pkg_json::{PackageJson, package_json_path, read_package_json},
-};
+use anyhow::Result;
+
+use super::{pkg_json::PackageJson, resolve::ProjectState};
 
 #[derive(Debug, Clone)]
 pub struct NearestPackage {
@@ -12,38 +11,14 @@ pub struct NearestPackage {
     pub manifest: PackageJson,
 }
 
-pub fn find_nearest_package(cwd: &Path) -> HniResult<Option<NearestPackage>> {
-    for dir in cwd.ancestors() {
-        if let Some(manifest) = read_package_json(dir)? {
-            return Ok(Some(NearestPackage {
-                root: dir.to_path_buf(),
-                package_json_path: package_json_path(dir),
-                manifest,
-            }));
-        }
-    }
-
-    Ok(None)
+pub fn find_nearest_package(cwd: &Path) -> Result<Option<NearestPackage>> {
+    Ok(ProjectState::scan(cwd)?.nearest_package())
 }
 
 pub fn node_modules_bin_dirs(cwd: &Path) -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-
-    for dir in cwd.ancestors() {
-        for candidate in [
-            dir.join("node_modules").join(".bin"),
-            dir.join("node_modules")
-                .join(".pnpm")
-                .join("node_modules")
-                .join(".bin"),
-        ] {
-            if candidate.is_dir() {
-                dirs.push(candidate);
-            }
-        }
-    }
-
-    dirs
+    ProjectState::scan(cwd)
+        .map(|state| state.bin_dirs().to_vec())
+        .unwrap_or_default()
 }
 
 pub fn resolve_local_bin(bin_name: &str, bin_dirs: &[PathBuf]) -> Option<PathBuf> {
@@ -68,21 +43,8 @@ pub fn resolve_local_bin(bin_name: &str, bin_dirs: &[PathBuf]) -> Option<PathBuf
     None
 }
 
-pub fn resolve_declared_package_bin(cwd: &Path, bin_name: &str) -> HniResult<Option<PathBuf>> {
-    for dir in cwd.ancestors() {
-        let Some(manifest) = read_package_json(dir)? else {
-            continue;
-        };
-        let Some(relative) = manifest.bin_command_path(bin_name) else {
-            continue;
-        };
-        let candidate = dir.join(relative);
-        if candidate.is_file() {
-            return Ok(Some(candidate));
-        }
-    }
-
-    Ok(None)
+pub fn resolve_declared_package_bin(cwd: &Path, bin_name: &str) -> Result<Option<PathBuf>> {
+    Ok(ProjectState::scan(cwd)?.resolve_declared_package_bin(bin_name))
 }
 
 fn is_safe_bin_name(bin_name: &str) -> bool {

@@ -1,13 +1,12 @@
 use std::io;
 
+use anyhow::{Result, anyhow};
 use clap_complete::{
     generate,
     shells::{Bash, Fish, Zsh},
 };
 
-use crate::core::error::{HniError, HniResult};
-
-use super::help::{HelpTopic, help_command};
+use super::{command_registry::HelpTopic, help::help_command};
 
 /// Print shell completion script.
 ///
@@ -16,11 +15,11 @@ use super::help::{HelpTopic, help_command};
 /// Returns an error if:
 /// - Shell is not provided and cannot be detected from environment
 /// - Shell is not one of: bash, zsh, fish
-pub fn print_completion(shell: Option<&str>, program: &str) -> HniResult<()> {
+pub fn print_completion(shell: Option<&str>, program: &str) -> Result<()> {
     let shell = shell
         .map(str::to_owned)
         .or_else(detect_shell_from_env)
-        .ok_or_else(|| HniError::parse("missing shell; use one of: bash, zsh, fish"))?;
+        .ok_or_else(|| anyhow!("parse error: missing shell; use one of: bash, zsh, fish"))?;
 
     let mut cmd = help_command(HelpTopic::Hni);
     let mut out = io::stdout();
@@ -30,9 +29,9 @@ pub fn print_completion(shell: Option<&str>, program: &str) -> HniResult<()> {
         "zsh" => generate(Zsh, &mut cmd, program, &mut out),
         "fish" => generate(Fish, &mut cmd, program, &mut out),
         _ => {
-            return Err(HniError::parse(format!(
-                "unsupported shell '{shell}'; use: bash, zsh, fish"
-            )));
+            return Err(anyhow!(
+                "parse error: unsupported shell '{shell}'; use: bash, zsh, fish"
+            ));
         }
     }
 

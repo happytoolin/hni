@@ -4,6 +4,7 @@
 //! (npm, yarn, pnpm, bun) using ni-compatible commands.
 
 pub mod app;
+pub mod commands;
 pub mod core;
 pub mod features;
 pub mod platform;

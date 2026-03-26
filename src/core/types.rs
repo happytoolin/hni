@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use strum::EnumString;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InvocationKind {
     Hni,
@@ -81,8 +83,31 @@ pub struct NativeScriptStep {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativeLocalBinExecution {
     pub bin_name: String,
-    pub bin_path: PathBuf,
+    pub launcher: NativeLocalBinLauncher,
+    pub forwarded_args: Vec<String>,
     pub bin_paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NativeLocalBinLauncher {
+    Binary(PathBuf),
+    Cmd(PathBuf),
+    PowerShell(PathBuf),
+    NodeScript {
+        script_path: PathBuf,
+        node_args: Vec<String>,
+    },
+}
+
+impl NativeLocalBinExecution {
+    pub fn resolved_path(&self) -> &PathBuf {
+        match &self.launcher {
+            NativeLocalBinLauncher::Binary(path)
+            | NativeLocalBinLauncher::Cmd(path)
+            | NativeLocalBinLauncher::PowerShell(path) => path,
+            NativeLocalBinLauncher::NodeScript { script_path, .. } => script_path,
+        }
+    }
 }
 
 impl ResolvedExecution {
@@ -159,13 +184,12 @@ impl ResolvedExecution {
 
     pub fn native_local_bin(
         bin_name: impl Into<String>,
-        args: Vec<String>,
         cwd: PathBuf,
         exec: NativeLocalBinExecution,
     ) -> Self {
         Self {
             program: bin_name.into(),
-            args,
+            args: exec.forwarded_args.clone(),
             cwd,
             passthrough: false,
             mode: ExecutionMode::Native,
@@ -204,10 +228,12 @@ pub struct NodeShimDecision {
     pub reason: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
+#[strum(serialize_all = "lowercase")]
 pub enum PackageManager {
     Npm,
     Yarn,
+    #[strum(serialize = "yarn-berry", serialize = "yarnberry")]
     YarnBerry,
     Pnpm,
     Bun,
@@ -241,15 +267,7 @@ impl PackageManager {
     }
 
     pub fn from_name(value: &str) -> Option<Self> {
-        match value {
-            "npm" => Some(Self::Npm),
-            "yarn" => Some(Self::Yarn),
-            "yarn-berry" | "yarnberry" => Some(Self::YarnBerry),
-            "pnpm" => Some(Self::Pnpm),
-            "bun" => Some(Self::Bun),
-            "deno" => Some(Self::Deno),
-            _ => None,
-        }
+        value.parse().ok()
     }
 }
 

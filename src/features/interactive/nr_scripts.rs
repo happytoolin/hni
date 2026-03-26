@@ -1,13 +1,11 @@
 use std::{collections::BTreeMap, path::Path};
 
+use anyhow::{Result, anyhow};
 use dialoguer::{FuzzySelect, theme::ColorfulTheme};
 
-use crate::core::{
-    error::{HniError, HniResult},
-    package::find_nearest_package,
-};
+use crate::core::package::find_nearest_package;
 
-pub fn read_scripts(cwd: &Path) -> HniResult<Vec<ScriptEntry>> {
+pub fn read_scripts(cwd: &Path) -> Result<Vec<ScriptEntry>> {
     let Some(pkg) = find_nearest_package(cwd)? else {
         return Ok(Vec::new());
     };
@@ -18,10 +16,12 @@ pub fn read_scripts(cwd: &Path) -> HniResult<Vec<ScriptEntry>> {
     Ok(build_script_entries(&scripts, &scripts_info))
 }
 
-pub fn choose_script_interactive(cwd: &Path) -> HniResult<String> {
+pub fn choose_script_interactive(cwd: &Path) -> Result<String> {
     let scripts = read_scripts(cwd)?;
     if scripts.is_empty() {
-        return Err(HniError::interactive("no scripts found in package.json"));
+        return Err(anyhow!(
+            "interactive error: no scripts found in package.json"
+        ));
     }
 
     let labels: Vec<String> = scripts
@@ -34,10 +34,8 @@ pub fn choose_script_interactive(cwd: &Path) -> HniResult<String> {
         .items(&labels)
         .default(0)
         .interact_opt()
-        .map_err(|error| {
-            HniError::interactive(format!("failed to read script selection: {error}"))
-        })?
-        .ok_or_else(|| HniError::interactive("script selection canceled"))?;
+        .map_err(|error| anyhow!("interactive error: failed to read script selection: {error}"))?
+        .ok_or_else(|| anyhow!("interactive error: script selection canceled"))?;
 
     Ok(scripts[idx].name.clone())
 }

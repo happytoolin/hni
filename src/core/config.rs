@@ -3,12 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::{Result, anyhow};
 use configparser::ini::Ini;
 
-use super::{
-    error::{HniError, HniResult},
-    types::PackageManager,
-};
+use super::types::PackageManager;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DefaultAgent {
@@ -48,22 +46,20 @@ impl Default for HniConfig {
 }
 
 impl HniConfig {
-    pub fn load() -> HniResult<Self> {
+    pub fn load() -> Result<Self> {
         let mut cfg = Self::default();
 
         let explicit_path = env::var("HNI_CONFIG_FILE").ok().map(PathBuf::from);
 
         if let Some(path) = explicit_path {
-            let loaded = parse_hnirc_file(&path, &mut cfg, true).map_err(|error| {
-                error.with_context(format!("failed to load {}", path.display()))
-            })?;
+            let loaded = parse_hnirc_file(&path, &mut cfg, true)
+                .map_err(|error| anyhow!("failed to load {}: {error}", path.display()))?;
             if loaded {
                 cfg.config_path = Some(path);
             }
         } else if let Some(path) = default_config_path() {
-            let loaded = parse_hnirc_file(&path, &mut cfg, false).map_err(|error| {
-                error.with_context(format!("failed to load {}", path.display()))
-            })?;
+            let loaded = parse_hnirc_file(&path, &mut cfg, false)
+                .map_err(|error| anyhow!("failed to load {}: {error}", path.display()))?;
             if loaded {
                 cfg.config_path = Some(path);
             }
@@ -99,28 +95,27 @@ fn default_config_path() -> Option<PathBuf> {
     hni.exists().then_some(hni)
 }
 
-fn parse_hnirc_file(path: &Path, config: &mut HniConfig, required: bool) -> HniResult<bool> {
+fn parse_hnirc_file(path: &Path, config: &mut HniConfig, required: bool) -> Result<bool> {
     let raw = match fs::read_to_string(path) {
         Ok(content) => content,
         Err(error) if error.kind() == io::ErrorKind::NotFound && !required => return Ok(false),
         Err(error) if error.kind() == io::ErrorKind::NotFound && required => {
-            return Err(HniError::config(format!(
-                "config file not found: {}",
+            return Err(anyhow!(
+                "config error: config file not found: {}",
                 path.display()
-            )));
+            ));
         }
         Err(error) => {
-            return Err(HniError::config(format!(
-                "failed to read config file {}: {error}",
+            return Err(anyhow!(
+                "config error: failed to read config file {}: {error}",
                 path.display()
-            )));
+            ));
         }
     };
 
     let mut ini = Ini::new();
-    ini.read(raw).map_err(|error| {
-        HniError::config(format!("failed to parse {}: {error}", path.display()))
-    })?;
+    ini.read(raw)
+        .map_err(|error| anyhow!("config error: failed to parse {}: {error}", path.display()))?;
 
     if let Some(v) = ini.get("default", "defaultagent") {
         config.default_agent = parse_default_agent(v.trim())?;
@@ -141,32 +136,32 @@ fn parse_hnirc_file(path: &Path, config: &mut HniConfig, required: bool) -> HniR
     Ok(true)
 }
 
-fn parse_pm(value: &str) -> HniResult<PackageManager> {
+fn parse_pm(value: &str) -> Result<PackageManager> {
     PackageManager::from_name(&value.to_ascii_lowercase())
-        .ok_or_else(|| HniError::config(format!("unsupported package manager: {value}")))
+        .ok_or_else(|| anyhow!("config error: unsupported package manager: {value}"))
 }
 
-fn parse_default_agent(value: &str) -> HniResult<DefaultAgent> {
+fn parse_default_agent(value: &str) -> Result<DefaultAgent> {
     if value.eq_ignore_ascii_case("prompt") {
         return Ok(DefaultAgent::Prompt);
     }
     Ok(DefaultAgent::Agent(parse_pm(value)?))
 }
 
-fn parse_run_agent(value: &str) -> HniResult<RunAgent> {
+fn parse_run_agent(value: &str) -> Result<RunAgent> {
     let normalized = value.trim().to_ascii_lowercase();
     match normalized.as_str() {
         "node" => Ok(RunAgent::Node),
         _ if PackageManager::from_name(&normalized).is_some() => Ok(RunAgent::PackageManager),
-        _ => Err(HniError::config(format!("invalid runAgent value: {value}"))),
+        _ => Err(anyhow!("config error: invalid runAgent value: {value}")),
     }
 }
 
-fn parse_bool(value: &str) -> HniResult<bool> {
+fn parse_bool(value: &str) -> Result<bool> {
     match value.trim().to_ascii_lowercase().as_str() {
         "1" | "true" | "yes" | "on" => Ok(true),
         "0" | "false" | "no" | "off" => Ok(false),
-        _ => Err(HniError::config(format!("invalid boolean: {value}"))),
+        _ => Err(anyhow!("config error: invalid boolean: {value}")),
     }
 }
 

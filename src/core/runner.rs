@@ -20,7 +20,7 @@ pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
     if let ExecutionStrategy::Native(native_exec) = &exec.strategy {
         return match native_exec {
             NativeExecution::RunScript(script) => native::run_script(script, &exec.cwd),
-            NativeExecution::RunLocalBin(bin) => native::run_local_bin(bin, &exec.cwd, &exec.args),
+            NativeExecution::RunLocalBin(bin) => native::run_local_bin(bin, &exec.cwd),
         };
     }
 

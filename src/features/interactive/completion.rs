@@ -5,6 +5,8 @@ use clap_complete::{
     shells::{Bash, Fish, Zsh},
 };
 
+use crate::app::{command_registry::HelpTopic, help::help_command};
+
 pub fn completion_script_bash(command: &str) -> String {
     generate_completion(command, Bash)
 }
@@ -33,21 +35,7 @@ fn generate_completion<G>(command: &str, generator: G) -> String
 where
     G: clap_complete::Generator,
 {
-    let mut cmd = clap::Command::new("nr")
-        .disable_help_flag(true)
-        .disable_version_flag(true)
-        .arg(
-            clap::Arg::new("debug")
-                .short('?')
-                .long("debug-resolved")
-                .action(clap::ArgAction::SetTrue),
-        )
-        .arg(
-            clap::Arg::new("cwd")
-                .short('C')
-                .value_name("DIR")
-                .action(clap::ArgAction::Append),
-        )
+    let mut cmd = help_command(HelpTopic::Nr)
         .arg(
             clap::Arg::new("completion")
                 .long("completion")
@@ -69,12 +57,6 @@ where
             clap::Arg::new("completion-fish")
                 .long("completion-fish")
                 .action(clap::ArgAction::SetTrue),
-        )
-        .arg(
-            clap::Arg::new("args")
-                .num_args(0..)
-                .allow_hyphen_values(true)
-                .action(clap::ArgAction::Append),
         );
 
     let mut output = Vec::new();

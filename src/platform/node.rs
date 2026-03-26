@@ -160,7 +160,7 @@ pub fn path_with_real_node_priority(
     current_path: Option<OsString>,
 ) -> Option<OsString> {
     let real_node_dir = real_node.parent()?;
-    let canonical_real_node_dir = real_node_dir.canonicalize().ok();
+    let canonical_real_node_dir = dunce::canonicalize(real_node_dir).ok();
     let mut ordered = Vec::new();
     ordered.push(real_node_dir.to_path_buf());
 
@@ -192,8 +192,7 @@ fn should_skip_node_candidate(
     }
 
     matches!(
-        candidate
-            .canonicalize()
+        dunce::canonicalize(candidate)
             .ok()
             .as_deref()
             .and_then(Path::file_name)
@@ -210,8 +209,7 @@ fn path_matches_real_node_dir(
     candidate == real_node_dir
         || canonical_real_node_dir
             .and_then(|canonical_real_node_dir| {
-                candidate
-                    .canonicalize()
+                dunce::canonicalize(candidate)
                     .ok()
                     .map(|path| path == canonical_real_node_dir)
             })
@@ -220,9 +218,9 @@ fn path_matches_real_node_dir(
 
 fn paths_equal(a: &Path, b: &Path) -> bool {
     a == b
-        || a.canonicalize()
+        || dunce::canonicalize(a)
             .ok()
-            .zip(b.canonicalize().ok())
+            .zip(dunce::canonicalize(b).ok())
             .is_some_and(|(a, b)| a == b)
 }
 
