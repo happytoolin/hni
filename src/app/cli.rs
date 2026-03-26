@@ -5,13 +5,13 @@ use clap::{Arg, ArgMatches, Command, builder::PossibleValuesParser};
 
 use crate::app::{
     command_registry::{
-        HelpTopic, command_spec_by_name, command_specs, help_topic_by_name,
-        help_topic_for_invocation, invocation_from_name,
+        command_spec_by_name, command_specs, help_topic_by_name, help_topic_for_invocation,
+        invocation_from_name,
     },
     help::command_args_arg,
     init::SUPPORTED_SHELL_NAMES,
 };
-use crate::core::types::InvocationKind;
+use crate::core::types::{HelpTopic, InvocationKind};
 
 #[derive(Debug, Clone)]
 pub struct ParsedInvocation {

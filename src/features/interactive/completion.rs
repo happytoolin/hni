@@ -5,7 +5,8 @@ use clap_complete::{
     shells::{Bash, Fish, Zsh},
 };
 
-use crate::app::{command_registry::HelpTopic, help::help_command};
+use crate::app::help::help_command;
+use crate::core::types::HelpTopic;
 
 pub fn completion_script_bash(command: &str) -> String {
     generate_completion(command, Bash)

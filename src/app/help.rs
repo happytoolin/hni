@@ -1,9 +1,10 @@
 use clap::{Arg, ArgAction, Command, builder::PossibleValuesParser, value_parser};
 
 use crate::app::{
-    command_registry::{CommandSpec, HelpTopic, command_subcommands},
+    command_registry::{CommandSpec, command_subcommands},
     init::SUPPORTED_SHELL_NAMES,
 };
+use crate::core::types::HelpTopic;
 
 pub fn print_help(topic: HelpTopic) {
     let mut cmd = help_command(topic);

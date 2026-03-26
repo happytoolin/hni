@@ -3,6 +3,22 @@ use std::path::PathBuf;
 use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HelpTopic {
+    Hni,
+    Ni,
+    Nr,
+    Nlx,
+    Nu,
+    Nun,
+    Nci,
+    Na,
+    Np,
+    Ns,
+    Node,
+    Init,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InvocationKind {
     Hni,
     Ni,

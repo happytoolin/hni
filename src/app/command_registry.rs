@@ -3,34 +3,18 @@ use clap::Command;
 
 use crate::{
     commands,
-    core::{
-        resolve::ResolveContext,
-        types::{InvocationKind, ResolvedExecution},
-    },
+    core::{resolve::ResolveContext, types::InvocationKind},
 };
+
+pub use crate::core::types::HelpTopic;
 
 use super::{
     cli::command_parser,
     help::{command_help, init_help},
 };
 
-pub type CommandHandler = fn(Vec<String>, &ResolveContext) -> Result<Option<ResolvedExecution>>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HelpTopic {
-    Hni,
-    Ni,
-    Nr,
-    Nlx,
-    Nu,
-    Nun,
-    Nci,
-    Na,
-    Np,
-    Ns,
-    Node,
-    Init,
-}
+pub type CommandHandler =
+    fn(Vec<String>, &ResolveContext) -> Result<Option<crate::core::types::ResolvedExecution>>;
 
 #[derive(Clone, Copy)]
 pub struct CommandSpec {

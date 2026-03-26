@@ -6,7 +6,10 @@ use crate::{
         resolve::ResolveContext,
         types::DetectionSource,
     },
-    platform::node::{real_node_supports_run, resolve_real_node_path},
+    platform::{
+        node::{real_node_supports_run, resolve_real_node_path},
+        paths_equal,
+    },
 };
 
 pub fn print_doctor(ctx: &ResolveContext) {
@@ -122,13 +125,6 @@ fn shim_precedence_active(current_hni: Option<&Path>, path_node: Option<&Path>) 
         path_node.file_name().and_then(OsStr::to_str),
         Some("node" | "node.exe")
     )
-}
-
-fn paths_equal(a: &Path, b: &Path) -> bool {
-    match (dunce::canonicalize(a), dunce::canonicalize(b)) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => a == b,
-    }
 }
 
 fn format_default_agent(value: DefaultAgent) -> &'static str {

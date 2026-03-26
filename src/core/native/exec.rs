@@ -12,11 +12,13 @@ use crate::{
             ExecutionStrategy, NativeExecution, NativeLocalBinExecution, NativeLocalBinLauncher,
             NativeScriptExecution, ResolvedExecution,
         },
+        util::exit_code_from_status,
     },
     platform::node::resolve_real_node_path,
 };
 
 use super::env::{apply_native_environment, native_script_env};
+use super::{is_node_program, looks_like_env_assignment};
 
 pub(super) fn run_script(exec: &NativeScriptExecution, invocation_cwd: &Path) -> Result<ExitCode> {
     if exec.steps.is_empty() {
@@ -229,28 +231,6 @@ fn contains_shell_metacharacters(command_string: &str) -> bool {
                 | '\r'
         )
     })
-}
-
-fn looks_like_env_assignment(token: &str) -> bool {
-    token.contains('=') && !token.starts_with('-')
-}
-
-fn is_node_program(program: &str) -> bool {
-    Path::new(program)
-        .file_name()
-        .and_then(|value| value.to_str())
-        .is_some_and(|value| {
-            value.eq_ignore_ascii_case("node") || value.eq_ignore_ascii_case("node.exe")
-        })
-}
-
-fn exit_code_from_status(code: Option<i32>) -> ExitCode {
-    code.map_or_else(|| ExitCode::from(1), exit_code_from_code)
-}
-
-fn exit_code_from_code(code: i32) -> ExitCode {
-    let code = u8::try_from(code).unwrap_or(1);
-    ExitCode::from(code)
 }
 
 #[cfg(test)]

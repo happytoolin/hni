@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use super::{is_node_program, looks_like_env_assignment};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct NodeBinLaunch {
     pub script_path: PathBuf,
@@ -117,19 +119,6 @@ fn is_env_program(program: &str) -> bool {
         .file_name()
         .and_then(|value| value.to_str())
         .is_some_and(|value| value.eq_ignore_ascii_case("env"))
-}
-
-fn looks_like_env_assignment(token: &str) -> bool {
-    token.contains('=') && !token.starts_with('-')
-}
-
-fn is_node_program(program: &str) -> bool {
-    Path::new(program)
-        .file_name()
-        .and_then(|value| value.to_str())
-        .is_some_and(|value| {
-            value.eq_ignore_ascii_case("node") || value.eq_ignore_ascii_case("node.exe")
-        })
 }
 
 fn is_basedir_node_program(program: &str) -> bool {

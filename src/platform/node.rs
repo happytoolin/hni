@@ -12,6 +12,8 @@ use std::{
 
 use anyhow::{Result, anyhow};
 
+use super::paths_equal;
+
 pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
 pub const NODE_SHIM_ENV: &str = "HNI_NODE";
@@ -214,14 +216,6 @@ fn path_matches_real_node_dir(
                     .map(|path| path == canonical_real_node_dir)
             })
             .unwrap_or(false)
-}
-
-fn paths_equal(a: &Path, b: &Path) -> bool {
-    a == b
-        || dunce::canonicalize(a)
-            .ok()
-            .zip(dunce::canonicalize(b).ok())
-            .is_some_and(|(a, b)| a == b)
 }
 
 #[cfg(test)]

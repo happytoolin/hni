@@ -16,6 +16,19 @@ use crate::core::{
 
 use plan::{NativeDecision, NativePlan};
 
+pub(crate) fn looks_like_env_assignment(token: &str) -> bool {
+    token.contains('=') && !token.starts_with('-')
+}
+
+pub(crate) fn is_node_program(program: &str) -> bool {
+    Path::new(program)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| {
+            value.eq_ignore_ascii_case("node") || value.eq_ignore_ascii_case("node.exe")
+        })
+}
+
 pub enum NativeAttempt {
     Eligible(Box<ResolvedExecution>),
     Ineligible(String),

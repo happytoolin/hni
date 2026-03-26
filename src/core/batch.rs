@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use super::{
     shell::{configure_command, shell_command, shell_escape},
     types::{ExecutionMode, ResolvedExecution},
+    util::{exit_code_from_code, exit_code_from_status},
 };
 
 pub const INTERNAL_BATCH_PARALLEL: &str = "__hni_internal_batch_parallel";
@@ -114,15 +115,6 @@ fn run_parallel(commands: &[String], cwd: &Path) -> Result<ExitCode> {
 
         Ok(first_non_zero.map_or(ExitCode::SUCCESS, exit_code_from_code))
     })
-}
-
-fn exit_code_from_status(code: Option<i32>) -> ExitCode {
-    code.map_or_else(|| ExitCode::from(1), exit_code_from_code)
-}
-
-fn exit_code_from_code(code: i32) -> ExitCode {
-    let code = u8::try_from(code).unwrap_or(1);
-    ExitCode::from(code)
 }
 
 #[cfg(test)]

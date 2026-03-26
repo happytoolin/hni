@@ -6,7 +6,8 @@ use clap_complete::{
     shells::{Bash, Fish, Zsh},
 };
 
-use super::{command_registry::HelpTopic, help::help_command};
+use super::help::help_command;
+pub use crate::core::types::HelpTopic;
 
 /// Print shell completion script.
 ///
