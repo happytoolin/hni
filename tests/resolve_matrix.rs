@@ -844,11 +844,8 @@ fn nlx_fast_mode_uses_pnpm_hoisted_bin_dir_when_present() {
 
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
-                assert!(
-                    exec.resolved_path()
-                        .to_string_lossy()
-                        .contains("node_modules/.pnpm/node_modules/.bin")
-                );
+                let normalized = exec.resolved_path().to_string_lossy().replace('\\', "/");
+                assert!(normalized.contains("node_modules/.pnpm/node_modules/.bin"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
