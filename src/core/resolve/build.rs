@@ -1,9 +1,9 @@
 use std::path::Path;
 
+use anyhow::{Result, anyhow};
+
 use crate::{
     core::{
-        config::RunAgent,
-        error::{HniError, HniResult},
         native::{self, NativeAttempt},
         types::{ExecutionMode, Intent, PackageManager, ResolvedExecution},
     },
@@ -31,7 +31,7 @@ const NODE_RUN_UNSAFE_ENV_PATTERNS: &[&str] = &[
     "npm_package_json",
 ];
 
-pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
+pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let use_global = args.iter().any(|arg| arg == "-g");
     let detected = detect_for_action(ctx, use_global)?;
     let args = normalize_ni_args(args, detected.pm);
@@ -104,7 +104,7 @@ pub fn resolve_ni(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolved
     ))
 }
 
-pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
+pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     if args.is_empty() {
         args.push("start".to_string());
     }
@@ -119,7 +119,7 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
         normalized_args.remove(1);
     }
 
-    if ctx.config.native_mode {
+    if ctx.config.fast_mode {
         let detected_hint = ctx.detect()?.agent;
         match native::attempt_nr(detected_hint, &normalized_args, ctx, has_if_present)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
@@ -133,10 +133,6 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
                     resolved.native_requested = true;
                     resolved.native_fallback_reason = Some(reason);
                     return Ok(resolved);
-                }
-
-                if ctx.config.run_agent == RunAgent::Node {
-                    return Ok(build_legacy_node_run_exec(args, ctx));
                 }
 
                 let detected = detect_for_action(ctx, false)?;
@@ -161,10 +157,6 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
         }
     }
 
-    if ctx.config.run_agent == RunAgent::Node {
-        return Ok(build_legacy_node_run_exec(args, ctx));
-    }
-
     let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
 
@@ -184,10 +176,7 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
     Ok(resolved)
 }
 
-pub fn resolve_node_run(
-    mut args: Vec<String>,
-    ctx: &ResolveContext,
-) -> HniResult<ResolvedExecution> {
+pub fn resolve_node_run(mut args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     if args.is_empty() {
         args.push("start".to_string());
     }
@@ -202,7 +191,7 @@ pub fn resolve_node_run(
         normalized_args.remove(1);
     }
 
-    if ctx.config.native_mode {
+    if ctx.config.fast_mode {
         let detected_hint = ctx.detect()?.agent;
         if let Some(mut resolved) =
             build_node_run_exec_if_safe(detected_hint, &normalized_args, ctx, has_if_present)?
@@ -255,8 +244,8 @@ pub fn resolve_node_run(
     Ok(resolved)
 }
 
-pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
-    if ctx.config.native_mode {
+pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
+    if ctx.config.fast_mode {
         let detected_hint = ctx.detect()?.agent;
         match native::attempt_nlx(detected_hint, &args, ctx)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
@@ -290,7 +279,7 @@ pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
     ))
 }
 
-pub fn resolve_nu(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
+pub fn resolve_nu(mut args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(ctx, false)?;
     let interactive = args
         .iter()
@@ -304,7 +293,7 @@ pub fn resolve_nu(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
     build_upgrade_exec(detected.pm, args, ctx.cwd(), interactive)
 }
 
-pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
+pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let use_global = args.iter().any(|arg| arg == "-g");
     let detected = detect_for_action(ctx, use_global)?;
     let args = if use_global {
@@ -314,8 +303,8 @@ pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
     };
 
     if args.is_empty() {
-        return Err(HniError::execution(
-            "no dependencies selected for uninstall",
+        return Err(anyhow!(
+            "execution error: no dependencies selected for uninstall"
         ));
     }
 
@@ -330,7 +319,7 @@ pub fn resolve_nun(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
     ))
 }
 
-pub fn resolve_nci(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
+pub fn resolve_nci(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
 
@@ -355,7 +344,7 @@ pub fn resolve_nci(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
     }
 }
 
-pub fn resolve_na(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
+pub fn resolve_na(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedExecution> {
     let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
     Ok(build_exec(
@@ -382,7 +371,7 @@ pub fn resolve_node_routed(
     intent: Intent,
     args: Vec<String>,
     ctx: &ResolveContext,
-) -> HniResult<ResolvedExecution> {
+) -> Result<ResolvedExecution> {
     match intent {
         Intent::Install => resolve_ni(args, ctx),
         Intent::Add => resolve_detected_intent(intent, args, ctx),
@@ -400,7 +389,7 @@ fn resolve_detected_intent(
     intent: Intent,
     args: Vec<String>,
     ctx: &ResolveContext,
-) -> HniResult<ResolvedExecution> {
+) -> Result<ResolvedExecution> {
     let detected = detect_for_action(ctx, false)?;
     ensure_detected_available(&detected, ctx)?;
     Ok(build_exec(
@@ -418,14 +407,14 @@ fn build_upgrade_exec(
     args: Vec<String>,
     cwd: &Path,
     interactive: bool,
-) -> HniResult<ResolvedExecution> {
+) -> Result<ResolvedExecution> {
     let (program, args) = if interactive {
         match pm {
             PackageManager::Npm | PackageManager::Bun => {
-                return Err(HniError::interactive(format!(
-                    "interactive upgrade is not supported for {}",
+                return Err(anyhow!(
+                    "interactive error: interactive upgrade is not supported for {}",
                     pm.display_name()
-                )));
+                ));
             }
             PackageManager::Yarn => ("yarn".to_string(), prepend("upgrade-interactive", args)),
             PackageManager::YarnBerry => ("yarn".to_string(), prepend("up", prepend("-i", args))),
@@ -501,7 +490,7 @@ fn build_node_run_exec_if_safe(
     args: &[String],
     ctx: &ResolveContext,
     has_if_present: bool,
-) -> HniResult<Option<ResolvedExecution>> {
+) -> Result<Option<ResolvedExecution>> {
     if pm == Some(PackageManager::Deno) {
         return Ok(None);
     }
@@ -541,18 +530,6 @@ fn build_node_run_exec_if_safe(
         true,
         ExecutionMode::NodeRun,
     )))
-}
-
-fn build_legacy_node_run_exec(args: Vec<String>, ctx: &ResolveContext) -> ResolvedExecution {
-    let mut node_args = vec!["--run".to_string()];
-    node_args.extend(args);
-    ResolvedExecution::external_with_mode(
-        "node",
-        node_args,
-        ctx.cwd().to_path_buf(),
-        true,
-        ExecutionMode::NodeRun,
-    )
 }
 
 fn script_uses_node_run_unsupported_env(script: &str) -> bool {

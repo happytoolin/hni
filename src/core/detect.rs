@@ -1,16 +1,12 @@
-use std::{
-    env,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{env, path::Path};
 
+use anyhow::{Result, anyhow};
 use semver::Version;
 
 use super::{
-    config::{DefaultAgent, HniConfig},
-    error::{HniError, HniResult},
-    pkg_json::read_package_json,
-    types::{DetectionResult, DetectionSource, PackageManager},
+    config::HniConfig,
+    resolve::ProjectState,
+    types::{DetectionResult, PackageManager},
 };
 
 const LOCKFILES: &[(&str, PackageManager)] = &[
@@ -25,70 +21,8 @@ const LOCKFILES: &[(&str, PackageManager)] = &[
     ("deno.jsonc", PackageManager::Deno),
 ];
 
-pub fn detect(cwd: &Path, config: &HniConfig) -> HniResult<DetectionResult> {
-    let mut has_lock = false;
-    let mut resolved = None;
-
-    for dir in cwd.ancestors() {
-        let lockfile_pm = detect_lockfile_in_dir(dir);
-        has_lock |= lockfile_pm.is_some();
-
-        if resolved.is_none() {
-            let package_manager_hint = read_package_json(dir)?
-                .and_then(|package_json| package_json.package_manager)
-                .and_then(|raw| parse_package_manager_field(&raw));
-
-            if let Some((pm, version_hint)) = package_manager_hint {
-                resolved = Some(DetectionResult {
-                    agent: Some(pm),
-                    has_lock,
-                    version_hint,
-                    source: DetectionSource::PackageManagerField,
-                });
-            } else if let Some(pm) = lockfile_pm {
-                resolved = Some(DetectionResult {
-                    agent: Some(pm),
-                    has_lock,
-                    version_hint: None,
-                    source: DetectionSource::Lockfile,
-                });
-            }
-        }
-
-        if resolved.is_some() && has_lock {
-            break;
-        }
-    }
-
-    if let Some(mut resolved) = resolved {
-        resolved.has_lock = has_lock;
-        return Ok(resolved);
-    }
-
-    if let DefaultAgent::Agent(agent) = config.default_agent {
-        return Ok(DetectionResult {
-            agent: Some(agent),
-            has_lock,
-            version_hint: None,
-            source: DetectionSource::Config,
-        });
-    }
-
-    if which::which("npm").is_ok() {
-        return Ok(DetectionResult {
-            agent: Some(PackageManager::Npm),
-            has_lock,
-            version_hint: None,
-            source: DetectionSource::Fallback,
-        });
-    }
-
-    Ok(DetectionResult {
-        agent: None,
-        has_lock,
-        version_hint: None,
-        source: DetectionSource::None,
-    })
+pub fn detect(cwd: &Path, config: &HniConfig) -> Result<DetectionResult> {
+    Ok(ProjectState::scan(cwd)?.detect(config))
 }
 
 pub(crate) fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
@@ -100,9 +34,7 @@ pub(crate) fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
 pub fn ensure_package_manager_available(
     pm: PackageManager,
     version_hint: Option<&str>,
-    config: &HniConfig,
-    cwd: &Path,
-) -> HniResult<()> {
+) -> Result<()> {
     if env::var_os("HNI_SKIP_PM_CHECK").is_some() {
         return Ok(());
     }
@@ -111,69 +43,30 @@ pub fn ensure_package_manager_available(
         return Ok(());
     }
 
-    if !config.auto_install {
-        let install_hint = format!("npm i -g {}", pm.global_package_name());
-        return Err(HniError::detection(format!(
-            "detected {} but it is not installed.\nTry: {install_hint}\nOr set HNI_AUTO_INSTALL=true",
-            pm.display_name(),
-        )));
-    }
-
-    if env::var_os("CI").is_some() {
-        eprintln!("[hni] auto-installing {} in CI mode", pm.display_name());
-    }
-
     let package = pm.global_package_name();
-    if package == "npm" {
-        return Err(HniError::detection(
-            "npm is required for auto-install but was not found in PATH",
-        ));
-    }
-
-    if matches!(pm, PackageManager::Deno) {
-        return Err(HniError::detection(
-            "auto-install for deno is not supported; install deno manually",
-        ));
-    }
-
-    if which::which("npm").is_err() {
-        return Err(HniError::detection(
-            "auto-install requires npm in PATH, but npm is unavailable.\nInstall Node.js/npm first: https://nodejs.org/",
-        ));
-    }
-
     let target = match version_hint {
         Some(version) if !version.is_empty() => format!("{package}@{version}"),
         _ => package.to_string(),
     };
 
-    let status = Command::new("npm")
-        .args(["i", "-g", &target])
-        .current_dir(cwd)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .map_err(|error| {
-            HniError::detection(format!("failed to run npm for auto-install: {error}"))
-        })?;
-
-    if !status.success() {
-        return Err(HniError::detection(format!(
-            "auto-install failed for {} with exit code {:?}",
+    if package == "npm" {
+        return Err(anyhow!(
+            "detected {} but it is not installed.\nInstall Node.js/npm first: https://nodejs.org/",
             pm.display_name(),
-            status.code()
-        )));
+        ));
     }
 
-    if which::which(pm.bin()).is_err() {
-        return Err(HniError::detection(format!(
-            "auto-install for {} completed but binary is still not in PATH",
-            pm.display_name()
-        )));
+    if matches!(pm, PackageManager::Deno) {
+        return Err(anyhow!(
+            "detected {} but it is not installed.\nInstall Deno manually: https://deno.com/",
+            pm.display_name(),
+        ));
     }
 
-    Ok(())
+    Err(anyhow!(
+        "detected {} but it is not installed.\nTry: npm i -g {target}",
+        pm.display_name(),
+    ))
 }
 
 pub(crate) fn parse_package_manager_field(value: &str) -> Option<(PackageManager, Option<String>)> {
@@ -202,7 +95,7 @@ fn parse_major(version: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::config::HniConfig;
+    use crate::core::{config::HniConfig, types::DetectionSource};
     use std::fs;
     use tempfile::tempdir;
 

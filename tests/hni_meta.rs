@@ -52,9 +52,7 @@ fn hni_doctor_completion_and_init_are_available() {
 
 fn run_hni(args: Vec<&str>, extra_env: &[(&str, &str)]) -> std::process::Output {
     let mut cmd = Command::new(hni_executable_path());
-    cmd.args(args)
-        .env("HNI_SKIP_PM_CHECK", "1")
-        .env("HNI_AUTO_INSTALL", "false");
+    cmd.args(args).env("HNI_SKIP_PM_CHECK", "1");
 
     for (key, value) in extra_env {
         cmd.env(key, value);

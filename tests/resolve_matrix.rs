@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use hni::core::{
-    config::{DefaultAgent, HniConfig, RunAgent},
+    config::HniConfig,
     resolve::{self, ResolveContext},
     types::{ExecutionStrategy, NativeExecution, PackageManager},
 };
@@ -147,13 +147,13 @@ fn ni_non_npm_prod_flag_is_translated_to_production() {
 }
 
 #[test]
-fn ni_global_install_uses_configured_global_agent() {
+fn ni_global_install_uses_configured_global_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::Yarn,
+            global_package_manager: PackageManager::Yarn,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -308,26 +308,7 @@ fn nr_if_present_for_non_run_command_is_prefixed() {
 }
 
 #[test]
-fn nr_run_agent_node_uses_node_passthrough_run() {
-    with_skip_pm_check(|| {
-        let dir = tempfile::tempdir().unwrap();
-        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
-
-        let cfg = HniConfig {
-            run_agent: RunAgent::Node,
-            ..HniConfig::default()
-        };
-        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
-        let resolved = resolve::resolve_nr(vec!["dev".into(), "--port=3000".into()], &ctx).unwrap();
-
-        assert_eq!(resolved.program, "node");
-        assert_eq!(resolved.args, vec!["--run", "dev", "--port=3000"]);
-        assert!(resolved.passthrough);
-    });
-}
-
-#[test]
-fn nr_native_mode_does_not_require_detected_package_manager() {
+fn nr_fast_mode_does_not_require_detected_package_manager() {
     with_skip_pm_check(|| {
         with_path_override("", || {
             let dir = tempfile::tempdir().unwrap();
@@ -345,7 +326,7 @@ fn nr_native_mode_does_not_require_detected_package_manager() {
 }
 
 #[test]
-fn nlx_native_mode_does_not_require_detected_package_manager() {
+fn nlx_fast_mode_does_not_require_detected_package_manager() {
     with_skip_pm_check(|| {
         with_path_override("", || {
             let dir = tempfile::tempdir().unwrap();
@@ -492,7 +473,7 @@ fn node_run_falls_back_to_package_manager_when_neither_fast_path_is_safe() {
 }
 
 #[test]
-fn nr_native_mode_uses_native_script_execution() {
+fn nr_fast_mode_uses_native_script_execution() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -501,7 +482,7 @@ fn nr_native_mode_uses_native_script_execution() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -517,7 +498,7 @@ fn nr_native_mode_uses_native_script_execution() {
 }
 
 #[test]
-fn nr_native_mode_is_available_on_windows_too() {
+fn nr_fast_mode_is_available_on_windows_too() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -526,7 +507,7 @@ fn nr_native_mode_is_available_on_windows_too() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -540,7 +521,7 @@ fn nr_native_mode_is_available_on_windows_too() {
 }
 
 #[test]
-fn nr_native_mode_if_present_missing_script_is_native_noop() {
+fn nr_fast_mode_if_present_missing_script_is_native_noop() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -549,7 +530,7 @@ fn nr_native_mode_if_present_missing_script_is_native_noop() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -570,7 +551,7 @@ fn nr_native_mode_if_present_missing_script_is_native_noop() {
 }
 
 #[test]
-fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
+fn nr_fast_mode_if_present_missing_script_skips_prehook_too() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -579,7 +560,7 @@ fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -596,7 +577,7 @@ fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
 }
 
 #[test]
-fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
+fn nr_fast_mode_falls_back_for_yarn_berry_pnp() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -606,7 +587,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
         fs::write(dir.path().join(".pnp.cjs"), "module.exports = {};\n").unwrap();
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -625,7 +606,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
 }
 
 #[test]
-fn nr_native_mode_falls_back_for_yarn_berry_pnp_workspace() {
+fn nr_fast_mode_falls_back_for_yarn_berry_pnp_workspace() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("workspace");
@@ -637,7 +618,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp_workspace() {
         write_package_json(app.as_path(), r#"{"name":"app","scripts":{"dev":"vite"}}"#);
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(app, cfg);
@@ -749,7 +730,7 @@ fn nlx_npm_uses_npx() {
 }
 
 #[test]
-fn nlx_native_mode_uses_local_bin_when_present() {
+fn nlx_fast_mode_uses_local_bin_when_present() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
@@ -759,7 +740,7 @@ fn nlx_native_mode_uses_local_bin_when_present() {
         make_executable(&local_bin);
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -768,7 +749,7 @@ fn nlx_native_mode_uses_local_bin_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert_eq!(exec.bin_name, "vitest");
-                assert!(exec.bin_path.ends_with("node_modules/.bin/vitest"));
+                assert!(exec.resolved_path().ends_with("node_modules/.bin/vitest"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -777,13 +758,13 @@ fn nlx_native_mode_uses_local_bin_when_present() {
 }
 
 #[test]
-fn nlx_native_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
+fn nlx_fast_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -801,7 +782,7 @@ fn nlx_native_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
 }
 
 #[test]
-fn nlx_native_mode_uses_declared_package_bin_when_present() {
+fn nlx_fast_mode_uses_declared_package_bin_when_present() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(dir.path().join("bin")).unwrap();
@@ -812,7 +793,7 @@ fn nlx_native_mode_uses_declared_package_bin_when_present() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -821,7 +802,7 @@ fn nlx_native_mode_uses_declared_package_bin_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert_eq!(exec.bin_name, "hello");
-                assert!(exec.bin_path.ends_with("bin/hello.js"));
+                assert!(exec.resolved_path().ends_with("bin/hello.js"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -830,7 +811,7 @@ fn nlx_native_mode_uses_declared_package_bin_when_present() {
 }
 
 #[test]
-fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
+fn nlx_fast_mode_uses_pnpm_hoisted_bin_dir_when_present() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
@@ -855,7 +836,7 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
         }
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -863,11 +844,8 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
 
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
-                assert!(
-                    exec.bin_path
-                        .to_string_lossy()
-                        .contains("node_modules/.pnpm/node_modules/.bin")
-                );
+                let normalized = exec.resolved_path().to_string_lossy().replace('\\', "/");
+                assert!(normalized.contains("node_modules/.pnpm/node_modules/.bin"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -875,7 +853,7 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
 }
 
 #[test]
-fn nlx_native_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
+fn nlx_fast_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(dir.path().join("bin")).unwrap();
@@ -887,7 +865,7 @@ fn nlx_native_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -1062,13 +1040,13 @@ fn nun_requires_at_least_one_dependency() {
 }
 
 #[test]
-fn nun_global_uses_configured_global_agent() {
+fn nun_global_uses_configured_global_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::Yarn,
+            global_package_manager: PackageManager::Yarn,
             ..HniConfig::default()
         };
 
@@ -1081,13 +1059,13 @@ fn nun_global_uses_configured_global_agent() {
 }
 
 #[test]
-fn ni_global_rejects_yarn_berry_agent() {
+fn ni_global_rejects_yarn_berry_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::YarnBerry,
+            global_package_manager: PackageManager::YarnBerry,
             ..HniConfig::default()
         };
 
@@ -1102,13 +1080,13 @@ fn ni_global_rejects_yarn_berry_agent() {
 }
 
 #[test]
-fn nun_global_rejects_yarn_berry_agent() {
+fn nun_global_rejects_yarn_berry_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::YarnBerry,
+            global_package_manager: PackageManager::YarnBerry,
             ..HniConfig::default()
         };
 
@@ -1123,11 +1101,11 @@ fn nun_global_rejects_yarn_berry_agent() {
 }
 
 #[test]
-fn resolves_from_default_agent_when_no_project_hints_exist() {
+fn resolves_from_default_package_manager_when_no_project_hints_exist() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         let cfg = HniConfig {
-            default_agent: DefaultAgent::Agent(PackageManager::Bun),
+            default_package_manager: Some(PackageManager::Bun),
             ..HniConfig::default()
         };
 

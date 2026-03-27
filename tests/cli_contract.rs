@@ -118,7 +118,7 @@ fn native_cli_flags_override_environment_setting() {
                 "--debug-resolved",
                 "dev",
             ],
-            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_NATIVE", "false")],
+            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_FAST_MODE", "false")],
         );
         assert!(force_native.status.success());
         assert_eq!(
@@ -135,7 +135,7 @@ fn native_cli_flags_override_environment_setting() {
                 "--debug-resolved",
                 "dev",
             ],
-            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_NATIVE", "true")],
+            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_FAST_MODE", "true")],
         );
         assert!(disable_native.status.success());
         assert_eq!(
@@ -220,7 +220,7 @@ fn fast_flag_is_an_alias_for_native() {
                 "--debug-resolved",
                 "dev",
             ],
-            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_NATIVE", "false")],
+            &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_FAST_MODE", "false")],
         );
         assert!(output.status.success(), "{output:?}");
         assert_eq!(
@@ -305,10 +305,7 @@ fn debug_and_explain_skip_package_manager_availability_checks() {
                 "--debug-resolved",
                 "react",
             ],
-            &[
-                ("HNI_AUTO_INSTALL", "true"),
-                ("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
-            ],
+            &[("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")],
         );
         assert!(debug.status.success(), "{debug:?}");
         assert_eq!(
@@ -318,10 +315,7 @@ fn debug_and_explain_skip_package_manager_availability_checks() {
 
         let explain = run_hni(
             vec!["ni", "-C", project.to_str().unwrap(), "--explain", "react"],
-            &[
-                ("HNI_AUTO_INSTALL", "true"),
-                ("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
-            ],
+            &[("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")],
         );
         assert!(explain.status.success(), "{explain:?}");
         let stdout = String::from_utf8_lossy(&explain.stdout);

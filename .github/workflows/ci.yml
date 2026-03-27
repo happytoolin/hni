@@ -7,7 +7,12 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -23,9 +28,11 @@ jobs:
         uses: Swatinem/rust-cache@v2.8.2
 
       - name: Format
+        if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --check
 
       - name: Clippy
+        if: matrix.os == 'ubuntu-latest'
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Test (delegated mode)

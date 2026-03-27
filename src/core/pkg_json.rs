@@ -4,9 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::{Result, anyhow};
 use serde::Deserialize;
-
-use super::error::{HniError, HniResult};
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct PackageJson {
@@ -61,21 +60,20 @@ pub fn package_json_path(cwd: &Path) -> PathBuf {
     cwd.join("package.json")
 }
 
-pub fn read_package_json(cwd: &Path) -> HniResult<Option<PackageJson>> {
+pub fn read_package_json(cwd: &Path) -> Result<Option<PackageJson>> {
     let path = package_json_path(cwd);
     let raw = match fs::read_to_string(&path) {
         Ok(content) => content,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => {
-            return Err(HniError::config(format!(
-                "failed to read {}: {e}",
+            return Err(anyhow!(
+                "config error: failed to read {}: {e}",
                 path.display()
-            )));
+            ));
         }
     };
 
-    let parsed: PackageJson = serde_json::from_str(&raw).map_err(|error| {
-        HniError::config(format!("failed to parse {}: {error}", path.display()))
-    })?;
+    let parsed: PackageJson = serde_json::from_str(&raw)
+        .map_err(|error| anyhow!("config error: failed to parse {}: {error}", path.display()))?;
     Ok(Some(parsed))
 }

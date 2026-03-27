@@ -3,10 +3,11 @@ use std::{
     sync::OnceLock,
 };
 
+use anyhow::Result;
+
 use crate::core::{
-    config::{DefaultAgent, HniConfig},
+    config::HniConfig,
     detect::{detect_lockfile_in_dir, parse_package_manager_field},
-    error::HniResult,
     package::NearestPackage,
     pkg_json::{PackageJson, package_json_path, read_package_json},
     types::{DetectionResult, DetectionSource, PackageManager},
@@ -38,7 +39,7 @@ impl ResolveContext {
         }
     }
 
-    pub(crate) fn project_state(&self) -> HniResult<&ProjectState> {
+    pub(crate) fn project_state(&self) -> Result<&ProjectState> {
         if let Some(state) = self.project_state.get() {
             return Ok(state);
         }
@@ -51,7 +52,7 @@ impl ResolveContext {
             .expect("project state should be initialized"))
     }
 
-    pub fn detect(&self) -> HniResult<DetectionResult> {
+    pub fn detect(&self) -> Result<DetectionResult> {
         Ok(self.project_state()?.detect(&self.config))
     }
 
@@ -80,7 +81,7 @@ struct AncestorState {
 }
 
 impl ProjectState {
-    fn scan(cwd: &Path) -> HniResult<Self> {
+    pub(crate) fn scan(cwd: &Path) -> Result<Self> {
         let mut ancestors = Vec::new();
         let mut nearest_package = None;
         let mut bin_dirs = Vec::new();
@@ -152,7 +153,7 @@ impl ProjectState {
         })
     }
 
-    fn detect(&self, config: &HniConfig) -> DetectionResult {
+    pub(crate) fn detect(&self, config: &HniConfig) -> DetectionResult {
         let mut has_lock = false;
         let mut resolved = None;
 
@@ -193,7 +194,7 @@ impl ProjectState {
             return resolved;
         }
 
-        if let DefaultAgent::Agent(agent) = config.default_agent {
+        if let Some(agent) = config.default_package_manager {
             return DetectionResult {
                 agent: Some(agent),
                 has_lock,

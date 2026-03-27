@@ -51,7 +51,11 @@ pub fn run_hni(args: Vec<&str>, extra_env: &[(&str, &str)]) -> std::process::Out
 pub fn run_hni_owned(args: &[String], extra_env: &[(&str, &str)]) -> std::process::Output {
     let mut cmd = Command::new(hni_executable_path());
     cmd.args(args)
-        .env("HNI_AUTO_INSTALL", "false")
+        .env_remove("HNI_CONFIG_FILE")
+        .env_remove("HNI_DEFAULT_PACKAGE_MANAGER")
+        .env_remove("HNI_GLOBAL_PACKAGE_MANAGER")
+        .env_remove("HNI_FAST_MODE")
+        .env_remove("HNI_SKIP_PM_CHECK")
         .env_remove("HNI_REAL_NODE")
         .env_remove("HNI_NODE_SHIM_ACTIVE");
 

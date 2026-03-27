@@ -1,9 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::core::{
-    error::{HniError, HniResult},
-    shell::shell_escape,
-};
+use crate::core::shell::shell_escape;
+use anyhow::{Result, anyhow};
 
 pub const SUPPORTED_SHELL_NAMES: &[&str] =
     &["bash", "zsh", "fish", "powershell", "pwsh", "nushell", "nu"];
@@ -18,17 +16,17 @@ pub enum InitShell {
 }
 
 impl InitShell {
-    pub fn parse(value: &str) -> HniResult<Self> {
+    pub fn parse(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "bash" => Ok(Self::Bash),
             "zsh" => Ok(Self::Zsh),
             "fish" => Ok(Self::Fish),
             "powershell" | "pwsh" => Ok(Self::PowerShell),
             "nushell" | "nu" => Ok(Self::Nushell),
-            _ => Err(HniError::parse(format!(
-                "unsupported init shell '{value}'; use: {}",
+            _ => Err(anyhow!(
+                "parse error: unsupported init shell '{value}'; use: {}",
                 SUPPORTED_SHELL_NAMES.join(", ")
-            ))),
+            )),
         }
     }
 
@@ -43,7 +41,7 @@ impl InitShell {
     }
 }
 
-pub fn print_init(shell_name: &str) -> HniResult<()> {
+pub fn print_init(shell_name: &str) -> Result<()> {
     let shell = InitShell::parse(shell_name)?;
     let (exe_path, bin_dir) = current_binary_paths()?;
     print!("{}", render_init(shell, &exe_path, &bin_dir));
@@ -59,17 +57,14 @@ pub fn render_init(shell: InitShell, exe_path: &Path, bin_dir: &Path) -> String 
     }
 }
 
-fn current_binary_paths() -> HniResult<(PathBuf, PathBuf)> {
+fn current_binary_paths() -> Result<(PathBuf, PathBuf)> {
     let exe_path = std::env::current_exe().map_err(|error| {
-        HniError::execution(format!(
-            "failed to determine current executable path: {error}"
-        ))
+        anyhow!("execution error: failed to determine current executable path: {error}")
     })?;
-    let exe_path = exe_path.canonicalize().unwrap_or(exe_path);
-    let bin_dir = exe_path
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| HniError::execution("failed to determine current executable directory"))?;
+    let exe_path = dunce::canonicalize(&exe_path).unwrap_or(exe_path);
+    let bin_dir = exe_path.parent().map(Path::to_path_buf).ok_or_else(|| {
+        anyhow!("execution error: failed to determine current executable directory")
+    })?;
     Ok((exe_path, bin_dir))
 }
 

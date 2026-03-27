@@ -1,12 +1,12 @@
 pub mod batch;
 pub mod config;
 pub mod detect;
-pub mod error;
+pub mod help;
 pub mod native;
 pub mod package;
 pub mod pkg_json;
 pub mod resolve;
 pub mod runner;
 pub mod shell;
-pub mod storage;
 pub mod types;
+pub mod util;

@@ -12,6 +12,8 @@ use std::{
 
 use anyhow::{Result, anyhow};
 
+use super::paths_equal;
+
 pub const REAL_NODE_ENV: &str = "HNI_REAL_NODE";
 pub const SHIM_ACTIVE_ENV: &str = "HNI_NODE_SHIM_ACTIVE";
 pub const NODE_SHIM_ENV: &str = "HNI_NODE";
@@ -160,7 +162,7 @@ pub fn path_with_real_node_priority(
     current_path: Option<OsString>,
 ) -> Option<OsString> {
     let real_node_dir = real_node.parent()?;
-    let canonical_real_node_dir = real_node_dir.canonicalize().ok();
+    let canonical_real_node_dir = dunce::canonicalize(real_node_dir).ok();
     let mut ordered = Vec::new();
     ordered.push(real_node_dir.to_path_buf());
 
@@ -192,8 +194,7 @@ fn should_skip_node_candidate(
     }
 
     matches!(
-        candidate
-            .canonicalize()
+        dunce::canonicalize(candidate)
             .ok()
             .as_deref()
             .and_then(Path::file_name)
@@ -210,20 +211,11 @@ fn path_matches_real_node_dir(
     candidate == real_node_dir
         || canonical_real_node_dir
             .and_then(|canonical_real_node_dir| {
-                candidate
-                    .canonicalize()
+                dunce::canonicalize(candidate)
                     .ok()
                     .map(|path| path == canonical_real_node_dir)
             })
             .unwrap_or(false)
-}
-
-fn paths_equal(a: &Path, b: &Path) -> bool {
-    a == b
-        || a.canonicalize()
-            .ok()
-            .zip(b.canonicalize().ok())
-            .is_some_and(|(a, b)| a == b)
 }
 
 #[cfg(test)]
@@ -236,19 +228,22 @@ mod tests {
 
     #[test]
     fn path_with_real_node_priority_prepends_real_node_dir_once() {
-        let path = path_with_real_node_priority(
-            Path::new("/real/node"),
-            Some(OsString::from("/shim:/real:/other")),
-        )
+        let current_path = env::join_paths([
+            PathBuf::from("shim"),
+            PathBuf::from("real"),
+            PathBuf::from("other"),
+        ])
         .unwrap();
+        let path =
+            path_with_real_node_priority(Path::new("real/node"), Some(current_path)).unwrap();
         let entries = env::split_paths(&path).collect::<Vec<_>>();
 
         assert_eq!(
             entries,
             vec![
-                PathBuf::from("/real"),
-                PathBuf::from("/shim"),
-                PathBuf::from("/other"),
+                PathBuf::from("real"),
+                PathBuf::from("shim"),
+                PathBuf::from("other"),
             ]
         );
     }
