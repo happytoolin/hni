@@ -257,6 +257,8 @@ impl PackageManager {
 pub enum DetectionSource {
     PackageManagerField,
     Lockfile,
+    DevEnginesField,
+    InstallMetadata,
     Config,
     Fallback,
     None,

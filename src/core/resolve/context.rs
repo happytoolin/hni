@@ -4,12 +4,15 @@ use std::{
 };
 
 use crate::core::{
-    config::{DefaultAgent, HniConfig},
-    detect::{detect_lockfile_in_dir, parse_package_manager_field},
+    config::HniConfig,
+    detect::{
+        DetectOptions, detect_in_project_state, detect_install_metadata_in_dir,
+        detect_lockfile_in_dir,
+    },
     error::HniResult,
     package::NearestPackage,
     pkg_json::{PackageJson, package_json_path, read_package_json},
-    types::{DetectionResult, DetectionSource, PackageManager},
+    types::{DetectionResult, PackageManager},
 };
 
 #[derive(Debug)]
@@ -73,14 +76,15 @@ pub(crate) struct ProjectState {
 }
 
 #[derive(Debug, Clone)]
-struct AncestorState {
+pub(crate) struct AncestorState {
     dir: PathBuf,
     manifest: Option<PackageJson>,
     lockfile_pm: Option<PackageManager>,
+    install_metadata_pm: Option<PackageManager>,
 }
 
 impl ProjectState {
-    fn scan(cwd: &Path) -> HniResult<Self> {
+    pub(crate) fn scan(cwd: &Path) -> HniResult<Self> {
         let mut ancestors = Vec::new();
         let mut nearest_package = None;
         let mut bin_dirs = Vec::new();
@@ -91,6 +95,7 @@ impl ProjectState {
             let manifest = read_package_json(&dir)?;
             let package_json_path = package_json_path(&dir);
             let lockfile_pm = detect_lockfile_in_dir(&dir);
+            let install_metadata_pm = detect_install_metadata_in_dir(&dir);
 
             if nearest_package.is_none()
                 && let Some(manifest) = manifest.clone()
@@ -120,6 +125,7 @@ impl ProjectState {
                 dir,
                 manifest,
                 lockfile_pm,
+                install_metadata_pm,
             });
         }
 
@@ -152,70 +158,37 @@ impl ProjectState {
         })
     }
 
-    fn detect(&self, config: &HniConfig) -> DetectionResult {
-        let mut has_lock = false;
-        let mut resolved = None;
+    pub(crate) fn ancestors(&self) -> &[AncestorState] {
+        &self.ancestors
+    }
 
-        for ancestor in &self.ancestors {
-            has_lock |= ancestor.lockfile_pm.is_some();
+    pub(crate) fn detect(&self, config: &HniConfig) -> DetectionResult {
+        detect_in_project_state(
+            self,
+            self.ancestors
+                .first()
+                .map(|ancestor| ancestor.dir.as_path())
+                .unwrap_or_else(|| Path::new(".")),
+            config,
+            &DetectOptions::default(),
+        )
+    }
+}
 
-            if resolved.is_none() {
-                let package_manager_hint = ancestor
-                    .manifest
-                    .as_ref()
-                    .and_then(|package_json| package_json.package_manager.as_deref())
-                    .and_then(parse_package_manager_field);
+impl AncestorState {
+    pub(crate) fn dir(&self) -> &Path {
+        &self.dir
+    }
 
-                if let Some((pm, version_hint)) = package_manager_hint {
-                    resolved = Some(DetectionResult {
-                        agent: Some(pm),
-                        has_lock,
-                        version_hint,
-                        source: DetectionSource::PackageManagerField,
-                    });
-                } else if let Some(pm) = ancestor.lockfile_pm {
-                    resolved = Some(DetectionResult {
-                        agent: Some(pm),
-                        has_lock,
-                        version_hint: None,
-                        source: DetectionSource::Lockfile,
-                    });
-                }
-            }
+    pub(crate) fn manifest(&self) -> Option<&PackageJson> {
+        self.manifest.as_ref()
+    }
 
-            if resolved.is_some() && has_lock {
-                break;
-            }
-        }
+    pub(crate) fn lockfile_pm(&self) -> Option<PackageManager> {
+        self.lockfile_pm
+    }
 
-        if let Some(mut resolved) = resolved {
-            resolved.has_lock = has_lock;
-            return resolved;
-        }
-
-        if let DefaultAgent::Agent(agent) = config.default_agent {
-            return DetectionResult {
-                agent: Some(agent),
-                has_lock,
-                version_hint: None,
-                source: DetectionSource::Config,
-            };
-        }
-
-        if which::which("npm").is_ok() {
-            return DetectionResult {
-                agent: Some(PackageManager::Npm),
-                has_lock,
-                version_hint: None,
-                source: DetectionSource::Fallback,
-            };
-        }
-
-        DetectionResult {
-            agent: None,
-            has_lock,
-            version_hint: None,
-            source: DetectionSource::None,
-        }
+    pub(crate) fn install_metadata_pm(&self) -> Option<PackageManager> {
+        self.install_metadata_pm
     }
 }
