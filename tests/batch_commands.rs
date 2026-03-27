@@ -172,9 +172,7 @@ fn run_alias_output(
     };
 
     let mut cmd = Command::new(bin_dir.join(alias_bin));
-    cmd.args(args)
-        .env("HNI_SKIP_PM_CHECK", "1")
-        .env("HNI_AUTO_INSTALL", "false");
+    cmd.args(args).env("HNI_SKIP_PM_CHECK", "1");
 
     for (key, value) in extra_env {
         cmd.env(key, value);

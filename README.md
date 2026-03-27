@@ -114,7 +114,6 @@ nr dev
 nr build
 nr test -- --watch
 nr --if-present lint
-nr --repeat-last
 ```
 
 ### `nlx`
@@ -279,19 +278,17 @@ Config file:
 Supported keys:
 
 ```ini
-defaultAgent=prompt
-globalAgent=npm
-runAgent=node
-useSfw=false
+defaultPackageManager=pnpm
+globalPackageManager=npm
+fastMode=true
 ```
 
 Environment overrides:
 
 - `HNI_CONFIG_FILE`
-- `HNI_DEFAULT_AGENT`
-- `HNI_GLOBAL_AGENT`
-- `HNI_USE_SFW`
-- `HNI_AUTO_INSTALL`
+- `HNI_DEFAULT_PACKAGE_MANAGER`
+- `HNI_GLOBAL_PACKAGE_MANAGER`
+- `HNI_FAST_MODE`
 
 ## How It Works
 

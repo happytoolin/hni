@@ -24,7 +24,7 @@ pub(super) fn detect_for_action(ctx: &ResolveContext, use_global: bool) -> Resul
     let config = &ctx.config;
     let detection = if use_global {
         DetectionResult {
-            agent: Some(config.global_agent),
+            agent: Some(config.global_package_manager),
             has_lock: false,
             version_hint: None,
             source: DetectionSource::Config,
@@ -36,14 +36,14 @@ pub(super) fn detect_for_action(ctx: &ResolveContext, use_global: bool) -> Resul
 
     let pm = detection.agent.ok_or_else(|| {
         anyhow!(
-            "detection error: unable to detect package manager in {}.\nAdd packageManager to package.json, add a lockfile, or set defaultAgent in ~/.hnirc",
+            "detection error: unable to detect package manager in {}.\nAdd packageManager to package.json, add a lockfile, or set defaultPackageManager in ~/.hnirc",
             cwd.display()
         )
     })?;
 
     if use_global && pm == PackageManager::YarnBerry {
         return Err(anyhow!(
-            "detection error: global install/uninstall is not supported by yarn (berry).\nUse a different globalAgent (for example: npm, pnpm, yarn, bun, deno)."
+            "detection error: global install/uninstall is not supported by yarn (berry).\nUse a different globalPackageManager (for example: npm, pnpm, yarn, bun, deno)."
         ));
     }
 
@@ -62,11 +62,6 @@ pub(super) fn ensure_detected_available(
         return Ok(());
     }
 
-    ensure_package_manager_available(
-        resolution.pm,
-        resolution.version_hint.as_deref(),
-        &ctx.config,
-        ctx.cwd(),
-    )
-    .map_err(|error| anyhow!("detection error: {error}"))
+    ensure_package_manager_available(resolution.pm, resolution.version_hint.as_deref())
+        .map_err(|error| anyhow!("detection error: {error}"))
 }

@@ -58,8 +58,7 @@ const COMMAND_SPECS: &[CommandSpec] = &[
              nr --fast dev        Force the fast/native ladder\n\
              nr --no-native dev   Force package-manager execution\n\
              nr test -- --watch   Pass extra args to script\n\
-             nr --if-present lint Skip failure if script is missing\n\
-             nr --repeat-last      Re-run last script",
+             nr --if-present lint Skip failure if script is missing",
         handler: commands::handle_nr,
     },
     CommandSpec {

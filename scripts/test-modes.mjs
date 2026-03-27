@@ -19,7 +19,7 @@ if (!modes) {
 for (const currentMode of modes) {
   const env = {
     ...process.env,
-    HNI_NATIVE: currentMode === 'native' ? 'true' : 'false',
+    HNI_FAST_MODE: currentMode === 'native' ? 'true' : 'false',
   }
 
   console.log(`\n[hni] cargo test (${currentMode} mode)\n`)

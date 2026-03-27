@@ -1,11 +1,10 @@
 use std::env;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 use crate::{
     core::{
         resolve::{self, ResolveContext},
-        storage::{Storage, load_storage, save_storage},
         types::ResolvedExecution,
     },
     features::interactive::{
@@ -30,33 +29,8 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<Reso
         }
     }
 
-    let needs_last = args
-        .first()
-        .is_some_and(|a| matches!(a.as_str(), "-" | "--repeat-last"));
-
     if args.is_empty() {
         args.push(choose_script_interactive(ctx.cwd())?);
-    }
-
-    if needs_last {
-        let storage = match load_storage() {
-            Ok(storage) => storage,
-            Err(err) => {
-                eprintln!("[hni] warning: failed to load stored command history: {err}");
-                Storage::default()
-            }
-        };
-        let last = storage
-            .last_run_command
-            .ok_or_else(|| anyhow!("interactive error: no last command found"))?;
-        args[0] = last;
-    }
-
-    let storage = Storage {
-        last_run_command: args.first().cloned(),
-    };
-    if let Err(err) = save_storage(&storage) {
-        eprintln!("[hni] warning: failed to persist last command: {err}");
     }
 
     let resolved = resolve::resolve_nr(args, ctx)?;

@@ -19,10 +19,10 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
 test:
-    HNI_NATIVE=false cargo test --all-targets --all-features
+    HNI_FAST_MODE=false cargo test --all-targets --all-features
 
 test-native:
-    HNI_NATIVE=true cargo test --all-targets --all-features
+    HNI_FAST_MODE=true cargo test --all-targets --all-features
 
 test-all:
     node ./scripts/test-modes.mjs all

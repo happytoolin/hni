@@ -1,11 +1,7 @@
 use std::{ffi::OsStr, path::Path};
 
 use crate::{
-    core::{
-        config::{DefaultAgent, RunAgent},
-        resolve::ResolveContext,
-        types::DetectionSource,
-    },
+    core::{resolve::ResolveContext, types::DetectionSource},
     platform::{
         node::{real_node_supports_run, resolve_real_node_path},
         paths_equal,
@@ -56,14 +52,16 @@ pub fn print_doctor(ctx: &ResolveContext) {
             .map_or_else(|| "none".to_string(), |p| p.display().to_string())
     );
     println!(
-        "defaultAgent: {}",
-        format_default_agent(config.default_agent)
+        "defaultPackageManager: {}",
+        config
+            .default_package_manager
+            .map_or("none", |pm| pm.display_name())
     );
-    println!("globalAgent: {}", config.global_agent.display_name());
-    println!("runAgent: {}", format_run_agent(config.run_agent));
-    println!("nativeMode: {}", config.native_mode);
-    println!("useSfw: {}", config.use_sfw);
-    println!("autoInstall(env): {}", config.auto_install);
+    println!(
+        "globalPackageManager: {}",
+        config.global_package_manager.display_name()
+    );
+    println!("fastMode: {}", config.fast_mode);
     println!();
 
     match ctx.detect() {
@@ -127,25 +125,11 @@ fn shim_precedence_active(current_hni: Option<&Path>, path_node: Option<&Path>) 
     )
 }
 
-fn format_default_agent(value: DefaultAgent) -> &'static str {
-    match value {
-        DefaultAgent::Prompt => "prompt",
-        DefaultAgent::Agent(pm) => pm.display_name(),
-    }
-}
-
-fn format_run_agent(value: RunAgent) -> &'static str {
-    match value {
-        RunAgent::PackageManager => "package-manager",
-        RunAgent::Node => "node (legacy compatibility)",
-    }
-}
-
 fn detection_source_label(value: DetectionSource) -> &'static str {
     match value {
         DetectionSource::PackageManagerField => "packageManager field",
         DetectionSource::Lockfile => "lockfile",
-        DetectionSource::Config => "config defaultAgent",
+        DetectionSource::Config => "config defaultPackageManager",
         DetectionSource::Fallback => "fallback (npm in PATH)",
         DetectionSource::None => "none",
     }

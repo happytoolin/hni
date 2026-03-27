@@ -52,12 +52,10 @@ pub fn run_hni_owned(args: &[String], extra_env: &[(&str, &str)]) -> std::proces
     let mut cmd = Command::new(hni_executable_path());
     cmd.args(args)
         .env_remove("HNI_CONFIG_FILE")
-        .env_remove("HNI_DEFAULT_AGENT")
-        .env_remove("HNI_GLOBAL_AGENT")
-        .env_remove("HNI_NATIVE")
+        .env_remove("HNI_DEFAULT_PACKAGE_MANAGER")
+        .env_remove("HNI_GLOBAL_PACKAGE_MANAGER")
+        .env_remove("HNI_FAST_MODE")
         .env_remove("HNI_SKIP_PM_CHECK")
-        .env_remove("HNI_USE_SFW")
-        .env("HNI_AUTO_INSTALL", "false")
         .env_remove("HNI_REAL_NODE")
         .env_remove("HNI_NODE_SHIM_ACTIVE");
 

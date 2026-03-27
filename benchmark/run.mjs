@@ -346,8 +346,8 @@ function nativeCases(fixturePaths) {
           group: 'nr',
           case: `nr noop (${pm.label})`,
           commands: [
-            { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_NATIVE: 'false' } },
-            { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_NATIVE: 'true' } },
+            { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_FAST_MODE: 'false' } },
+            { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_FAST_MODE: 'true' } },
           ],
           requiredBins: pm.requiredBins,
         },
@@ -356,8 +356,8 @@ function nativeCases(fixturePaths) {
           group: 'nr',
           case: `nr hooks (${pm.label})`,
           commands: [
-            { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_NATIVE: 'false' } },
-            { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_NATIVE: 'true' } },
+            { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_FAST_MODE: 'false' } },
+            { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_FAST_MODE: 'true' } },
           ],
           requiredBins: pm.requiredBins,
         },
@@ -366,8 +366,8 @@ function nativeCases(fixturePaths) {
           group: 'node-run',
           case: `node run noop (${pm.label})`,
           commands: [
-            { name: 'delegated', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_NATIVE: 'false' } },
-            { name: 'native', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_NATIVE: 'true' } },
+            { name: 'delegated', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_FAST_MODE: 'false' } },
+            { name: 'native', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_FAST_MODE: 'true' } },
           ],
           requiredBins: pm.requiredBins,
         },
@@ -381,8 +381,8 @@ function nativeCases(fixturePaths) {
         group: 'nr',
         case: `nr noop (${pm.label})`,
         commands: [
-          { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_NATIVE: 'false' } },
-          { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_NATIVE: 'true' } },
+          { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_FAST_MODE: 'false' } },
+          { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'noop'], env: { HNI_FAST_MODE: 'true' } },
         ],
         requiredBins: pm.requiredBins,
       },
@@ -391,8 +391,8 @@ function nativeCases(fixturePaths) {
         group: 'nr',
         case: `nr hooks (${pm.label})`,
         commands: [
-          { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_NATIVE: 'false' } },
-          { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_NATIVE: 'true' } },
+          { name: 'delegated', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_FAST_MODE: 'false' } },
+          { name: 'native', bin: 'nr', args: ['-C', fixturePaths[pm.fixtureKey], 'hooks'], env: { HNI_FAST_MODE: 'true' } },
         ],
         requiredBins: pm.requiredBins,
       },
@@ -401,8 +401,8 @@ function nativeCases(fixturePaths) {
         group: 'node-run',
         case: `node run noop (${pm.label})`,
         commands: [
-          { name: 'delegated', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_NATIVE: 'false' } },
-          { name: 'native', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_NATIVE: 'true' } },
+          { name: 'delegated', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_FAST_MODE: 'false' } },
+          { name: 'native', bin: 'node', args: ['-C', fixturePaths[pm.fixtureKey], 'run', 'noop'], env: { HNI_FAST_MODE: 'true' } },
         ],
         requiredBins: pm.requiredBins,
       },
@@ -414,8 +414,8 @@ function nativeCases(fixturePaths) {
     group: 'nlx',
     case: 'nlx hello --flag (npm local bin)',
     commands: [
-      { name: 'delegated', bin: 'nlx', args: ['-C', fixturePaths.npm, 'hello', '--flag'], env: { HNI_NATIVE: 'false' } },
-      { name: 'native', bin: 'nlx', args: ['-C', fixturePaths.npm, 'hello', '--flag'], env: { HNI_NATIVE: 'true' } },
+      { name: 'delegated', bin: 'nlx', args: ['-C', fixturePaths.npm, 'hello', '--flag'], env: { HNI_FAST_MODE: 'false' } },
+      { name: 'native', bin: 'nlx', args: ['-C', fixturePaths.npm, 'hello', '--flag'], env: { HNI_FAST_MODE: 'true' } },
     ],
     requiredBins: ['npm'],
   })
@@ -435,7 +435,7 @@ function runtimeCases(fixturePaths) {
           kind: 'exec',
           bin: 'nr',
           args: ['-C', fixturePaths.pnpm, 'noop'],
-          env: { HNI_NATIVE: 'true' },
+          env: { HNI_FAST_MODE: 'true' },
         },
         {
           name: 'bun',
@@ -460,7 +460,7 @@ function runtimeCases(fixturePaths) {
           kind: 'exec',
           bin: 'nr',
           args: ['-C', fixturePaths.pnpm, 'hooks'],
-          env: { HNI_NATIVE: 'true' },
+          env: { HNI_FAST_MODE: 'true' },
         },
         {
           name: 'bun',
@@ -493,7 +493,7 @@ function directCases(fixturePaths) {
             kind: 'exec',
             bin: 'nr',
             args: ['-C', fixture, 'noop'],
-            env: { HNI_NATIVE: 'true' },
+            env: { HNI_FAST_MODE: 'true' },
           },
         ],
         requiredBins: pm.requiredBins,
@@ -509,7 +509,7 @@ function directCases(fixturePaths) {
             kind: 'exec',
             bin: 'nr',
             args: ['-C', fixture, 'hooks'],
-            env: { HNI_NATIVE: 'true' },
+            env: { HNI_FAST_MODE: 'true' },
           },
         ],
         requiredBins: pm.requiredBins,
@@ -529,7 +529,7 @@ function directCases(fixturePaths) {
             kind: 'exec',
             bin: 'nlx',
             args: ['-C', fixture, 'hello', '--flag'],
-            env: { HNI_NATIVE: 'true' },
+            env: { HNI_FAST_MODE: 'true' },
           },
         ],
         requiredBins: pm.requiredBins,
@@ -1184,7 +1184,6 @@ function main() {
     const baseEnv = {
       PATH: [aliasDir, antfuBinDir, process.env.PATH].filter(Boolean).join(path.delimiter),
       HNI_SKIP_PM_CHECK: '1',
-      HNI_AUTO_INSTALL: 'false',
     }
 
     const trackPayloads = {}

@@ -13,7 +13,7 @@ use crate::{
         version::print_versions,
     },
     core::{
-        config::{HniConfig, RunAgent},
+        config::HniConfig,
         detect::detect,
         resolve::ResolveContext,
         runner,
@@ -39,10 +39,7 @@ pub fn run_from_env() -> Result<ExitCode> {
 
     let mut config = HniConfig::load()?;
     if let Some(native_override) = parsed.native_override {
-        config.native_mode = native_override;
-        if !native_override {
-            config.run_agent = RunAgent::PackageManager;
-        }
+        config.fast_mode = native_override;
     }
     let verify_package_manager_availability =
         matches!(&parsed.command, ParsedCommand::Execute { .. })
@@ -86,7 +83,7 @@ pub fn run_from_env() -> Result<ExitCode> {
             args,
             iterations,
         } => {
-            run_profile_loop(invocation, args, iterations, &resolve_ctx, config.use_sfw)?;
+            run_profile_loop(invocation, args, iterations, &resolve_ctx)?;
             Ok(ExitCode::SUCCESS)
         }
         ParsedCommand::Execute { invocation, args } => {
@@ -101,14 +98,13 @@ pub fn run_from_env() -> Result<ExitCode> {
             }
 
             if parsed.debug {
-                let debug_rendered = runner::format_debug(&resolved, config.use_sfw)
+                let debug_rendered = runner::format_debug(&resolved)
                     .map_err(|error| anyhow!("execution error: {error}"))?;
                 println!("{debug_rendered}");
                 return Ok(ExitCode::SUCCESS);
             }
 
-            runner::run(&resolved, config.use_sfw)
-                .map_err(|error| anyhow!("execution error: {error}"))
+            runner::run(&resolved).map_err(|error| anyhow!("execution error: {error}"))
         }
     }
 }
@@ -122,9 +118,9 @@ fn print_explain(
     println!("hni explain");
     println!("invocation: {}", invocation_name(invocation));
     println!("cwd: {}", ctx.cwd().display());
-    println!("native_mode: {}", config.native_mode);
+    println!("fast_mode: {}", config.fast_mode);
     println!("execution_mode: {}", resolved.execution_mode_name());
-    if config.native_mode {
+    if config.fast_mode {
         let native_status = if resolved.native_fallback_reason.is_some() {
             "fallback"
         } else if matches!(
@@ -142,8 +138,7 @@ fn print_explain(
     }
     println!(
         "resolved: {}",
-        runner::format_debug(resolved, config.use_sfw)
-            .map_err(|error| anyhow!("execution error: {error}"))?
+        runner::format_debug(resolved).map_err(|error| anyhow!("execution error: {error}"))?
     );
 
     if let Ok(detection) = ctx.detect().or_else(|_| detect(ctx.cwd(), &ctx.config)) {
@@ -165,13 +160,12 @@ fn run_profile_loop(
     args: Vec<String>,
     iterations: usize,
     ctx: &ResolveContext,
-    use_sfw: bool,
 ) -> Result<()> {
     for _ in 0..iterations {
         let resolved = dispatch_invocation(invocation, args.clone(), ctx)?;
         if let Some(resolved) = resolved {
             std::hint::black_box(
-                runner::format_debug(&resolved, use_sfw)
+                runner::format_debug(&resolved)
                     .map_err(|error| anyhow!("execution error: {error}"))?,
             );
         }

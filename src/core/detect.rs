@@ -1,8 +1,4 @@
-use std::{
-    env,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{env, path::Path};
 
 use anyhow::{Result, anyhow};
 use semver::Version;
@@ -38,8 +34,6 @@ pub(crate) fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
 pub fn ensure_package_manager_available(
     pm: PackageManager,
     version_hint: Option<&str>,
-    config: &HniConfig,
-    cwd: &Path,
 ) -> Result<()> {
     if env::var_os("HNI_SKIP_PM_CHECK").is_some() {
         return Ok(());
@@ -49,67 +43,30 @@ pub fn ensure_package_manager_available(
         return Ok(());
     }
 
-    if !config.auto_install {
-        let install_hint = format!("npm i -g {}", pm.global_package_name());
-        return Err(anyhow!(
-            "detection error: detected {} but it is not installed.\nTry: {install_hint}\nOr set HNI_AUTO_INSTALL=true",
-            pm.display_name(),
-        ));
-    }
-
-    if env::var_os("CI").is_some() {
-        eprintln!("[hni] auto-installing {} in CI mode", pm.display_name());
-    }
-
     let package = pm.global_package_name();
-    if package == "npm" {
-        return Err(anyhow!(
-            "detection error: npm is required for auto-install but was not found in PATH"
-        ));
-    }
-
-    if matches!(pm, PackageManager::Deno) {
-        return Err(anyhow!(
-            "detection error: auto-install for deno is not supported; install deno manually"
-        ));
-    }
-
-    if which::which("npm").is_err() {
-        return Err(anyhow!(
-            "detection error: auto-install requires npm in PATH, but npm is unavailable.\nInstall Node.js/npm first: https://nodejs.org/"
-        ));
-    }
-
     let target = match version_hint {
         Some(version) if !version.is_empty() => format!("{package}@{version}"),
         _ => package.to_string(),
     };
 
-    let status = Command::new("npm")
-        .args(["i", "-g", &target])
-        .current_dir(cwd)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .map_err(|error| anyhow!("detection error: failed to run npm for auto-install: {error}"))?;
-
-    if !status.success() {
+    if package == "npm" {
         return Err(anyhow!(
-            "detection error: auto-install failed for {} with exit code {:?}",
+            "detected {} but it is not installed.\nInstall Node.js/npm first: https://nodejs.org/",
             pm.display_name(),
-            status.code()
         ));
     }
 
-    if which::which(pm.bin()).is_err() {
+    if matches!(pm, PackageManager::Deno) {
         return Err(anyhow!(
-            "detection error: auto-install for {} completed but binary is still not in PATH",
-            pm.display_name()
+            "detected {} but it is not installed.\nInstall Deno manually: https://deno.com/",
+            pm.display_name(),
         ));
     }
 
-    Ok(())
+    Err(anyhow!(
+        "detected {} but it is not installed.\nTry: npm i -g {target}",
+        pm.display_name(),
+    ))
 }
 
 pub(crate) fn parse_package_manager_field(value: &str) -> Option<(PackageManager, Option<String>)> {

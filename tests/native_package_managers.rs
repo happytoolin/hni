@@ -15,7 +15,7 @@ struct PmCase {
 }
 
 #[test]
-fn native_mode_matrix_covers_supported_and_fallback_package_managers() {
+fn fast_mode_matrix_covers_supported_and_fallback_package_managers() {
     if cfg!(windows) {
         return;
     }

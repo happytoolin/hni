@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 
 use crate::core::{
-    config::{DefaultAgent, HniConfig},
+    config::HniConfig,
     detect::{detect_lockfile_in_dir, parse_package_manager_field},
     package::NearestPackage,
     pkg_json::{PackageJson, package_json_path, read_package_json},
@@ -194,7 +194,7 @@ impl ProjectState {
             return resolved;
         }
 
-        if let DefaultAgent::Agent(agent) = config.default_agent {
+        if let Some(agent) = config.default_package_manager {
             return DetectionResult {
                 agent: Some(agent),
                 has_lock,
