@@ -1,18 +1,25 @@
 use std::{
-    env, fs,
+    collections::HashMap,
+    env,
+    ffi::OsString,
+    fs,
     path::{Path, PathBuf},
     process::{Command, ExitCode, Stdio},
 };
 
 use anyhow::{Context, Result};
+use deno_task_shell::{KillSignal, execute, parser::parse};
+use tokio::{runtime::Builder, task::LocalSet};
 
 use crate::{
     core::{
+        deno::{find_nearest_deno_project, plan_native_deno_task},
         error::HniResult,
         package::resolve_local_bin,
         resolve::ResolveContext,
         shell::shell_escape,
         types::{
+            NativeDenoTaskExecution, NativeDenoTaskStage, NativeDenoTaskStep,
             NativeLocalBinExecution, NativeScriptExecution, NativeScriptStep, PackageManager,
             ResolvedExecution,
         },
@@ -36,9 +43,7 @@ pub fn attempt_nr(
     let state = ctx.project_state()?;
 
     if pm == Some(PackageManager::Deno) {
-        return Ok(NativeAttempt::Ineligible(
-            "deno script execution stays delegated".to_string(),
-        ));
+        return attempt_deno_nr(args, ctx, has_if_present);
     }
 
     let Some(pkg) = state.nearest_package() else {
@@ -136,12 +141,6 @@ pub fn attempt_nlx(
 ) -> HniResult<NativeAttempt> {
     let state = ctx.project_state()?;
 
-    if pm == Some(PackageManager::Deno) {
-        return Ok(NativeAttempt::Ineligible(
-            "deno exec stays delegated".to_string(),
-        ));
-    }
-
     let Some(bin_name) = args.first() else {
         return Ok(NativeAttempt::Ineligible(
             "native local bin execution requires a command".to_string(),
@@ -157,6 +156,12 @@ pub fn attempt_nlx(
     let bin_path = resolve_local_bin(bin_name, &bin_paths)
         .or_else(|| state.resolve_declared_package_bin(bin_name));
     let Some(bin_path) = bin_path else {
+        if pm == Some(PackageManager::Deno) {
+            return Ok(NativeAttempt::Ineligible(
+                "remote deno exec stays delegated".to_string(),
+            ));
+        }
+
         return Ok(NativeAttempt::Ineligible(
             "local binary not found in node_modules/.bin or package.json bin entries; falling back to package-manager exec"
                 .to_string(),
@@ -177,6 +182,27 @@ pub fn attempt_nlx(
             exec,
         ),
     )))
+}
+
+fn attempt_deno_nr(
+    args: &[String],
+    ctx: &ResolveContext,
+    has_if_present: bool,
+) -> HniResult<NativeAttempt> {
+    let selection = args.first().cloned().unwrap_or_else(|| "start".to_string());
+    let forwarded_args = args.iter().skip(1).cloned().collect::<Vec<_>>();
+    let Some(project) = find_nearest_deno_project(ctx.cwd())? else {
+        return Ok(NativeAttempt::Ineligible(
+            "native deno execution requires a nearest deno project".to_string(),
+        ));
+    };
+
+    match plan_native_deno_task(&project, &selection, &forwarded_args, has_if_present) {
+        Ok(exec) => Ok(NativeAttempt::Eligible(Box::new(
+            ResolvedExecution::native_deno_task(selection, ctx.cwd().to_path_buf(), exec),
+        ))),
+        Err(reason) => Ok(NativeAttempt::Ineligible(reason)),
+    }
 }
 
 pub fn run_script(exec: &NativeScriptExecution, invocation_cwd: &Path) -> Result<ExitCode> {
@@ -205,6 +231,27 @@ pub fn run_script(exec: &NativeScriptExecution, invocation_cwd: &Path) -> Result
 
         if !status.success() {
             return Ok(exit_code_from_status(status.code()));
+        }
+    }
+
+    Ok(ExitCode::SUCCESS)
+}
+
+pub fn run_deno_task(exec: &NativeDenoTaskExecution, invocation_cwd: &Path) -> Result<ExitCode> {
+    let envs = deno_task_env(exec, invocation_cwd)?;
+
+    for stage in &exec.stages {
+        for step in &stage.steps {
+            print_deno_task_line(step, &exec.forwarded_args);
+        }
+
+        let Some(command) = stage_command(stage, &exec.forwarded_args) else {
+            continue;
+        };
+
+        let exit_code = execute_deno_shell_command(&command, &exec.project_root, &envs)?;
+        if exit_code != 0 {
+            return Ok(exit_code_from_code(exit_code));
         }
     }
 
@@ -249,6 +296,20 @@ pub fn format_debug(exec: &ResolvedExecution) -> String {
             join_rendered(rendered)
         }
         crate::core::types::ExecutionStrategy::Native(
+            crate::core::types::NativeExecution::RunDenoTask(native),
+        ) => {
+            let mut rendered = vec![
+                "hni".to_string(),
+                "native:run-deno-task".to_string(),
+                native.selection.clone(),
+            ];
+            if !native.forwarded_args.is_empty() {
+                rendered.push("--".to_string());
+                rendered.extend(native.forwarded_args.clone());
+            }
+            join_rendered(rendered)
+        }
+        crate::core::types::ExecutionStrategy::Native(
             crate::core::types::NativeExecution::RunLocalBin(native),
         ) => {
             let mut rendered = vec![
@@ -261,6 +322,112 @@ pub fn format_debug(exec: &ResolvedExecution) -> String {
         }
         crate::core::types::ExecutionStrategy::External => join_rendered(vec![]),
     }
+}
+
+fn deno_task_env(
+    exec: &NativeDenoTaskExecution,
+    invocation_cwd: &Path,
+) -> Result<HashMap<OsString, OsString>> {
+    let mut envs = std::env::vars_os().collect::<HashMap<_, _>>();
+    envs.insert(
+        OsString::from("INIT_CWD"),
+        invocation_cwd.as_os_str().to_os_string(),
+    );
+    envs.insert(
+        OsString::from("PATH"),
+        OsString::from(merged_path_with_bins(&exec.bin_paths)?),
+    );
+
+    if let Ok(real_node) = resolve_real_node_path() {
+        envs.insert(OsString::from(REAL_NODE_ENV), real_node.into_os_string());
+    }
+
+    Ok(envs)
+}
+
+fn stage_command(stage: &NativeDenoTaskStage, forwarded_args: &[String]) -> Option<String> {
+    if stage.steps.is_empty() {
+        return None;
+    }
+
+    let commands = stage
+        .steps
+        .iter()
+        .map(|step| {
+            let command = deno_task_command_string(
+                &step.command,
+                if step.forward_args {
+                    forwarded_args
+                } else {
+                    &[]
+                },
+            );
+            if stage.steps.len() == 1 {
+                command
+            } else {
+                format!("({command})")
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Some(if commands.len() == 1 {
+        commands[0].clone()
+    } else {
+        commands.join(" & ")
+    })
+}
+
+fn deno_task_command_string(command: &str, forwarded_args: &[String]) -> String {
+    if forwarded_args.is_empty() {
+        return command.to_string();
+    }
+
+    format!(
+        "{command} -- {}",
+        forwarded_args
+            .iter()
+            .map(|arg| shell_escape(arg))
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
+}
+
+fn print_deno_task_line(step: &NativeDenoTaskStep, forwarded_args: &[String]) {
+    if step.forward_args && !forwarded_args.is_empty() {
+        println!(
+            "Task {} {} -- {}",
+            step.task_name,
+            step.command,
+            forwarded_args
+                .iter()
+                .map(|arg| shell_escape(arg))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+    } else {
+        println!("Task {} {}", step.task_name, step.command);
+    }
+}
+
+fn execute_deno_shell_command(
+    command: &str,
+    cwd: &Path,
+    envs: &HashMap<OsString, OsString>,
+) -> Result<i32> {
+    let parsed = parse(command).context("failed to parse deno task command")?;
+    let runtime = Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("failed to build tokio runtime")?;
+    let local_set = LocalSet::new();
+
+    Ok(runtime.block_on(local_set.run_until(execute(
+        parsed,
+        envs.clone(),
+        cwd.to_path_buf(),
+        Default::default(),
+        KillSignal::default(),
+    ))))
 }
 
 fn join_rendered(rendered: Vec<String>) -> String {
