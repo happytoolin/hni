@@ -18,7 +18,10 @@ fmt-check:
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
-test:
+[parallel]
+test: test-delegated test-native
+
+test-delegated:
     HNI_NATIVE=false cargo test --all-targets --all-features
 
 test-native:
@@ -46,3 +49,6 @@ bench-direct:
 
 bench-profile:
     ./benchmark/profile.sh
+
+[parallel]
+tidy: fmt lint
