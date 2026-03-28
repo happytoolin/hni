@@ -7,7 +7,7 @@ mod support;
 use support::run_hni;
 
 #[test]
-fn deno_fast_path_uses_native_task_execution() {
+fn deno_fast_path_uses_fast_task_execution() {
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         fs::write(
@@ -16,7 +16,7 @@ fn deno_fast_path_uses_native_task_execution() {
         )
         .unwrap();
 
-        support::with_var_removed("HNI_NATIVE", || {
+        support::with_var_removed("HNI_FAST", || {
             let output = run_hni(
                 vec![
                     "nr",
@@ -31,14 +31,14 @@ fn deno_fast_path_uses_native_task_execution() {
             assert!(output.status.success(), "{output:?}");
             assert_eq!(
                 String::from_utf8_lossy(&output.stdout).trim(),
-                "hni native:run-deno-task dev"
+                "hni fast:run-deno-task dev"
             );
         });
     });
 }
 
 #[test]
-fn deno_no_native_still_delegates() {
+fn deno_pm_mode_still_delegates() {
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();
         fs::write(
@@ -52,7 +52,7 @@ fn deno_no_native_still_delegates() {
                 "nr",
                 "-C",
                 work.path().to_str().unwrap(),
-                "--no-native",
+                "--pm",
                 "--debug-resolved",
                 "dev",
             ],
@@ -87,7 +87,7 @@ fn deno_jsonc_is_supported() {
                 "nr",
                 "-C",
                 work.path().to_str().unwrap(),
-                "--native",
+                "--fast",
                 "--debug-resolved",
                 "dev",
             ],
@@ -97,7 +97,7 @@ fn deno_jsonc_is_supported() {
         assert!(output.status.success(), "{output:?}");
         assert_eq!(
             String::from_utf8_lossy(&output.stdout).trim(),
-            "hni native:run-deno-task dev"
+            "hni fast:run-deno-task dev"
         );
     });
 }
@@ -116,7 +116,7 @@ fn deno_task_cwd_and_init_cwd_match_deno_behavior() {
         .unwrap();
 
         let output = run_hni(
-            vec!["nr", "-C", nested.to_str().unwrap(), "--native", "dev"],
+            vec!["nr", "-C", nested.to_str().unwrap(), "--fast", "dev"],
             &[("HNI_SKIP_PM_CHECK", "1")],
         );
 
@@ -152,7 +152,7 @@ fn deno_dependencies_run_before_root() {
         .unwrap();
 
         let output = run_hni(
-            vec!["nr", "-C", work.path().to_str().unwrap(), "--native", "dev"],
+            vec!["nr", "-C", work.path().to_str().unwrap(), "--fast", "dev"],
             &[("HNI_SKIP_PM_CHECK", "1")],
         );
 
@@ -188,7 +188,7 @@ fn deno_dependency_only_task_is_valid() {
         .unwrap();
 
         let output = run_hni(
-            vec!["nr", "-C", work.path().to_str().unwrap(), "--native", "dev"],
+            vec!["nr", "-C", work.path().to_str().unwrap(), "--fast", "dev"],
             &[("HNI_SKIP_PM_CHECK", "1")],
         );
 
@@ -225,7 +225,7 @@ fn deno_wildcard_task_selection_runs_matching_tasks() {
                 "nr",
                 "-C",
                 work.path().to_str().unwrap(),
-                "--native",
+                "--fast",
                 "build-*",
             ],
             &[("HNI_SKIP_PM_CHECK", "1")],
@@ -264,7 +264,7 @@ fn deno_mixed_project_prefers_deno_task_over_package_json_script() {
         .unwrap();
 
         let output = run_hni(
-            vec!["nr", "-C", work.path().to_str().unwrap(), "--native", "dev"],
+            vec!["nr", "-C", work.path().to_str().unwrap(), "--fast", "dev"],
             &[("HNI_SKIP_PM_CHECK", "1")],
         );
 
@@ -294,7 +294,7 @@ fn deno_package_json_fallback_runs_pre_and_post() {
         .unwrap();
 
         let output = run_hni(
-            vec!["nr", "-C", work.path().to_str().unwrap(), "--native", "dev"],
+            vec!["nr", "-C", work.path().to_str().unwrap(), "--fast", "dev"],
             &[("HNI_SKIP_PM_CHECK", "1")],
         );
 
@@ -309,7 +309,7 @@ fn deno_package_json_fallback_runs_pre_and_post() {
 }
 
 #[test]
-fn deno_cycle_and_workspace_fall_back_to_delegated() {
+fn deno_cycle_and_workspace_fall_back_to_pm_mode() {
     support::with_env_lock(|| {
         let cycle = tempfile::tempdir().unwrap();
         fs::write(
@@ -328,7 +328,7 @@ fn deno_cycle_and_workspace_fall_back_to_delegated() {
                 "nr",
                 "-C",
                 cycle.path().to_str().unwrap(),
-                "--native",
+                "--fast",
                 "--debug-resolved",
                 "a",
             ],
@@ -355,7 +355,7 @@ fn deno_cycle_and_workspace_fall_back_to_delegated() {
                 "nr",
                 "-C",
                 workspace.path().to_str().unwrap(),
-                "--native",
+                "--fast",
                 "--debug-resolved",
                 "dev",
             ],
@@ -388,7 +388,7 @@ fn deno_nlx_native_handles_local_bins_and_delegates_remote() {
                 "nlx",
                 "-C",
                 work.path().to_str().unwrap(),
-                "--native",
+                "--fast",
                 "--debug-resolved",
                 "hello",
                 "--flag",
@@ -398,7 +398,7 @@ fn deno_nlx_native_handles_local_bins_and_delegates_remote() {
         assert!(local.status.success(), "{local:?}");
         assert_eq!(
             String::from_utf8_lossy(&local.stdout).trim(),
-            "hni native:run-local-bin hello --flag"
+            "hni fast:run-local-bin hello --flag"
         );
 
         let remote = run_hni(
@@ -406,7 +406,7 @@ fn deno_nlx_native_handles_local_bins_and_delegates_remote() {
                 "nlx",
                 "-C",
                 work.path().to_str().unwrap(),
-                "--native",
+                "--fast",
                 "--debug-resolved",
                 "create-vite",
             ],

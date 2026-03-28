@@ -158,7 +158,7 @@ pub fn attempt_nlx(
     let Some(bin_path) = bin_path else {
         if pm == Some(PackageManager::Deno) {
             return Ok(NativeAttempt::Ineligible(
-                "remote deno exec stays delegated".to_string(),
+                "remote deno exec stays in package-manager mode".to_string(),
             ));
         }
 
@@ -286,7 +286,7 @@ pub fn format_debug(exec: &ResolvedExecution) -> String {
         ) => {
             let mut rendered = vec![
                 "hni".to_string(),
-                "native:run-script".to_string(),
+                "fast:run-script".to_string(),
                 native.script_name.clone(),
             ];
             if !native.forwarded_args.is_empty() {
@@ -300,7 +300,7 @@ pub fn format_debug(exec: &ResolvedExecution) -> String {
         ) => {
             let mut rendered = vec![
                 "hni".to_string(),
-                "native:run-deno-task".to_string(),
+                "fast:run-deno-task".to_string(),
                 native.selection.clone(),
             ];
             if !native.forwarded_args.is_empty() {
@@ -314,7 +314,7 @@ pub fn format_debug(exec: &ResolvedExecution) -> String {
         ) => {
             let mut rendered = vec![
                 "hni".to_string(),
-                "native:run-local-bin".to_string(),
+                "fast:run-local-bin".to_string(),
                 native.bin_name.clone(),
             ];
             rendered.extend(exec.args.clone());
@@ -442,7 +442,7 @@ fn unsupported_script_reason(event_name: &str, script: &str) -> Option<String> {
     for pattern in UNSUPPORTED_SCRIPT_PATTERNS {
         if script.contains(pattern) {
             return Some(format!(
-                "script '{event_name}' uses unsupported native environment expansion ({pattern})"
+                "script '{event_name}' uses unsupported fast environment expansion ({pattern})"
             ));
         }
     }

@@ -58,7 +58,7 @@ pub fn print_doctor(ctx: &ResolveContext) {
     );
     println!("globalAgent: {}", config.global_agent.display_name());
     println!("runAgent: {}", format_run_agent(config.run_agent));
-    println!("nativeMode: {}", config.native_mode);
+    println!("fastMode: {}", config.fast_mode);
     println!("useSfw: {}", config.use_sfw);
     println!("autoInstall(env): {}", config.auto_install);
     println!();

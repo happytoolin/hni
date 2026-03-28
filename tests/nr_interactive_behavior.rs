@@ -27,7 +27,7 @@ fn repeat_last_and_dash_alias_reuse_previous_command() {
 
         let first = run_nr(
             &bin_dir,
-            vec!["-C", project.to_str().unwrap(), "--no-native", "dev", "?"],
+            vec!["-C", project.to_str().unwrap(), "--pm", "dev", "?"],
             &envs,
         );
         assert!(first.status.success());
@@ -38,7 +38,7 @@ fn repeat_last_and_dash_alias_reuse_previous_command() {
             vec![
                 "-C",
                 project.to_str().unwrap(),
-                "--no-native",
+                "--pm",
                 "--repeat-last",
                 "?",
             ],
@@ -52,7 +52,7 @@ fn repeat_last_and_dash_alias_reuse_previous_command() {
 
         let repeat_dash = run_nr(
             &bin_dir,
-            vec!["-C", project.to_str().unwrap(), "--no-native", "-", "?"],
+            vec!["-C", project.to_str().unwrap(), "--pm", "-", "?"],
             &envs,
         );
         assert!(repeat_dash.status.success());

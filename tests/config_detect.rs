@@ -15,26 +15,26 @@ fn config_loads_and_env_overrides() {
         let cfg_path = dir.path().join("nirc");
         fs::write(
             &cfg_path,
-            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nnativeMode=true\nuseSfw=true\n",
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nfastMode=true\nuseSfw=true\n",
         )
         .unwrap();
 
         support::set_var("HNI_CONFIG_FILE", &cfg_path);
         support::set_var("HNI_GLOBAL_AGENT", "npm");
-        support::set_var("HNI_NATIVE", "false");
+        support::set_var("HNI_FAST", "false");
         support::set_var("HNI_AUTO_INSTALL", "true");
 
         let cfg = HniConfig::load().unwrap();
         assert_eq!(cfg.default_agent, DefaultAgent::Agent(PackageManager::Pnpm));
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::Node);
-        assert!(!cfg.native_mode);
+        assert!(!cfg.fast_mode);
         assert!(cfg.use_sfw);
         assert!(cfg.auto_install);
 
         support::remove_var("HNI_CONFIG_FILE");
         support::remove_var("HNI_GLOBAL_AGENT");
-        support::remove_var("HNI_NATIVE");
+        support::remove_var("HNI_FAST");
         support::remove_var("HNI_AUTO_INSTALL");
     });
 }
@@ -92,7 +92,7 @@ fn ignores_legacy_ni_environment_variables() {
         support::set_var("NI_USE_SFW", "true");
         support::set_var("NI_AUTO_INSTALL", "true");
 
-        let cfg = support::with_var_removed("HNI_NATIVE", HniConfig::load).unwrap();
+        let cfg = support::with_var_removed("HNI_FAST", HniConfig::load).unwrap();
 
         support::remove_var("NI_DEFAULT_AGENT");
         support::remove_var("NI_GLOBAL_AGENT");
@@ -102,7 +102,7 @@ fn ignores_legacy_ni_environment_variables() {
         assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::PackageManager);
-        assert!(cfg.native_mode);
+        assert!(cfg.fast_mode);
         assert!(!cfg.use_sfw);
         assert!(!cfg.auto_install);
     });
@@ -116,18 +116,18 @@ fn ignores_legacy_nirc_fallback() {
         fs::create_dir_all(&home).unwrap();
         fs::write(
             home.join(".nirc"),
-            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nnativeMode=true\nuseSfw=true\n",
+            "defaultAgent=pnpm\nglobalAgent=yarn\nrunAgent=node\nfastMode=true\nuseSfw=true\n",
         )
         .unwrap();
 
         support::set_var("HOME", &home);
-        let cfg = support::with_var_removed("HNI_NATIVE", HniConfig::load).unwrap();
+        let cfg = support::with_var_removed("HNI_FAST", HniConfig::load).unwrap();
         support::remove_var("HOME");
 
         assert_eq!(cfg.default_agent, DefaultAgent::Prompt);
         assert_eq!(cfg.global_agent, PackageManager::Npm);
         assert_eq!(cfg.run_agent, RunAgent::PackageManager);
-        assert!(cfg.native_mode);
+        assert!(cfg.fast_mode);
         assert!(!cfg.use_sfw);
     });
 }

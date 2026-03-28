@@ -119,7 +119,7 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
         normalized_args.remove(1);
     }
 
-    if ctx.config.native_mode {
+    if ctx.config.fast_mode {
         let detected_hint = ctx.detect()?.agent;
         match native::attempt_nr(detected_hint, &normalized_args, ctx, has_if_present)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
@@ -130,8 +130,8 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
                     ctx,
                     has_if_present,
                 )? {
-                    resolved.native_requested = true;
-                    resolved.native_fallback_reason = Some(reason);
+                    resolved.fast_requested = true;
+                    resolved.fast_fallback_reason = Some(reason);
                     return Ok(resolved);
                 }
 
@@ -154,8 +154,8 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Reso
                     insert_if_present(&mut resolved);
                 }
 
-                resolved.native_requested = true;
-                resolved.native_fallback_reason = Some(reason);
+                resolved.fast_requested = true;
+                resolved.fast_fallback_reason = Some(reason);
                 return Ok(resolved);
             }
         }
@@ -202,12 +202,12 @@ pub fn resolve_node_run(
         normalized_args.remove(1);
     }
 
-    if ctx.config.native_mode {
+    if ctx.config.fast_mode {
         let detected_hint = ctx.detect()?.agent;
         if let Some(mut resolved) =
             build_node_run_exec_if_safe(detected_hint, &normalized_args, ctx, has_if_present)?
         {
-            resolved.native_requested = true;
+            resolved.fast_requested = true;
             return Ok(resolved);
         }
 
@@ -229,8 +229,8 @@ pub fn resolve_node_run(
                     insert_if_present(&mut resolved);
                 }
 
-                resolved.native_requested = true;
-                resolved.native_fallback_reason = Some(reason);
+                resolved.fast_requested = true;
+                resolved.fast_fallback_reason = Some(reason);
                 return Ok(resolved);
             }
         }
@@ -256,7 +256,7 @@ pub fn resolve_node_run(
 }
 
 pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> HniResult<ResolvedExecution> {
-    if ctx.config.native_mode {
+    if ctx.config.fast_mode {
         let detected_hint = ctx.detect()?.agent;
         match native::attempt_nlx(detected_hint, &args, ctx)? {
             NativeAttempt::Eligible(exec) => return Ok(*exec),
@@ -271,8 +271,8 @@ pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Resolve
                     false,
                     detected.has_lock,
                 );
-                resolved.native_requested = true;
-                resolved.native_fallback_reason = Some(reason);
+                resolved.fast_requested = true;
+                resolved.fast_fallback_reason = Some(reason);
                 return Ok(resolved);
             }
         }

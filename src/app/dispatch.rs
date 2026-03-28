@@ -46,9 +46,9 @@ pub fn run_from_env() -> HniResult<ExitCode> {
     }
 
     let mut config = HniConfig::load()?;
-    if let Some(native_override) = parsed.native_override {
-        config.native_mode = native_override;
-        if !native_override {
+    if let Some(fast_override) = parsed.fast_override {
+        config.fast_mode = fast_override;
+        if !fast_override {
             config.run_agent = RunAgent::PackageManager;
         }
     }
@@ -130,22 +130,19 @@ fn print_explain(
     println!("hni explain");
     println!("invocation: {}", invocation_name(invocation));
     println!("cwd: {}", ctx.cwd().display());
-    println!("native_mode: {}", config.native_mode);
+    println!("fast_mode: {}", config.fast_mode);
     println!("execution_mode: {}", resolved.execution_mode_name());
-    if config.native_mode {
-        let native_status = if resolved.native_fallback_reason.is_some() {
+    if config.fast_mode {
+        let fast_status = if resolved.fast_fallback_reason.is_some() {
             "fallback"
-        } else if matches!(
-            resolved.mode,
-            ExecutionMode::Native | ExecutionMode::NodeRun
-        ) {
+        } else if matches!(resolved.mode, ExecutionMode::Fast | ExecutionMode::NodeRun) {
             "eligible"
         } else {
             "not-applicable"
         };
-        println!("native_status: {}", native_status);
-        if let Some(reason) = &resolved.native_fallback_reason {
-            println!("native_fallback_reason: {reason}");
+        println!("fast_status: {}", fast_status);
+        if let Some(reason) = &resolved.fast_fallback_reason {
+            println!("fast_fallback_reason: {reason}");
         }
     }
     println!(

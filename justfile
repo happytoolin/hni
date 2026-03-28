@@ -19,18 +19,18 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
 [parallel]
-test: test-delegated test-native
+test: test-pm test-fast
 
-test-delegated:
-    HNI_NATIVE=false cargo test --all-targets --all-features
+test-pm:
+    HNI_FAST=false cargo test --all-targets --all-features
 
-test-native:
-    HNI_NATIVE=true cargo test --all-targets --all-features
+test-fast:
+    HNI_FAST=true cargo test --all-targets --all-features
 
 test-all:
     node ./scripts/test-modes.mjs all
 
-ci: fmt-check lint test test-native
+ci: fmt-check lint test test-fast
 
 bench:
     ./benchmark/run.sh
@@ -38,8 +38,8 @@ bench:
 bench-compare:
     ./benchmark/run.sh --track=compare
 
-bench-native:
-    ./benchmark/run.sh --track=native
+bench-fast:
+    ./benchmark/run.sh --track=fast
 
 bench-runtime:
     ./benchmark/run.sh --track=runtime

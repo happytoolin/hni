@@ -62,7 +62,7 @@ pub(crate) fn plan_native_deno_task(
     has_if_present: bool,
 ) -> Result<NativeDenoTaskExecution, String> {
     if project.has_workspace {
-        return Err("deno workspace task execution stays delegated".to_string());
+        return Err("deno workspace task execution stays in package-manager mode".to_string());
     }
 
     let deno_matches = match_deno_tasks(&project.deno_tasks, selection);

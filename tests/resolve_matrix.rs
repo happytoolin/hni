@@ -327,7 +327,7 @@ fn nr_run_agent_node_uses_node_passthrough_run() {
 }
 
 #[test]
-fn nr_native_mode_does_not_require_detected_package_manager() {
+fn nr_fast_mode_does_not_require_detected_package_manager() {
     with_skip_pm_check(|| {
         with_path_override("", || {
             let dir = tempfile::tempdir().unwrap();
@@ -345,7 +345,7 @@ fn nr_native_mode_does_not_require_detected_package_manager() {
 }
 
 #[test]
-fn nlx_native_mode_does_not_require_detected_package_manager() {
+fn nlx_fast_mode_does_not_require_detected_package_manager() {
     with_skip_pm_check(|| {
         with_path_override("", || {
             let dir = tempfile::tempdir().unwrap();
@@ -485,14 +485,14 @@ fn node_run_falls_back_to_package_manager_when_neither_fast_path_is_safe() {
         assert_eq!(resolved.args, vec!["run", "dev"]);
         assert_eq!(resolved.execution_mode_name(), "package-manager");
         assert_eq!(
-            resolved.native_fallback_reason.as_deref(),
-            Some("script 'dev' uses unsupported native environment expansion (npm_package_)")
+            resolved.fast_fallback_reason.as_deref(),
+            Some("script 'dev' uses unsupported fast environment expansion (npm_package_)")
         );
     });
 }
 
 #[test]
-fn nr_native_mode_uses_native_script_execution() {
+fn nr_fast_mode_uses_native_script_execution() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -501,7 +501,7 @@ fn nr_native_mode_uses_native_script_execution() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -517,7 +517,7 @@ fn nr_native_mode_uses_native_script_execution() {
 }
 
 #[test]
-fn nr_native_mode_is_available_on_windows_too() {
+fn nr_fast_mode_is_available_on_windows_too() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -526,7 +526,7 @@ fn nr_native_mode_is_available_on_windows_too() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -540,7 +540,7 @@ fn nr_native_mode_is_available_on_windows_too() {
 }
 
 #[test]
-fn nr_native_mode_if_present_missing_script_is_native_noop() {
+fn nr_fast_mode_if_present_missing_script_is_native_noop() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -549,7 +549,7 @@ fn nr_native_mode_if_present_missing_script_is_native_noop() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -570,7 +570,7 @@ fn nr_native_mode_if_present_missing_script_is_native_noop() {
 }
 
 #[test]
-fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
+fn nr_fast_mode_if_present_missing_script_skips_prehook_too() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -579,7 +579,7 @@ fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -596,7 +596,7 @@ fn nr_native_mode_if_present_missing_script_skips_prehook_too() {
 }
 
 #[test]
-fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
+fn nr_fast_mode_falls_back_for_yarn_berry_pnp() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(
@@ -606,7 +606,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
         fs::write(dir.path().join(".pnp.cjs"), "module.exports = {};\n").unwrap();
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -616,7 +616,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
         assert_eq!(resolved.program, "yarn");
         assert_eq!(resolved.args, vec!["run", "dev"]);
         assert_eq!(
-            resolved.native_fallback_reason.as_deref(),
+            resolved.fast_fallback_reason.as_deref(),
             Some(
                 "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
             )
@@ -625,7 +625,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp() {
 }
 
 #[test]
-fn nr_native_mode_falls_back_for_yarn_berry_pnp_workspace() {
+fn nr_fast_mode_falls_back_for_yarn_berry_pnp_workspace() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("workspace");
@@ -637,7 +637,7 @@ fn nr_native_mode_falls_back_for_yarn_berry_pnp_workspace() {
         write_package_json(app.as_path(), r#"{"name":"app","scripts":{"dev":"vite"}}"#);
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(app, cfg);
@@ -749,7 +749,7 @@ fn nlx_npm_uses_npx() {
 }
 
 #[test]
-fn nlx_native_mode_uses_local_bin_when_present() {
+fn nlx_fast_mode_uses_local_bin_when_present() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
@@ -759,7 +759,7 @@ fn nlx_native_mode_uses_local_bin_when_present() {
         make_executable(&local_bin);
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -777,13 +777,13 @@ fn nlx_native_mode_uses_local_bin_when_present() {
 }
 
 #[test]
-fn nlx_native_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
+fn nlx_fast_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -792,7 +792,7 @@ fn nlx_native_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
         assert!(matches!(resolved.strategy, ExecutionStrategy::External));
         assert_eq!(resolved.program, "npx");
         assert_eq!(
-            resolved.native_fallback_reason.as_deref(),
+            resolved.fast_fallback_reason.as_deref(),
             Some(
                 "local binary not found in node_modules/.bin or package.json bin entries; falling back to package-manager exec"
             )
@@ -801,7 +801,7 @@ fn nlx_native_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
 }
 
 #[test]
-fn nlx_native_mode_uses_declared_package_bin_when_present() {
+fn nlx_fast_mode_uses_declared_package_bin_when_present() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(dir.path().join("bin")).unwrap();
@@ -812,7 +812,7 @@ fn nlx_native_mode_uses_declared_package_bin_when_present() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -830,7 +830,7 @@ fn nlx_native_mode_uses_declared_package_bin_when_present() {
 }
 
 #[test]
-fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
+fn nlx_fast_mode_uses_pnpm_hoisted_bin_dir_when_present() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
@@ -855,7 +855,7 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
         }
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -875,7 +875,7 @@ fn nlx_native_mode_uses_pnpm_hoisted_bin_dir_when_present() {
 }
 
 #[test]
-fn nlx_native_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
+fn nlx_fast_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(dir.path().join("bin")).unwrap();
@@ -887,7 +887,7 @@ fn nlx_native_mode_falls_back_for_yarn_berry_pnp_declared_bin() {
         );
 
         let cfg = HniConfig {
-            native_mode: true,
+            fast_mode: true,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);

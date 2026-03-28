@@ -36,8 +36,8 @@ pub struct ResolvedExecution {
     pub passthrough: bool,
     pub mode: ExecutionMode,
     pub strategy: ExecutionStrategy,
-    pub native_requested: bool,
-    pub native_fallback_reason: Option<String>,
+    pub fast_requested: bool,
+    pub fast_fallback_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +45,7 @@ pub enum ExecutionMode {
     PackageManager,
     NodeRun,
     PassthroughNode,
-    Native,
+    Fast,
     Internal,
 }
 
@@ -138,8 +138,8 @@ impl ResolvedExecution {
             passthrough,
             mode,
             strategy: ExecutionStrategy::External,
-            native_requested: false,
-            native_fallback_reason: None,
+            fast_requested: false,
+            fast_fallback_reason: None,
         }
     }
 
@@ -157,8 +157,8 @@ impl ResolvedExecution {
             passthrough,
             mode: ExecutionMode::PackageManager,
             strategy: ExecutionStrategy::External,
-            native_requested: true,
-            native_fallback_reason: Some(reason.into()),
+            fast_requested: true,
+            fast_fallback_reason: Some(reason.into()),
         }
     }
 
@@ -173,10 +173,10 @@ impl ResolvedExecution {
             args: exec.forwarded_args.clone(),
             cwd,
             passthrough: false,
-            mode: ExecutionMode::Native,
+            mode: ExecutionMode::Fast,
             strategy: ExecutionStrategy::Native(NativeExecution::RunScript(exec)),
-            native_requested: true,
-            native_fallback_reason: None,
+            fast_requested: true,
+            fast_fallback_reason: None,
         }
     }
 
@@ -191,10 +191,10 @@ impl ResolvedExecution {
             args: exec.forwarded_args.clone(),
             cwd,
             passthrough: false,
-            mode: ExecutionMode::Native,
+            mode: ExecutionMode::Fast,
             strategy: ExecutionStrategy::Native(NativeExecution::RunDenoTask(exec)),
-            native_requested: true,
-            native_fallback_reason: None,
+            fast_requested: true,
+            fast_fallback_reason: None,
         }
     }
 
@@ -209,10 +209,10 @@ impl ResolvedExecution {
             args,
             cwd,
             passthrough: false,
-            mode: ExecutionMode::Native,
+            mode: ExecutionMode::Fast,
             strategy: ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)),
-            native_requested: true,
-            native_fallback_reason: None,
+            fast_requested: true,
+            fast_fallback_reason: None,
         }
     }
 
@@ -225,7 +225,7 @@ impl ResolvedExecution {
             ExecutionMode::PackageManager => "package-manager",
             ExecutionMode::NodeRun => "node-run",
             ExecutionMode::PassthroughNode => "passthrough-node",
-            ExecutionMode::Native => "native",
+            ExecutionMode::Fast => "fast",
             ExecutionMode::Internal => "internal",
         }
     }
