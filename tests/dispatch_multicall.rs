@@ -91,7 +91,7 @@ fn multicall_aliases_resolve_expected_commands() {
             &bin_dir,
             "ni",
             vec!["-C", npm_proj.to_str().unwrap(), "-g", "eslint", "?"],
-            &[("HNI_GLOBAL_AGENT", "yarn")],
+            &[("HNI_GLOBAL_PACKAGE_MANAGER", "yarn")],
         );
         assert_eq!(ni_global_out.trim(), "yarn global add eslint");
 
@@ -135,7 +135,7 @@ fn multicall_aliases_resolve_expected_commands() {
             &bin_dir,
             "nun",
             vec!["-C", npm_proj.to_str().unwrap(), "-g", "eslint", "?"],
-            &[("HNI_GLOBAL_AGENT", "yarn")],
+            &[("HNI_GLOBAL_PACKAGE_MANAGER", "yarn")],
         );
         assert_eq!(nun_global_out.trim(), "yarn global remove eslint");
 
@@ -266,9 +266,7 @@ fn run_alias(bin_dir: &Path, alias: &str, args: Vec<&str>, extra_env: &[(&str, &
     };
 
     let mut cmd = Command::new(bin_dir.join(alias_bin));
-    cmd.args(args)
-        .env("HNI_SKIP_PM_CHECK", "1")
-        .env("HNI_AUTO_INSTALL", "false");
+    cmd.args(args).env("HNI_SKIP_PM_CHECK", "1");
 
     for (key, value) in extra_env {
         cmd.env(key, value);

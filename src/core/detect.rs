@@ -1,14 +1,13 @@
 use std::{
     env,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
 };
 
+use anyhow::{Result, anyhow};
 use semver::Version;
 
 use super::{
-    config::{DefaultAgent, HniConfig},
-    error::{HniError, HniResult},
+    config::HniConfig,
     pkg_json::PackageJson,
     resolve::ProjectState,
     types::{DetectionResult, DetectionSource, PackageManager},
@@ -67,7 +66,7 @@ impl Default for DetectOptions {
     }
 }
 
-pub fn detect(cwd: &Path, config: &HniConfig) -> HniResult<DetectionResult> {
+pub fn detect(cwd: &Path, config: &HniConfig) -> Result<DetectionResult> {
     detect_with_options(cwd, config, &DetectOptions::default())
 }
 
@@ -75,31 +74,13 @@ pub fn detect_with_options(
     cwd: &Path,
     config: &HniConfig,
     options: &DetectOptions,
-) -> HniResult<DetectionResult> {
+) -> Result<DetectionResult> {
     Ok(detect_in_project_state(
         &ProjectState::scan(cwd)?,
         cwd,
         config,
         options,
     ))
-}
-
-pub(crate) fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
-    LOCKFILES
-        .iter()
-        .find_map(|(lockfile, pm)| dir.join(lockfile).exists().then_some(*pm))
-}
-
-pub(crate) fn detect_install_metadata_in_dir(dir: &Path) -> Option<PackageManager> {
-    INSTALL_METADATA.iter().find_map(|(entry, pm)| {
-        let candidate = dir.join(entry);
-        candidate.exists().then_some(*pm)
-    })
-}
-
-pub fn detect_user_agent() -> Option<PackageManager> {
-    let user_agent = env::var("npm_config_user_agent").ok()?;
-    parse_user_agent(&user_agent)
 }
 
 pub(crate) fn detect_in_project_state(
@@ -168,7 +149,7 @@ pub(crate) fn detect_in_project_state(
         return resolved;
     }
 
-    if let DefaultAgent::Agent(agent) = config.default_agent {
+    if let Some(agent) = config.default_package_manager {
         return DetectionResult {
             agent: Some(agent),
             has_lock,
@@ -194,12 +175,28 @@ pub(crate) fn detect_in_project_state(
     }
 }
 
+pub(crate) fn detect_lockfile_in_dir(dir: &Path) -> Option<PackageManager> {
+    LOCKFILES
+        .iter()
+        .find_map(|(lockfile, pm)| dir.join(lockfile).exists().then_some(*pm))
+}
+
+pub(crate) fn detect_install_metadata_in_dir(dir: &Path) -> Option<PackageManager> {
+    INSTALL_METADATA.iter().find_map(|(entry, pm)| {
+        let candidate = dir.join(entry);
+        candidate.exists().then_some(*pm)
+    })
+}
+
+pub fn detect_user_agent() -> Option<PackageManager> {
+    let user_agent = env::var("npm_config_user_agent").ok()?;
+    parse_user_agent(&user_agent)
+}
+
 pub fn ensure_package_manager_available(
     pm: PackageManager,
     version_hint: Option<&str>,
-    config: &HniConfig,
-    cwd: &Path,
-) -> HniResult<()> {
+) -> Result<()> {
     if env::var_os("HNI_SKIP_PM_CHECK").is_some() {
         return Ok(());
     }
@@ -208,69 +205,30 @@ pub fn ensure_package_manager_available(
         return Ok(());
     }
 
-    if !config.auto_install {
-        let install_hint = format!("npm i -g {}", pm.global_package_name());
-        return Err(HniError::detection(format!(
-            "detected {} but it is not installed.\nTry: {install_hint}\nOr set HNI_AUTO_INSTALL=true",
-            pm.display_name(),
-        )));
-    }
-
-    if env::var_os("CI").is_some() {
-        eprintln!("[hni] auto-installing {} in CI mode", pm.display_name());
-    }
-
     let package = pm.global_package_name();
-    if package == "npm" {
-        return Err(HniError::detection(
-            "npm is required for auto-install but was not found in PATH",
-        ));
-    }
-
-    if matches!(pm, PackageManager::Deno) {
-        return Err(HniError::detection(
-            "auto-install for deno is not supported; install deno manually",
-        ));
-    }
-
-    if which::which("npm").is_err() {
-        return Err(HniError::detection(
-            "auto-install requires npm in PATH, but npm is unavailable.\nInstall Node.js/npm first: https://nodejs.org/",
-        ));
-    }
-
     let target = match version_hint {
         Some(version) if !version.is_empty() => format!("{package}@{version}"),
         _ => package.to_string(),
     };
 
-    let status = Command::new("npm")
-        .args(["i", "-g", &target])
-        .current_dir(cwd)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .map_err(|error| {
-            HniError::detection(format!("failed to run npm for auto-install: {error}"))
-        })?;
-
-    if !status.success() {
-        return Err(HniError::detection(format!(
-            "auto-install failed for {} with exit code {:?}",
+    if package == "npm" {
+        return Err(anyhow!(
+            "detected {} but it is not installed.\nInstall Node.js/npm first: https://nodejs.org/",
             pm.display_name(),
-            status.code()
-        )));
+        ));
     }
 
-    if which::which(pm.bin()).is_err() {
-        return Err(HniError::detection(format!(
-            "auto-install for {} completed but binary is still not in PATH",
-            pm.display_name()
-        )));
+    if matches!(pm, PackageManager::Deno) {
+        return Err(anyhow!(
+            "detected {} but it is not installed.\nInstall Deno manually: https://deno.com/",
+            pm.display_name(),
+        ));
     }
 
-    Ok(())
+    Err(anyhow!(
+        "detected {} but it is not installed.\nTry: npm i -g {target}",
+        pm.display_name(),
+    ))
 }
 
 pub(crate) fn parse_package_manager_field(value: &str) -> Option<(PackageManager, Option<String>)> {
@@ -391,7 +349,7 @@ fn parse_major(version: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::config::HniConfig;
+    use crate::core::{config::HniConfig, types::DetectionSource};
     use std::fs;
     use tempfile::tempdir;
 
@@ -496,104 +454,5 @@ mod tests {
             parse_user_agent("yarn/4.2.0 npm/? node/v20.0.0 darwin x64"),
             Some(PackageManager::Yarn)
         );
-    }
-
-    #[test]
-    fn yarn_lock_without_package_manager_stays_yarn_classic() {
-        let dir = tempdir().unwrap();
-        fs::write(dir.path().join("yarn.lock"), "lock").unwrap();
-        fs::write(dir.path().join(".yarnrc.yml"), "nodeLinker: pnp\n").unwrap();
-
-        let out = detect(dir.path(), &HniConfig::default()).unwrap();
-        assert_eq!(out.agent, Some(PackageManager::Yarn));
-    }
-
-    #[test]
-    fn detects_workspace_root_package_manager_from_subpackage() {
-        let root = tempdir().unwrap();
-        fs::write(
-            root.path().join("package.json"),
-            r#"{"packageManager":"pnpm@9.0.0","workspaces":["packages/*"]}"#,
-        )
-        .unwrap();
-        fs::write(root.path().join("pnpm-lock.yaml"), "lock").unwrap();
-
-        let pkg = root.path().join("packages").join("app");
-        fs::create_dir_all(&pkg).unwrap();
-        fs::write(pkg.join("package.json"), r#"{"name":"app"}"#).unwrap();
-
-        let out = detect(&pkg, &HniConfig::default()).unwrap();
-        assert_eq!(out.agent, Some(PackageManager::Pnpm));
-        assert_eq!(out.source, DetectionSource::PackageManagerField);
-        assert!(out.has_lock);
-    }
-
-    #[test]
-    fn detects_workspace_lockfile_from_subpackage() {
-        let root = tempdir().unwrap();
-        fs::write(root.path().join("pnpm-lock.yaml"), "lock").unwrap();
-
-        let pkg = root.path().join("packages").join("app");
-        fs::create_dir_all(&pkg).unwrap();
-        fs::write(pkg.join("package.json"), r#"{"name":"app"}"#).unwrap();
-
-        let out = detect(&pkg, &HniConfig::default()).unwrap();
-        assert_eq!(out.agent, Some(PackageManager::Pnpm));
-        assert_eq!(out.source, DetectionSource::Lockfile);
-        assert!(out.has_lock);
-    }
-
-    #[test]
-    fn prefers_subpackage_lockfile_over_parent_package_manager() {
-        let root = tempdir().unwrap();
-        fs::write(
-            root.path().join("package.json"),
-            r#"{"packageManager":"pnpm@9.0.0"}"#,
-        )
-        .unwrap();
-
-        let pkg = root.path().join("packages").join("app");
-        fs::create_dir_all(&pkg).unwrap();
-        fs::write(pkg.join("package.json"), r#"{"name":"app"}"#).unwrap();
-        fs::write(pkg.join("package-lock.json"), "lock").unwrap();
-
-        let out = detect(&pkg, &HniConfig::default()).unwrap();
-        assert_eq!(out.agent, Some(PackageManager::Npm));
-        assert_eq!(out.source, DetectionSource::Lockfile);
-        assert!(out.has_lock);
-    }
-
-    #[test]
-    fn has_lock_tracks_ancestor_lock_even_when_agent_is_from_subpackage_package_manager_field() {
-        let root = tempdir().unwrap();
-        fs::write(root.path().join("pnpm-lock.yaml"), "lock").unwrap();
-
-        let pkg = root.path().join("packages").join("app");
-        fs::create_dir_all(&pkg).unwrap();
-        fs::write(
-            pkg.join("package.json"),
-            r#"{"name":"app","packageManager":"npm@10.0.0"}"#,
-        )
-        .unwrap();
-
-        let out = detect(&pkg, &HniConfig::default()).unwrap();
-        assert_eq!(out.agent, Some(PackageManager::Npm));
-        assert_eq!(out.source, DetectionSource::PackageManagerField);
-        assert!(out.has_lock);
-    }
-
-    #[test]
-    fn detects_deno_from_deno_json() {
-        let dir = tempdir().unwrap();
-        fs::write(
-            dir.path().join("deno.json"),
-            r#"{"tasks":{"dev":"deno test"}}"#,
-        )
-        .unwrap();
-
-        let out = detect(dir.path(), &HniConfig::default()).unwrap();
-        assert_eq!(out.agent, Some(PackageManager::Deno));
-        assert_eq!(out.source, DetectionSource::Lockfile);
-        assert!(out.has_lock);
     }
 }

@@ -12,7 +12,24 @@ use crate::platform::node::{
     REAL_NODE_ENV, SHIM_ACTIVE_ENV, path_with_real_node_priority, resolve_real_node_path,
 };
 
-pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
+pub fn format_debug(exec: &ResolvedExecution) -> Result<String> {
+    if let Some(mode) = BatchMode::from_internal_program(&exec.program) {
+        return Ok(format_batch_debug(mode, &exec.args));
+    }
+
+    if exec.is_native() {
+        return Ok(native::format_debug(exec));
+    }
+
+    let (program, args, _) = materialize(exec)?;
+    let rendered = std::iter::once(shell_escape(&program))
+        .chain(args.iter().map(|arg| shell_escape(arg)))
+        .collect::<Vec<_>>()
+        .join(" ");
+    Ok(rendered)
+}
+
+pub fn run(exec: &ResolvedExecution) -> Result<ExitCode> {
     if let Some(mode) = BatchMode::from_internal_program(&exec.program) {
         return run_batch(mode, &exec.args, &exec.cwd);
     }
@@ -21,11 +38,11 @@ pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
         return match native_exec {
             NativeExecution::RunScript(script) => native::run_script(script, &exec.cwd),
             NativeExecution::RunDenoTask(task) => native::run_deno_task(task, &exec.cwd),
-            NativeExecution::RunLocalBin(bin) => native::run_local_bin(bin, &exec.cwd, &exec.args),
+            NativeExecution::RunLocalBin(bin) => native::run_local_bin(bin, &exec.cwd),
         };
     }
 
-    let (program, args, passthrough) = materialize(exec, use_sfw)?;
+    let (program, args, passthrough) = materialize(exec)?;
 
     let mut command = Command::new(&program);
     command
@@ -53,41 +70,15 @@ pub fn run(exec: &ResolvedExecution, use_sfw: bool) -> Result<ExitCode> {
     Ok(exit_code_from_status(status.code()))
 }
 
-pub fn format_debug(exec: &ResolvedExecution, use_sfw: bool) -> Result<String> {
-    if let Some(mode) = BatchMode::from_internal_program(&exec.program) {
-        return Ok(format_batch_debug(mode, &exec.args));
-    }
-
-    if exec.is_native() {
-        return Ok(native::format_debug(exec));
-    }
-
-    let (program, args, _) = materialize(exec, use_sfw)?;
-    let rendered = std::iter::once(shell_escape(&program))
-        .chain(args.iter().map(|arg| shell_escape(arg)))
-        .collect::<Vec<_>>()
-        .join(" ");
-    Ok(rendered)
-}
-
-fn materialize(exec: &ResolvedExecution, use_sfw: bool) -> Result<(String, Vec<String>, bool)> {
+fn materialize(exec: &ResolvedExecution) -> Result<(String, Vec<String>, bool)> {
     let mut program = exec.program.clone();
-    let mut args = exec.args.clone();
+    let args = exec.args.clone();
     let mut passthrough = exec.passthrough;
 
     if exec.passthrough && exec.program == "node" {
         let real = resolve_real_node_path()?;
         program = real.to_string_lossy().to_string();
         passthrough = true;
-    }
-
-    if use_sfw && !exec.passthrough {
-        let mut sfw_args = Vec::with_capacity(args.len() + 1);
-        sfw_args.push(program);
-        sfw_args.append(&mut args);
-        program = "sfw".to_string();
-        args = sfw_args;
-        passthrough = false;
     }
 
     Ok((program, args, passthrough))

@@ -1431,7 +1431,6 @@ function main() {
     const baseEnv = {
       PATH: [aliasDir, antfuBinDir, process.env.PATH].filter(Boolean).join(path.delimiter),
       HNI_SKIP_PM_CHECK: '1',
-      HNI_AUTO_INSTALL: 'false',
     }
 
     const trackPayloads = {}

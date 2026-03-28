@@ -315,42 +315,6 @@ fn node_exec_inherits_native_resolution() {
     });
 }
 
-#[test]
-fn node_run_agent_preserves_separator_for_forwarded_args() {
-    support::with_env_lock(|| {
-        if !support::real_node_supports_run() {
-            return;
-        }
-
-        let work = tempfile::tempdir().unwrap();
-        let project = work.path().join("project");
-        fs::create_dir_all(&project).unwrap();
-        fs::write(project.join("package-lock.json"), "lock").unwrap();
-        fs::write(
-            project.join("package.json"),
-            r#"{"name":"x","scripts":{"dev":"node -e \"require('fs').writeFileSync('args.txt', JSON.stringify(process.argv.slice(1)))\" "}}"#,
-        )
-        .unwrap();
-
-        let config = work.path().join(".hnirc");
-        fs::write(&config, "[default]\nrunAgent=node\n").unwrap();
-
-        let output = run_hni(
-            vec!["nr", "-C", project.to_str().unwrap(), "dev", "--", "alpha"],
-            &[
-                ("HNI_SKIP_PM_CHECK", "1"),
-                ("HNI_CONFIG_FILE", config.to_str().unwrap()),
-            ],
-        );
-
-        assert!(output.status.success(), "{output:?}");
-        assert_eq!(
-            fs::read_to_string(project.join("args.txt")).unwrap(),
-            "[\"alpha\"]"
-        );
-    });
-}
-
 fn make_executable(path: &std::path::Path) {
     use std::os::unix::fs::PermissionsExt;
 

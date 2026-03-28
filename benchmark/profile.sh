@@ -53,7 +53,6 @@ profile_case() {
 }
 
 export HNI_SKIP_PM_CHECK=true
-export HNI_AUTO_INSTALL=false
 
 ITERATIONS="${HNI_PROFILE_ITERATIONS:-4000}"
 

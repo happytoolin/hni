@@ -1,10 +1,10 @@
 use std::env;
 
+use anyhow::Result;
+
 use crate::{
     core::{
-        error::{HniError, HniResult},
         resolve::{self, ResolveContext},
-        storage::{Storage, load_storage, save_storage},
         types::ResolvedExecution,
     },
     features::interactive::{
@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<ResolvedExecution>> {
+pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
     if let Some(first) = args.first() {
         if let Some(script) = completion_script_for(first) {
             println!("{script}");
@@ -29,40 +29,15 @@ pub fn handle(mut args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<R
         }
     }
 
-    let needs_last = args
-        .first()
-        .is_some_and(|a| matches!(a.as_str(), "-" | "--repeat-last"));
-
     if args.is_empty() {
         args.push(choose_script_interactive(ctx.cwd())?);
-    }
-
-    if needs_last {
-        let storage = match load_storage() {
-            Ok(storage) => storage,
-            Err(err) => {
-                eprintln!("[hni] warning: failed to load stored command history: {err}");
-                Storage::default()
-            }
-        };
-        let last = storage
-            .last_run_command
-            .ok_or_else(|| HniError::interactive("no last command found"))?;
-        args[0] = last;
-    }
-
-    let storage = Storage {
-        last_run_command: args.first().cloned(),
-    };
-    if let Err(err) = save_storage(&storage) {
-        eprintln!("[hni] warning: failed to persist last command: {err}");
     }
 
     let resolved = resolve::resolve_nr(args, ctx)?;
     Ok(Some(resolved))
 }
 
-fn handle_completion_query(args: &[String], cwd: &std::path::Path) -> HniResult<()> {
+fn handle_completion_query(args: &[String], cwd: &std::path::Path) -> Result<()> {
     let scripts = read_scripts(cwd)?;
     let script_names = scripts.into_iter().map(|s| s.name).collect::<Vec<_>>();
 

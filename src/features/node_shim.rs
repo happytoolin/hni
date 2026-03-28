@@ -1,14 +1,15 @@
+use anyhow::Result;
+
 use crate::{
     core::{
         batch::{self, BatchMode},
-        error::HniResult,
         resolve::{self, ResolveContext},
         types::{Intent, NodeShimDecision, NodeShimMode, ResolvedExecution},
     },
     platform::node::{NODE_SHIM_ENV, SHIM_ACTIVE_ENV},
 };
 
-pub fn handle(args: Vec<String>, ctx: &ResolveContext) -> HniResult<Option<ResolvedExecution>> {
+pub fn handle(args: Vec<String>, ctx: &ResolveContext) -> Result<Option<ResolvedExecution>> {
     let (decision, routed_args) = decide(&args);
 
     let resolved = match decision.mode {

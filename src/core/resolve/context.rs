@@ -3,10 +3,11 @@ use std::{
     sync::OnceLock,
 };
 
+use anyhow::Result;
+
 use crate::core::{
     config::HniConfig,
     detect::{DetectOptions, detect_in_project_state, detect_lockfile_in_dir},
-    error::HniResult,
     package::NearestPackage,
     pkg_json::{PackageJson, package_json_path, read_package_json},
     types::{DetectionResult, PackageManager},
@@ -40,7 +41,7 @@ impl ResolveContext {
         }
     }
 
-    pub(crate) fn project_state(&self) -> HniResult<&ProjectState> {
+    pub(crate) fn project_state(&self) -> Result<&ProjectState> {
         if let Some(state) = self.project_state.get() {
             return Ok(state);
         }
@@ -53,12 +54,17 @@ impl ResolveContext {
             .expect("project state should be initialized"))
     }
 
-    pub fn detect(&self) -> HniResult<DetectionResult> {
+    pub fn detect(&self) -> Result<DetectionResult> {
         if let Some(detection) = self.detection.get() {
             return Ok(detection.clone());
         }
 
-        let detection = self.project_state()?.detect(&self.config);
+        let detection = detect_in_project_state(
+            self.project_state()?,
+            &self.cwd,
+            &self.config,
+            &DetectOptions::default(),
+        );
         let _ = self.detection.set(detection.clone());
         Ok(detection)
     }
@@ -88,7 +94,7 @@ pub(crate) struct AncestorState {
 }
 
 impl ProjectState {
-    pub(crate) fn scan(cwd: &Path) -> HniResult<Self> {
+    pub(crate) fn scan(cwd: &Path) -> Result<Self> {
         let mut ancestors = Vec::new();
         let mut nearest_package = None;
         let mut bin_dirs = Vec::new();
@@ -162,18 +168,6 @@ impl ProjectState {
 
     pub(crate) fn ancestors(&self) -> &[AncestorState] {
         &self.ancestors
-    }
-
-    pub(crate) fn detect(&self, config: &HniConfig) -> DetectionResult {
-        detect_in_project_state(
-            self,
-            self.ancestors
-                .first()
-                .map(|ancestor| ancestor.dir.as_path())
-                .unwrap_or_else(|| Path::new(".")),
-            config,
-            &DetectOptions::default(),
-        )
     }
 }
 

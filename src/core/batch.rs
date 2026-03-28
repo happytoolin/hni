@@ -1,14 +1,11 @@
-use std::{
-    path::Path,
-    process::{Command, ExitCode, Stdio},
-    thread,
-};
+use std::{path::Path, process::ExitCode, thread};
 
 use anyhow::{Context, Result};
 
 use super::{
-    shell::shell_escape,
+    shell::{configure_command, shell_command, shell_escape},
     types::{ExecutionMode, ResolvedExecution},
+    util::{exit_code_from_code, exit_code_from_status},
 };
 
 pub const INTERNAL_BATCH_PARALLEL: &str = "__hni_internal_batch_parallel";
@@ -79,7 +76,7 @@ pub fn format_batch_debug(mode: BatchMode, commands: &[String]) -> String {
 
 fn run_sequential(commands: &[String], cwd: &Path) -> Result<ExitCode> {
     for command_string in commands {
-        let status = shell_command(command_string, cwd)
+        let status = configure_command(shell_command(command_string), cwd)
             .status()
             .with_context(|| format!("failed to run command: {command_string}"))?;
 
@@ -92,56 +89,32 @@ fn run_sequential(commands: &[String], cwd: &Path) -> Result<ExitCode> {
 }
 
 fn run_parallel(commands: &[String], cwd: &Path) -> Result<ExitCode> {
-    let mut handles = Vec::with_capacity(commands.len());
-    for command_string in commands {
-        let command_string = command_string.clone();
-        let cwd = cwd.to_path_buf();
-        handles.push(thread::spawn(move || -> Result<i32> {
-            let status = shell_command(&command_string, &cwd)
-                .status()
-                .with_context(|| format!("failed to run command: {command_string}"))?;
-            Ok(status.code().unwrap_or(1))
-        }));
-    }
+    thread::scope(|scope| {
+        let handles = commands
+            .iter()
+            .map(|command_string| {
+                let cwd = cwd.to_path_buf();
+                scope.spawn(move || -> Result<i32> {
+                    let status = configure_command(shell_command(command_string), &cwd)
+                        .status()
+                        .with_context(|| format!("failed to run command: {command_string}"))?;
+                    Ok(status.code().unwrap_or(1))
+                })
+            })
+            .collect::<Vec<_>>();
 
-    let mut first_non_zero: Option<i32> = None;
-    for handle in handles {
-        let code = handle
-            .join()
-            .map_err(|_| anyhow::anyhow!("parallel command worker panicked"))??;
-        if code != 0 && first_non_zero.is_none() {
-            first_non_zero = Some(code);
+        let mut first_non_zero = None;
+        for handle in handles {
+            let code = handle
+                .join()
+                .map_err(|_| anyhow::anyhow!("parallel command worker panicked"))??;
+            if code != 0 && first_non_zero.is_none() {
+                first_non_zero = Some(code);
+            }
         }
-    }
 
-    Ok(first_non_zero.map_or(ExitCode::SUCCESS, exit_code_from_code))
-}
-
-fn shell_command(command_string: &str, cwd: &Path) -> Command {
-    let mut cmd = if cfg!(windows) {
-        let mut cmd = Command::new("cmd");
-        cmd.args(["/C", command_string]);
-        cmd
-    } else {
-        let mut cmd = Command::new("sh");
-        cmd.args(["-c", command_string]);
-        cmd
-    };
-
-    cmd.current_dir(cwd)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-    cmd
-}
-
-fn exit_code_from_status(code: Option<i32>) -> ExitCode {
-    code.map_or_else(|| ExitCode::from(1), exit_code_from_code)
-}
-
-fn exit_code_from_code(code: i32) -> ExitCode {
-    let code = u8::try_from(code).unwrap_or(1);
-    ExitCode::from(code)
+        Ok(first_non_zero.map_or(ExitCode::SUCCESS, exit_code_from_code))
+    })
 }
 
 #[cfg(test)]

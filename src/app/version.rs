@@ -15,7 +15,7 @@ pub fn print_versions(ctx: &ResolveContext) {
     let cwd = ctx.cwd().to_path_buf();
     let detected_cwd = cwd.clone();
     let detected_config = ctx.config.clone();
-    let global = ctx.config.global_agent;
+    let global = ctx.config.global_package_manager;
 
     let node_version_task = {
         let cwd = cwd.clone();

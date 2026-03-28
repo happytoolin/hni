@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use hni::core::{
-    config::{DefaultAgent, HniConfig, RunAgent},
+    config::HniConfig,
     resolve::{self, ResolveContext},
     types::{ExecutionStrategy, NativeExecution, PackageManager},
 };
@@ -147,13 +147,13 @@ fn ni_non_npm_prod_flag_is_translated_to_production() {
 }
 
 #[test]
-fn ni_global_install_uses_configured_global_agent() {
+fn ni_global_install_uses_configured_global_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::Yarn,
+            global_package_manager: PackageManager::Yarn,
             ..HniConfig::default()
         };
         let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
@@ -304,25 +304,6 @@ fn nr_if_present_for_non_run_command_is_prefixed() {
 
         assert_eq!(resolved.program, "deno");
         assert_eq!(resolved.args, vec!["task", "--if-present", "build"]);
-    });
-}
-
-#[test]
-fn nr_run_agent_node_uses_node_passthrough_run() {
-    with_skip_pm_check(|| {
-        let dir = tempfile::tempdir().unwrap();
-        write_package_json(dir.path(), r#"{"packageManager":"pnpm@9.0.0"}"#);
-
-        let cfg = HniConfig {
-            run_agent: RunAgent::Node,
-            ..HniConfig::default()
-        };
-        let ctx = ResolveContext::new(dir.path().to_path_buf(), cfg);
-        let resolved = resolve::resolve_nr(vec!["dev".into(), "--port=3000".into()], &ctx).unwrap();
-
-        assert_eq!(resolved.program, "node");
-        assert_eq!(resolved.args, vec!["--run", "dev", "--port=3000"]);
-        assert!(resolved.passthrough);
     });
 }
 
@@ -768,7 +749,7 @@ fn nlx_fast_mode_uses_local_bin_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert_eq!(exec.bin_name, "vitest");
-                assert!(exec.bin_path.ends_with("node_modules/.bin/vitest"));
+                assert!(exec.resolved_path().ends_with("node_modules/.bin/vitest"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -821,7 +802,7 @@ fn nlx_fast_mode_uses_declared_package_bin_when_present() {
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
                 assert_eq!(exec.bin_name, "hello");
-                assert!(exec.bin_path.ends_with("bin/hello.js"));
+                assert!(exec.resolved_path().ends_with("bin/hello.js"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -863,11 +844,8 @@ fn nlx_fast_mode_uses_pnpm_hoisted_bin_dir_when_present() {
 
         match &resolved.strategy {
             ExecutionStrategy::Native(NativeExecution::RunLocalBin(exec)) => {
-                assert!(
-                    exec.bin_path
-                        .to_string_lossy()
-                        .contains("node_modules/.pnpm/node_modules/.bin")
-                );
+                let normalized = exec.resolved_path().to_string_lossy().replace('\\', "/");
+                assert!(normalized.contains("node_modules/.pnpm/node_modules/.bin"));
             }
             other => panic!("expected native local bin execution, got {other:?}"),
         }
@@ -1062,13 +1040,13 @@ fn nun_requires_at_least_one_dependency() {
 }
 
 #[test]
-fn nun_global_uses_configured_global_agent() {
+fn nun_global_uses_configured_global_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::Yarn,
+            global_package_manager: PackageManager::Yarn,
             ..HniConfig::default()
         };
 
@@ -1081,13 +1059,13 @@ fn nun_global_uses_configured_global_agent() {
 }
 
 #[test]
-fn ni_global_rejects_yarn_berry_agent() {
+fn ni_global_rejects_yarn_berry_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::YarnBerry,
+            global_package_manager: PackageManager::YarnBerry,
             ..HniConfig::default()
         };
 
@@ -1102,13 +1080,13 @@ fn ni_global_rejects_yarn_berry_agent() {
 }
 
 #[test]
-fn nun_global_rejects_yarn_berry_agent() {
+fn nun_global_rejects_yarn_berry_package_manager() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         write_package_json(dir.path(), r#"{"packageManager":"npm@10.0.0"}"#);
 
         let cfg = HniConfig {
-            global_agent: PackageManager::YarnBerry,
+            global_package_manager: PackageManager::YarnBerry,
             ..HniConfig::default()
         };
 
@@ -1123,11 +1101,11 @@ fn nun_global_rejects_yarn_berry_agent() {
 }
 
 #[test]
-fn resolves_from_default_agent_when_no_project_hints_exist() {
+fn resolves_from_default_package_manager_when_no_project_hints_exist() {
     with_skip_pm_check(|| {
         let dir = tempfile::tempdir().unwrap();
         let cfg = HniConfig {
-            default_agent: DefaultAgent::Agent(PackageManager::Bun),
+            default_package_manager: Some(PackageManager::Bun),
             ..HniConfig::default()
         };
 

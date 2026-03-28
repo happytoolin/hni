@@ -307,10 +307,7 @@ fn debug_and_explain_skip_package_manager_availability_checks() {
                 "--debug-resolved",
                 "react",
             ],
-            &[
-                ("HNI_AUTO_INSTALL", "true"),
-                ("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
-            ],
+            &[("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")],
         );
         assert!(debug.status.success(), "{debug:?}");
         assert_eq!(
@@ -320,10 +317,7 @@ fn debug_and_explain_skip_package_manager_availability_checks() {
 
         let explain = run_hni(
             vec!["ni", "-C", project.to_str().unwrap(), "--explain", "react"],
-            &[
-                ("HNI_AUTO_INSTALL", "true"),
-                ("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
-            ],
+            &[("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")],
         );
         assert!(explain.status.success(), "{explain:?}");
         let stdout = String::from_utf8_lossy(&explain.stdout);
