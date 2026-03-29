@@ -466,8 +466,8 @@ fn node_run_falls_back_to_package_manager_when_neither_fast_path_is_safe() {
         assert_eq!(resolved.args, vec!["run", "dev"]);
         assert_eq!(resolved.execution_mode_name(), "package-manager");
         assert_eq!(
-            resolved.native_fallback_reason.as_deref(),
-            Some("script 'dev' uses unsupported native environment expansion (npm_package_)")
+            resolved.fast_fallback_reason.as_deref(),
+            Some("script 'dev' uses unsupported fast environment expansion (npm_package_)")
         );
     });
 }
@@ -597,7 +597,7 @@ fn nr_fast_mode_falls_back_for_yarn_berry_pnp() {
         assert_eq!(resolved.program, "yarn");
         assert_eq!(resolved.args, vec!["run", "dev"]);
         assert_eq!(
-            resolved.native_fallback_reason.as_deref(),
+            resolved.fast_fallback_reason.as_deref(),
             Some(
                 "yarn berry Plug'n'Play does not expose node_modules/.bin; falling back to yarn execution"
             )
@@ -773,7 +773,7 @@ fn nlx_fast_mode_falls_back_to_package_manager_when_local_bin_is_missing() {
         assert!(matches!(resolved.strategy, ExecutionStrategy::External));
         assert_eq!(resolved.program, "npx");
         assert_eq!(
-            resolved.native_fallback_reason.as_deref(),
+            resolved.fast_fallback_reason.as_deref(),
             Some(
                 "local binary not found in node_modules/.bin or package.json bin entries; falling back to package-manager exec"
             )

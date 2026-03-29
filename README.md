@@ -288,17 +288,19 @@ Environment overrides:
 - `HNI_CONFIG_FILE`
 - `HNI_DEFAULT_PACKAGE_MANAGER`
 - `HNI_GLOBAL_PACKAGE_MANAGER`
-- `HNI_FAST_MODE`
+- `HNI_FAST`
 
 ## How It Works
 
 `hni` detects the package manager from:
 
 1. `packageManager` in `package.json`
-2. lockfiles such as `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`, or `deno.lock`
-3. config defaults if detection is unavailable
+2. lockfiles such as `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`, or `deno.lock`
+3. `devEngines.packageManager` in `package.json`
+4. install metadata such as `.pnp.cjs`, `node_modules/.pnpm`, or `node_modules/.package-lock.json`
+5. config defaults if detection is unavailable
 
-Then it maps the command family to the right native command:
+Then it maps the command family to the right underlying command:
 
 - `ni` -> install or add
 - `nr` -> run or task
@@ -336,7 +338,7 @@ If you use [`just`](https://github.com/casey/just), the common local commands ar
 ```bash
 just build-release
 just test
-just test-native
+just test-fast
 just ci
 just bench
 ```
@@ -352,12 +354,12 @@ Run individual tracks with:
 
 ```bash
 just bench-compare
-just bench-native
+just bench-fast
 just bench-runtime
 just bench-direct
 
 ./benchmark/run.sh --track=compare
-./benchmark/run.sh --track=native
+./benchmark/run.sh --track=fast
 ./benchmark/run.sh --track=runtime
 ./benchmark/run.sh --track=direct
 ```
@@ -372,19 +374,19 @@ Tracked benchmark docs:
 
 - current snapshot: [`benchmark/LATEST.md`](benchmark/LATEST.md)
 - lightweight history: [`benchmark/HISTORY.md`](benchmark/HISTORY.md)
-- native compatibility: [`docs/native-compat.md`](docs/native-compat.md)
+- fast-mode compatibility: [`docs/fast-compat.md`](docs/fast-compat.md)
 
 ### Representative Results
 
 The current tracked snapshot is from March 22, 2026 and was generated with `50` warmups and `500` measured runs per case.
 
-If you only want the headline, it is this: `hni --native` is meaningfully faster than normal package-manager usage on npm, pnpm, and yarn, still ahead on bun, and much less dramatic on deno.
+If you only want the headline, it is this: `hni --fast` is meaningfully faster than normal package-manager usage on npm, pnpm, and yarn, still ahead on bun, and much less dramatic on deno.
 
-The clearest story is the `direct` track, which compares what people normally type against `hni --native`. In the current snapshot, `hni` averages `4.90x` faster overall there.
+The clearest story is the `direct` track, which compares what people normally type against `hni --fast`. In the current snapshot, `hni` averages `4.90x` faster overall there.
 
 A few representative wins:
 
-| Case | Direct | `hni` native | Relative |
+| Case | Direct | `hni` fast | Relative |
 | --- | ---: | ---: | ---: |
 | `task noop (npm)` | 207.83 ms | 36.63 ms | 5.67x |
 | `task noop (pnpm)` | 418.28 ms | 32.26 ms | 12.97x |
@@ -394,7 +396,7 @@ A few representative wins:
 | `exec hello --flag (yarn)` | 104.92 ms | 7.48 ms | 14.02x |
 | `exec hello --flag (bun)` | 15.07 ms | 7.46 ms | 2.02x |
 
-The internal `native` track tells the same story from another angle: native mode averages `4.38x` faster than delegated mode inside `hni`. The local-bin case is especially strong in the current snapshot: `nlx hello --flag (npm local bin)` lands at `7.75 ms` natively versus `334.43 ms` in delegated mode.
+The internal `fast` track tells the same story from another angle: fast mode averages `4.38x` faster than pm mode inside `hni`. The local-bin case is especially strong in the current snapshot: `nlx hello --flag (npm local bin)` lands at `7.75 ms` in fast mode versus `334.43 ms` in pm mode.
 
 The Antfu comparison is smaller and more lightweight, but still points the same way. On that track, `hni` averages `1.66x` faster overall, with `ni --version` coming in at `129.05 ms` for `hni` versus `334.60 ms` for Antfu's `ni`.
 
@@ -404,8 +406,8 @@ The main caveat is still Deno. In the direct task-style cases, `hni` is basicall
 
 All timing uses `hyperfine` against the release binary. The suite looks at four angles:
 
-- `direct`: normal package-manager usage versus `hni --native`
-- `native`: delegated mode versus native mode inside `hni`
+- `direct`: normal package-manager usage versus `hni --fast`
+- `fast`: pm mode versus fast mode inside `hni`
 - `compare`: a small CLI-focused comparison against Antfu's `ni`
 - `runtime`: a side-by-side look at `hni`, bun, and deno on a couple of task-style cases
 

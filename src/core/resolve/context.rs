@@ -7,10 +7,10 @@ use anyhow::Result;
 
 use crate::core::{
     config::HniConfig,
-    detect::{detect_lockfile_in_dir, parse_package_manager_field},
+    detect::{DetectOptions, detect_with_options},
     package::NearestPackage,
     pkg_json::{PackageJson, package_json_path, read_package_json},
-    types::{DetectionResult, DetectionSource, PackageManager},
+    types::DetectionResult,
 };
 
 #[derive(Debug)]
@@ -19,6 +19,7 @@ pub struct ResolveContext {
     pub config: HniConfig,
     verify_package_manager_availability: bool,
     project_state: OnceLock<ProjectState>,
+    detection: OnceLock<DetectionResult>,
 }
 
 impl ResolveContext {
@@ -36,6 +37,7 @@ impl ResolveContext {
             config,
             verify_package_manager_availability,
             project_state: OnceLock::new(),
+            detection: OnceLock::new(),
         }
     }
 
@@ -53,7 +55,13 @@ impl ResolveContext {
     }
 
     pub fn detect(&self) -> Result<DetectionResult> {
-        Ok(self.project_state()?.detect(&self.config))
+        if let Some(detection) = self.detection.get() {
+            return Ok(detection.clone());
+        }
+
+        let detection = detect_with_options(&self.cwd, &self.config, &DetectOptions::default())?;
+        let _ = self.detection.set(detection.clone());
+        Ok(detection)
     }
 
     pub fn cwd(&self) -> &Path {
@@ -74,10 +82,9 @@ pub(crate) struct ProjectState {
 }
 
 #[derive(Debug, Clone)]
-struct AncestorState {
+pub(crate) struct AncestorState {
     dir: PathBuf,
     manifest: Option<PackageJson>,
-    lockfile_pm: Option<PackageManager>,
 }
 
 impl ProjectState {
@@ -91,7 +98,6 @@ impl ProjectState {
             let dir = dir.to_path_buf();
             let manifest = read_package_json(&dir)?;
             let package_json_path = package_json_path(&dir);
-            let lockfile_pm = detect_lockfile_in_dir(&dir);
 
             if nearest_package.is_none()
                 && let Some(manifest) = manifest.clone()
@@ -117,11 +123,7 @@ impl ProjectState {
 
             has_yarn_pnp_loader |= dir.join(".pnp.cjs").exists() || dir.join(".pnp.js").exists();
 
-            ancestors.push(AncestorState {
-                dir,
-                manifest,
-                lockfile_pm,
-            });
+            ancestors.push(AncestorState { dir, manifest });
         }
 
         Ok(Self {
@@ -151,72 +153,5 @@ impl ProjectState {
             let candidate = ancestor.dir.join(relative);
             candidate.is_file().then_some(candidate)
         })
-    }
-
-    pub(crate) fn detect(&self, config: &HniConfig) -> DetectionResult {
-        let mut has_lock = false;
-        let mut resolved = None;
-
-        for ancestor in &self.ancestors {
-            has_lock |= ancestor.lockfile_pm.is_some();
-
-            if resolved.is_none() {
-                let package_manager_hint = ancestor
-                    .manifest
-                    .as_ref()
-                    .and_then(|package_json| package_json.package_manager.as_deref())
-                    .and_then(parse_package_manager_field);
-
-                if let Some((pm, version_hint)) = package_manager_hint {
-                    resolved = Some(DetectionResult {
-                        agent: Some(pm),
-                        has_lock,
-                        version_hint,
-                        source: DetectionSource::PackageManagerField,
-                    });
-                } else if let Some(pm) = ancestor.lockfile_pm {
-                    resolved = Some(DetectionResult {
-                        agent: Some(pm),
-                        has_lock,
-                        version_hint: None,
-                        source: DetectionSource::Lockfile,
-                    });
-                }
-            }
-
-            if resolved.is_some() && has_lock {
-                break;
-            }
-        }
-
-        if let Some(mut resolved) = resolved {
-            resolved.has_lock = has_lock;
-            return resolved;
-        }
-
-        if let Some(agent) = config.default_package_manager {
-            return DetectionResult {
-                agent: Some(agent),
-                has_lock,
-                version_hint: None,
-                source: DetectionSource::Config,
-            };
-        }
-
-        if which::which("npm").is_ok() {
-            return DetectionResult {
-                agent: Some(PackageManager::Npm),
-                has_lock,
-                version_hint: None,
-                source: DetectionSource::Fallback,
-            };
-        }
-
-        DetectionResult {
-            agent: None,
-            has_lock,
-            version_hint: None,
-            source: DetectionSource::None,
-        }
     }
 }

@@ -130,8 +130,8 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Resolve
                     ctx,
                     has_if_present,
                 )? {
-                    resolved.native_requested = true;
-                    resolved.native_fallback_reason = Some(reason);
+                    resolved.fast_requested = true;
+                    resolved.fast_fallback_reason = Some(reason);
                     return Ok(resolved);
                 }
 
@@ -150,8 +150,8 @@ pub fn resolve_nr(mut args: Vec<String>, ctx: &ResolveContext) -> Result<Resolve
                     insert_if_present(&mut resolved);
                 }
 
-                resolved.native_requested = true;
-                resolved.native_fallback_reason = Some(reason);
+                resolved.fast_requested = true;
+                resolved.fast_fallback_reason = Some(reason);
                 return Ok(resolved);
             }
         }
@@ -196,7 +196,7 @@ pub fn resolve_node_run(mut args: Vec<String>, ctx: &ResolveContext) -> Result<R
         if let Some(mut resolved) =
             build_node_run_exec_if_safe(detected_hint, &normalized_args, ctx, has_if_present)?
         {
-            resolved.native_requested = true;
+            resolved.fast_requested = true;
             return Ok(resolved);
         }
 
@@ -218,8 +218,8 @@ pub fn resolve_node_run(mut args: Vec<String>, ctx: &ResolveContext) -> Result<R
                     insert_if_present(&mut resolved);
                 }
 
-                resolved.native_requested = true;
-                resolved.native_fallback_reason = Some(reason);
+                resolved.fast_requested = true;
+                resolved.fast_fallback_reason = Some(reason);
                 return Ok(resolved);
             }
         }
@@ -260,8 +260,8 @@ pub fn resolve_nlx(args: Vec<String>, ctx: &ResolveContext) -> Result<ResolvedEx
                     false,
                     detected.has_lock,
                 );
-                resolved.native_requested = true;
-                resolved.native_fallback_reason = Some(reason);
+                resolved.fast_requested = true;
+                resolved.fast_fallback_reason = Some(reason);
                 return Ok(resolved);
             }
         }

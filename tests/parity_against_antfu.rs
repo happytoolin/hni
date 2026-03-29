@@ -8,7 +8,7 @@ use std::{
 mod support;
 
 #[test]
-fn compare_delegated_mode_with_installed_antfu_when_available() {
+fn compare_pm_mode_with_installed_antfu_when_available() {
     if std::env::var("HNI_ENABLE_PARITY_REFERENCE").ok().as_deref() != Some("1") {
         return;
     }
@@ -79,7 +79,7 @@ fn compare_delegated_mode_with_installed_antfu_when_available() {
                     &our_bin_path,
                     &fixture.path,
                     &case.args,
-                    &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_FAST_MODE", "false")],
+                    &[("HNI_SKIP_PM_CHECK", "1"), ("HNI_FAST", "false")],
                 );
 
                 assert_eq!(

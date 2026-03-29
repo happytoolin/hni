@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::core::{
+    deno::{find_nearest_deno_project, plan_native_deno_task},
     package::resolve_local_bin,
     resolve::ResolveContext,
     types::{NativeLocalBinExecution, NativeScriptExecution, NativeScriptStep, PackageManager},
@@ -19,14 +20,24 @@ pub(super) fn plan_nr(
     ctx: &ResolveContext,
     has_if_present: bool,
 ) -> Result<NativeDecision> {
-    let state = ctx.project_state()?;
-
     if pm == Some(PackageManager::Deno) {
-        return Ok(NativeDecision::Ineligible(
-            FallbackReason::DenoScriptExecution,
-        ));
+        let selection = args.first().cloned().unwrap_or_else(|| "start".to_string());
+        let forwarded_args = args.iter().skip(1).cloned().collect::<Vec<_>>();
+        let Some(project) = find_nearest_deno_project(ctx.cwd())? else {
+            return Ok(NativeDecision::Ineligible(
+                FallbackReason::MissingNearestDenoProject,
+            ));
+        };
+
+        return Ok(
+            match plan_native_deno_task(&project, &selection, &forwarded_args, has_if_present) {
+                Ok(exec) => NativeDecision::Eligible(NativePlan::DenoTask(exec)),
+                Err(_) => NativeDecision::Ineligible(FallbackReason::DenoScriptExecution),
+            },
+        );
     }
 
+    let state = ctx.project_state()?;
     let Some(pkg) = state.nearest_package() else {
         return Ok(NativeDecision::Ineligible(
             FallbackReason::MissingNearestPackage,
@@ -94,12 +105,6 @@ pub(super) fn plan_nlx(
 ) -> Result<NativeDecision> {
     let state = ctx.project_state()?;
 
-    if pm == Some(PackageManager::Deno) {
-        return Ok(NativeDecision::Ineligible(
-            FallbackReason::DenoScriptExecution,
-        ));
-    }
-
     let Some(bin_name) = args.first() else {
         return Ok(NativeDecision::Ineligible(
             FallbackReason::MissingLocalBinCommand,
@@ -114,6 +119,10 @@ pub(super) fn plan_nlx(
     let bin_path = resolve_local_bin(bin_name, &bin_paths)
         .or_else(|| state.resolve_declared_package_bin(bin_name));
     let Some(bin_path) = bin_path else {
+        if pm == Some(PackageManager::Deno) {
+            return Ok(NativeDecision::Ineligible(FallbackReason::RemoteDenoExec));
+        }
+
         return Ok(NativeDecision::Ineligible(FallbackReason::MissingLocalBin));
     };
 
