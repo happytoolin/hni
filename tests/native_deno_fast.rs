@@ -68,6 +68,40 @@ fn deno_pm_mode_still_delegates() {
 }
 
 #[test]
+fn deno_fast_path_ignores_unrelated_malformed_ancestor_manifests() {
+    support::with_env_lock(|| {
+        let work = tempfile::tempdir().unwrap();
+        let root = work.path().join("repo");
+        let project = root.join("apps").join("deno-app");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(root.join("package.json"), r#"{"devEngines": "#).unwrap();
+        fs::write(
+            project.join("deno.json"),
+            r#"{"tasks":{"dev":"echo ok > result.txt"}}"#,
+        )
+        .unwrap();
+
+        let output = run_hni(
+            vec![
+                "nr",
+                "-C",
+                project.to_str().unwrap(),
+                "--fast",
+                "--debug-resolved",
+                "dev",
+            ],
+            &[("HNI_SKIP_PM_CHECK", "1")],
+        );
+
+        assert!(output.status.success(), "{output:?}");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            "hni fast:run-deno-task dev"
+        );
+    });
+}
+
+#[test]
 fn deno_jsonc_is_supported() {
     support::with_env_lock(|| {
         let work = tempfile::tempdir().unwrap();

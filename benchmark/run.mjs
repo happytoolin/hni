@@ -1178,7 +1178,7 @@ function fixtureDirectCommand(pmId, fixturePath) {
 
 function fixtureDirectEnv(pmId) {
   if (pmId === 'npm') {
-    return { npm_config_force: 'true' }
+    return { npm_config_yes: 'true' }
   }
 
   return {}
@@ -1187,7 +1187,7 @@ function fixtureDirectEnv(pmId) {
 function fixtureHniEnv(pmId, fastEnabled) {
   return {
     HNI_FAST: fastEnabled ? 'true' : 'false',
-    ...(pmId === 'npm' ? { npm_config_force: 'true' } : {}),
+    ...(pmId === 'npm' ? { npm_config_yes: 'true' } : {}),
   }
 }
 

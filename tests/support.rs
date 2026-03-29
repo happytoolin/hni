@@ -44,13 +44,26 @@ pub fn with_var_removed<F, T>(key: &str, f: F) -> T
 where
     F: FnOnce() -> T,
 {
-    let previous = std::env::var_os(key);
-    remove_var(key);
-    let result = f();
-    if let Some(value) = previous {
-        set_var(key, value);
+    struct RestoreEnv {
+        key: String,
+        previous: Option<std::ffi::OsString>,
     }
-    result
+
+    impl Drop for RestoreEnv {
+        fn drop(&mut self) {
+            match self.previous.as_ref() {
+                Some(value) => set_var(&self.key, value),
+                None => remove_var(&self.key),
+            }
+        }
+    }
+
+    let _restore = RestoreEnv {
+        key: key.to_string(),
+        previous: std::env::var_os(key),
+    };
+    remove_var(key);
+    f()
 }
 
 /// Run hni with the given arguments and extra environment variables.

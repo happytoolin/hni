@@ -20,8 +20,6 @@ pub(super) fn plan_nr(
     ctx: &ResolveContext,
     has_if_present: bool,
 ) -> Result<NativeDecision> {
-    let state = ctx.project_state()?;
-
     if pm == Some(PackageManager::Deno) {
         let selection = args.first().cloned().unwrap_or_else(|| "start".to_string());
         let forwarded_args = args.iter().skip(1).cloned().collect::<Vec<_>>();
@@ -39,6 +37,7 @@ pub(super) fn plan_nr(
         );
     }
 
+    let state = ctx.project_state()?;
     let Some(pkg) = state.nearest_package() else {
         return Ok(NativeDecision::Ineligible(
             FallbackReason::MissingNearestPackage,

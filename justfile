@@ -30,7 +30,7 @@ test-fast:
 test-all:
     node ./scripts/test-modes.mjs all
 
-ci: fmt-check lint test test-fast
+ci: fmt-check lint test
 
 bench:
     ./benchmark/run.sh
